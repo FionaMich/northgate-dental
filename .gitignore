@@ -1,0 +1,25 @@
+# Private: never published (repository is public)
+docs/
+
+# Secrets: every env file except empty examples
+*.env
+.env
+.env.*
+!.env.example
+
+# OS and editor
+.DS_Store
+Thumbs.db
+.idea/
+*.swp
+
+# Python
+__pycache__/
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Node
+node_modules/
+.next/

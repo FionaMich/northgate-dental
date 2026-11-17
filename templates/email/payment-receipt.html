@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark">
+<title>{{ $json.email.subject }}</title>
+<style>
+  body { margin:0; padding:0; background:#F3F5F7; }
+  a { text-decoration:none; }
+  @media (max-width:620px) { .card { width:100% !important; border-radius:0 !important; } .px { padding-left:22px !important; padding-right:22px !important; } .btn { display:block !important; width:100% !important; box-sizing:border-box; } }
+  @media (prefers-color-scheme: dark) {
+    body, .bg { background:#0B1220 !important; }
+    .card { background:#111827 !important; }
+    .ink { color:#F3F4F6 !important; }
+    .muted { color:#9CA3AF !important; }
+    .box { border-color:#374151 !important; }
+  }
+</style>
+</head>
+<body>
+<!-- Preheader: shown in the inbox preview, hidden in the body -->
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;">{{ $json.email.preheader }}</div>
+<table role="presentation" class="bg" width="100%" cellpadding="0" cellspacing="0" style="background:#F3F5F7;">
+<tr><td align="center" style="padding:28px 12px;">
+<table role="presentation" class="card" width="600" cellpadding="0" cellspacing="0" style="width:600px;background:#FFFFFF;border-radius:14px;overflow:hidden;">
+<tr><td style="height:6px;background:{{ $json.brand.primary_color }};font-size:0;line-height:0;">&nbsp;</td></tr>
+<tr><td class="px" style="padding:26px 40px 8px 40px;">
+  <img src="{{ $json.brand.logo_url }}" width="230" alt="{{ $json.brand.name }}" style="display:block;border:0;width:230px;height:auto;">
+</td></tr>
+<tr><td class="px" style="padding:18px 40px 0 40px;">
+  <h1 class="ink" style="margin:0;font-family:Calibri,Carlito,Arial,sans-serif;font-size:26px;line-height:32px;color:#111827;font-weight:700;">Payment received, thank you</h1>
+</td></tr><tr><td class="px" style="padding:12px 40px 0 40px;">
+  <p class="ink" style="margin:0;font-family:Calibri,Carlito,Arial,sans-serif;font-size:16px;line-height:24px;color:#1F2937;">Hi {{ $json.patient.first_name }}, we have received your payment. A copy of this receipt is also saved in the app under Billing.</p>
+</td></tr><tr><td class="px" style="padding:20px 40px 0 40px;">
+  <table role="presentation" class="box" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #E5E7EB;border-left:4px solid {{ $json.brand.primary_color }};border-radius:10px;">
+    <tr><td style="padding:14px 18px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+      <td class="muted" style="padding:6px 0;width:120px;font-family:Calibri,Carlito,Arial,sans-serif;font-size:14px;color:#6B7280;vertical-align:top;">Amount</td>
+      <td class="ink" style="padding:6px 0;font-family:Calibri,Carlito,Arial,sans-serif;font-size:16px;color:#111827;font-weight:600;">{{ $json.payment.amount_label }}</td></tr><tr>
+      <td class="muted" style="padding:6px 0;width:120px;font-family:Calibri,Carlito,Arial,sans-serif;font-size:14px;color:#6B7280;vertical-align:top;">Paid on</td>
+      <td class="ink" style="padding:6px 0;font-family:Calibri,Carlito,Arial,sans-serif;font-size:16px;color:#111827;font-weight:600;">{{ $json.payment.paid_at_label }}</td></tr><tr>
+      <td class="muted" style="padding:6px 0;width:120px;font-family:Calibri,Carlito,Arial,sans-serif;font-size:14px;color:#6B7280;vertical-align:top;">Method</td>
+      <td class="ink" style="padding:6px 0;font-family:Calibri,Carlito,Arial,sans-serif;font-size:16px;color:#111827;font-weight:600;">{{ $json.payment.method_label }}</td></tr><tr>
+      <td class="muted" style="padding:6px 0;width:120px;font-family:Calibri,Carlito,Arial,sans-serif;font-size:14px;color:#6B7280;vertical-align:top;">Receipt</td>
+      <td class="ink" style="padding:6px 0;font-family:Calibri,Carlito,Arial,sans-serif;font-size:16px;color:#111827;font-weight:600;">{{ $json.payment.receipt_number }}</td></tr><tr>
+      <td class="muted" style="padding:6px 0;width:120px;font-family:Calibri,Carlito,Arial,sans-serif;font-size:14px;color:#6B7280;vertical-align:top;">Statement</td>
+      <td class="ink" style="padding:6px 0;font-family:Calibri,Carlito,Arial,sans-serif;font-size:16px;color:#111827;font-weight:600;">{{ $json.payment.statement_ref }}</td></tr></table></td></tr>
+  </table>
+</td></tr><tr><td class="px" style="padding:22px 40px 0 40px;"><a class="btn" href="{{ $json.links.receipt_url }}" style="display:inline-block;background:{{ $json.brand.primary_color }};color:#FFFFFF;border:2px solid {{ $json.brand.primary_color }};font-family:Calibri,Carlito,Arial,sans-serif;font-size:16px;font-weight:700;padding:12px 22px;border-radius:999px;margin:0 8px 10px 0;">View receipt</a><a class="btn" href="{{ $json.links.billing_help_url }}" style="display:inline-block;background:transparent;color:{{ $json.brand.primary_color }};border:2px solid {{ $json.brand.primary_color }};font-family:Calibri,Carlito,Arial,sans-serif;font-size:16px;font-weight:700;padding:12px 22px;border-radius:999px;margin:0 8px 10px 0;">Billing questions</a></td></tr><tr><td class="px" style="padding:14px 40px 0 40px;">
+  <p class="muted" style="margin:0;font-family:Calibri,Carlito,Arial,sans-serif;font-size:14px;line-height:21px;color:#4B5563;">Your HSA or FSA administrator may ask for this receipt. Itemized statements are available in the app.</p>
+</td></tr>
+<tr><td class="px" style="padding:6px 40px 30px 40px;">
+  <p class="muted" style="margin:18px 0 0 0;font-family:Calibri,Carlito,Arial,sans-serif;font-size:13px;line-height:19px;color:#6B7280;">
+    {{ $json.branch.name }} &middot; {{ $json.branch.address }} &middot; {{ $json.branch.phone }}<br>
+    This is an automated message from {{ $json.brand.name }}. Please do not reply with medical questions.
+    If this is a medical emergency, call 911.<br>
+    <a href="{{ $json.links.preferences_url }}" style="color:#6B7280;text-decoration:underline;">Message preferences</a>
+  </p>
+</td></tr>
+</table>
+<p class="muted" style="margin:14px 0 0 0;font-family:Calibri,Carlito,Arial,sans-serif;font-size:12px;color:#9CA3AF;">Synthetic demo data. Not a real healthcare provider.</p>
+</td></tr>
+</table>
+</body>
+</html>

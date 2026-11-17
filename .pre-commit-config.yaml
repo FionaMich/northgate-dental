@@ -1,0 +1,31 @@
+# Runs on every `git commit`. Install once with: uv tool install pre-commit && pre-commit install
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.21.2
+    hooks:
+      - id: gitleaks
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: detect-private-key
+      - id: check-added-large-files
+        args: ["--maxkb=1024"]
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-yaml
+
+  - repo: local
+    hooks:
+      - id: forbidden-files
+        name: no private or secret files tracked
+        entry: scripts/check-forbidden-files.sh
+        language: script
+        pass_filenames: false
+        always_run: true
+      - id: no-em-dash
+        name: no em dashes in docs
+        entry: scripts/check-no-em-dash.sh
+        language: script
+        pass_filenames: false
+        files: \.md$
