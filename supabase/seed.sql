@@ -101,7 +101,7 @@ insert into public.profiles (id, role, display_name) values
   ('10000000-0000-4000-8000-000000000008', 'clinician',        'Synthetic Oral Surgeon'),
   ('10000000-0000-4000-8000-000000000009', 'clinician',        'Synthetic Endodontist'),
   ('10000000-0000-4000-8000-000000000010', 'clinician',        'Synthetic Back Bay Hygienist'),
-  ('10000000-0000-4000-8000-000000000011', 'clinician',        'Synthetic Orthodontist'),
+  ('10000000-0000-4000-8000-000000000011', 'clinician',        'Dr Mei Chen (synthetic orthodontist)'),
   ('10000000-0000-4000-8000-000000000012', 'clinician',        'Synthetic Paediatric Dentist'),
   ('10000000-0000-4000-8000-000000000013', 'clinician',        'Synthetic Quincy Dentist'),
   ('10000000-0000-4000-8000-000000000014', 'patient',          'Synthetic Patient');
@@ -129,8 +129,8 @@ from (values
   ('Synthetic Oral Surgeon',       'back-bay',  'oral-surgery', '{"mon": [["08:00","18:00"]], "wed": [["08:00","18:00"]], "fri": [["08:00","18:00"]]}'),
   ('Synthetic Endodontist',        'back-bay',  'endodontics',  '{"mon": [["08:00","18:00"]], "thu": [["08:00","18:00"]]}'),
   ('Synthetic Back Bay Hygienist', 'back-bay',  'hygiene',      '{"mon": [["08:00","18:00"]], "tue": [["08:00","18:00"]], "wed": [["08:00","18:00"]], "thu": [["08:00","18:00"]], "fri": [["08:00","18:00"]]}'),
-  ('Synthetic Orthodontist',       'cambridge', 'orthodontics', '{"mon": [["09:00","17:00"]], "wed": [["09:00","17:00"]], "thu": [["09:00","17:00"]], "fri": [["09:00","17:00"]], "sat": [["09:00","16:00"]]}'),
-  ('Synthetic Orthodontist',       'back-bay',  'orthodontics', '{"tue": [["08:00","18:00"]]}'),
+  ('Dr Mei Chen (synthetic orthodontist)',       'cambridge', 'orthodontics', '{"mon": [["09:00","17:00"]], "wed": [["09:00","17:00"]], "thu": [["09:00","17:00"]], "fri": [["09:00","17:00"]], "sat": [["09:00","16:00"]]}'),
+  ('Dr Mei Chen (synthetic orthodontist)',       'back-bay',  'orthodontics', '{"tue": [["08:00","18:00"]]}'),
   ('Synthetic Paediatric Dentist', 'cambridge', 'paediatric',   '{"mon": [["09:00","17:00"]], "tue": [["09:00","17:00"]], "wed": [["09:00","17:00"]], "thu": [["09:00","17:00"]]}'),
   ('Synthetic Quincy Dentist',     'quincy',    'general',      '{"mon": [["07:00","15:00"]], "tue": [["07:00","15:00"]], "wed": [["12:00","20:00"]], "thu": [["12:00","20:00"]], "sat": [["07:00","15:00"]]}')
 ) as r(name, code, specialty, template)

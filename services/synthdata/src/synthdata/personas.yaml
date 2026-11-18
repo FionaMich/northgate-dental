@@ -1,0 +1,65 @@
+# Named synthetic personas with fixed ids, so tests can refer to them by name. Describes no real person.
+# Coverage (section 11), proxy access and appointments (section 04) are added to these stories later.
+- key: elena
+  id: 30000000-0000-4000-8000-000000000001
+  mrn: NG0000001
+  given_name: Elena
+  family_name: Marsh
+  date_of_birth: 1988-04-12
+  sex_at_birth: female
+  home_location: cambridge
+  preferred_language: en
+  story: Standard booking, reminders, payment and review request; dental PPO
+- key: marcus
+  id: 30000000-0000-4000-8000-000000000002
+  mrn: NG0000002
+  given_name: Marcus
+  family_name: Bell
+  date_of_birth: 1979-09-30
+  sex_at_birth: male
+  home_location: quincy
+  preferred_language: en
+  story: MassHealth Dental; the missed-appointment fee must never apply
+- key: sofia
+  id: 30000000-0000-4000-8000-000000000003
+  mrn: NG0000003
+  given_name: Sofia
+  family_name: Reyes
+  date_of_birth: 2011-06-15
+  sex_at_birth: female
+  home_location: cambridge
+  preferred_language: es
+  story: Aged 15; proxy access by her parent Ana and teenage confidentiality limits
+- key: ana
+  id: 30000000-0000-4000-8000-000000000004
+  mrn: NG0000004
+  given_name: Ana
+  family_name: Reyes
+  date_of_birth: 1984-02-20
+  sex_at_birth: female
+  home_location: cambridge
+  preferred_language: es
+  story: Sofia's parent and proxy
+- key: omar
+  id: 30000000-0000-4000-8000-000000000005
+  mrn: NG0000005
+  given_name: Omar
+  family_name: Haddad
+  date_of_birth: 1992-11-05
+  sex_at_birth: male
+  home_location: back-bay
+  preferred_language: en
+  story: Two visits on the same day at two locations; patient overlap and travel conflicts
+- key: canary
+  id: 30000000-0000-4000-8000-000000000099
+  mrn: NG0000099
+  given_name: Zyxwq
+  family_name: Canary
+  date_of_birth: 1960-01-01
+  sex_at_birth: unknown
+  home_location: quincy
+  preferred_language: en
+  email: zyxwq.canary@canary.northgate.synthetic
+  phone: "+16175550199"
+  is_canary: true
+  story: Leak detector; its values must never appear in logs, traces, queues or vendors

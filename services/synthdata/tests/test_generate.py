@@ -27,7 +27,7 @@ def test_different_seed_gives_different_output():
 
 
 def test_generates_the_requested_number_of_patients(data):
-    assert len(data.patients) == 400
+    assert sum(p.mrn >= "NG0000100" for p in data.patients) == 400
 
 
 def test_implants_only_at_back_bay(data):  # E25
