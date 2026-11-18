@@ -1,6 +1,6 @@
 -- Patients and their dental records. Every row is synthetic, enforced by constraints.
--- Row level security (Fiona reviews line by line): staff see patients whose home location is theirs,
--- clinicians also see patients they have treated, org_admin sees all, patients see nothing until
+-- Row level security (reviewed and approved by Fiona 2026-11-18): staff see patients whose home location
+-- is theirs or who have visited one of their locations, clinicians also see patients they have treated, org_admin sees all, patients see nothing until
 -- their account is linked (section 04). Staff need a verified second factor; nobody deletes a record.
 
 -- One patient per organisation, never per location.
@@ -175,15 +175,23 @@ language sql stable security definer set search_path = '' as $$
                   where e.patient_id = pid and e.practitioner_id = private.current_practitioner_id())
 $$;
 
+-- Staff at the location where a visit happened also see that patient (check-in and follow-up).
+create function private.visited_my_location(pid uuid) returns boolean
+language sql stable security definer set search_path = '' as $$
+  select exists (select 1 from public.encounters e
+                  where e.patient_id = pid and e.location_id in (select private.my_location_ids()))
+$$;
+
 -- For tables that hold only patient_id: look up the patient's home location once.
 create function private.can_see_patient(pid uuid) returns boolean
 language sql stable security definer set search_path = '' as $$
   select private.is_org_admin()
       or exists (select 1 from public.patients p
                   where p.id = pid and p.home_location_id in (select private.my_location_ids()))
+      or private.visited_my_location(pid)
       or private.treated_by_me(pid)
 $$;
-grant execute on function private.treated_by_me(uuid), private.can_see_patient(uuid) to authenticated;
+grant execute on function private.treated_by_me(uuid), private.visited_my_location(uuid), private.can_see_patient(uuid) to authenticated;
 
 grant select on public.patients, public.encounters, public.tooth_conditions, public.treatment_plans,
   public.plan_phases, public.dental_procedures to authenticated;
@@ -216,6 +224,7 @@ $$;
 create policy read_patients on public.patients for select to authenticated
   using ((select private.is_org_admin())
          or home_location_id in (select private.my_location_ids())
+         or private.visited_my_location(id)
          or private.treated_by_me(id));
 -- Front desk and managers register and update patients who belong to their own locations.
 create policy front_desk_writes_patients on public.patients for all to authenticated

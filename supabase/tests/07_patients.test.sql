@@ -1,6 +1,6 @@
 -- Patients and their dental records: synthetic-only rules, chart rules, and who can see whom.
 begin;
-select plan(38);
+select plan(40);
 
 select has_table('public', 'patients', 'patients exists');
 select has_table('public', 'encounters', 'encounters exists');
@@ -109,6 +109,13 @@ select is_empty($$ select 1 from public.patients where id = '20000000-0000-4000-
 select throws_ok($$ insert into public.encounters (patient_id, location_id, practitioner_id, occurred_at, kind)
   values ('20000000-0000-4000-8000-000000000002', pg_temp.loc('back-bay'), (select id from public.practitioners limit 1), now(), 'exam') $$,
   '42501', null, 'clinical records are written only through approved paths for now');
+reset role;
+-- Staff at the location where a visit happened also see that patient (approved 2026-11-18).
+select pg_temp.act_as('10000000-0000-4000-8000-000000000002');
+select isnt_empty($$ select 1 from public.patients where id = '20000000-0000-4000-8000-000000000002' $$,
+  'Back Bay front desk sees a Quincy patient who was treated at Back Bay');
+select is_empty($$ select 1 from public.patients where id = '20000000-0000-4000-8000-000000000003' $$,
+  'Back Bay front desk still does not see a Quincy patient who never visited Back Bay');
 reset role;
 select pg_temp.act_as('10000000-0000-4000-8000-000000000007');
 select is((select count(*)::int from public.patients where id::text like '20000000-%'), 2, 'the Quincy manager sees the Quincy patients');
