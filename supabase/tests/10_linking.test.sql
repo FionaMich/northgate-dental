@@ -19,7 +19,8 @@ insert into auth.users (id, email, aud, role) values
   ('10000000-0000-4000-8000-000000000092', 'other@tests.synthetic',  'authenticated', 'authenticated');
 insert into profiles (id, role, display_name) values
   ('10000000-0000-4000-8000-000000000091', 'patient', 'Synthetic Test Parent'),
-  ('10000000-0000-4000-8000-000000000092', 'patient', 'Synthetic Test Other');
+  ('10000000-0000-4000-8000-000000000092', 'patient', 'Synthetic Test Other')
+on conflict (id) do update set role = excluded.role, display_name = excluded.display_name;
 
 -- Elena (Cambridge persona) gets an appointment so we can check what she sees after linking.
 insert into appointments (patient_id, location_id, practitioner_id, service_id, starts_at, ends_at, status)

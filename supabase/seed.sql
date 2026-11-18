@@ -105,7 +105,8 @@ insert into public.profiles (id, role, display_name) values
   ('10000000-0000-4000-8000-000000000011', 'clinician',        'Dr Mei Chen (synthetic orthodontist)'),
   ('10000000-0000-4000-8000-000000000012', 'clinician',        'Synthetic Paediatric Dentist'),
   ('10000000-0000-4000-8000-000000000013', 'clinician',        'Synthetic Quincy Dentist'),
-  ('10000000-0000-4000-8000-000000000014', 'patient',          'Synthetic Patient');
+  ('10000000-0000-4000-8000-000000000014', 'patient',          'Synthetic Patient')
+on conflict (id) do update set role = excluded.role, display_name = excluded.display_name;
 
 insert into public.staff_locations (profile_id, location_id)
 select p.id::uuid, l.id
