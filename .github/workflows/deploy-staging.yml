@@ -40,4 +40,4 @@ jobs:
           check "user is postgres.<project ref> (session pooler format)" '[[ "$u" == *://postgres.*:* ]]'
           check "host is the session pooler on port 5432" '[[ "$u" == *pooler.supabase.com:5432/* ]]'
           exit $fail
-      - run: supabase db push --db-url "$STAGING_DB_URL" # migrations only; the synthetic seed is not pushed
+      - run: supabase db push --remote "$STAGING_DB_URL" --yes # migrations only; --yes because CI cannot answer the prompt; the seed is not pushed
