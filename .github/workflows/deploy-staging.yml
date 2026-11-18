@@ -28,4 +28,16 @@ jobs:
       - uses: supabase/setup-cli@v3
         with:
           version: 3.2.0
+      - name: check the connection string is well formed (prints only ok or the problem, never the value)
+        run: |
+          u="$STAGING_DB_URL"; pw="${u#*://}"; pw="${pw%@*}"; pw="${pw#*:}"; fail=0
+          check() { if eval "$2"; then echo "ok: $1"; else echo "::error::$1"; fail=1; fi; }
+          check "starts with postgresql://" '[[ "$u" == postgresql://* || "$u" == postgres://* ]]'
+          check "no spaces or line breaks" '[[ "$u" != *[[:space:]]* ]]'
+          check "no square brackets or [YOUR-PASSWORD] placeholder left" '[[ "$u" != *"["* && "$u" != *"]"* ]]'
+          check "exactly one @ (an @ in the password must be written %40)" '[[ "$(tr -cd @ <<<"$u" | wc -c)" -eq 1 ]]'
+          check "password has no # ? or / (write them as %23 %3F %2F)" '[[ "$pw" != *[#?/]* ]]'
+          check "user is postgres.<project ref> (session pooler format)" '[[ "$u" == *://postgres.*:* ]]'
+          check "host is the session pooler on port 5432" '[[ "$u" == *pooler.supabase.com:5432/* ]]'
+          exit $fail
       - run: supabase db push --db-url "$STAGING_DB_URL" # migrations only; the synthetic seed is not pushed
