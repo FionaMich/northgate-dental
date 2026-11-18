@@ -1,5 +1,7 @@
 -- Specialties, services, prices per location (whole cents) and rooms or equipment.
 begin;
+delete from public.org_settings;
+delete from public.organisation;
 select plan(13);
 
 select has_table('public', 'specialties', 'specialties exists');
@@ -10,18 +12,18 @@ select has_type('public', 'resource_kind', 'resource_kind type exists');
 
 -- Synthetic test data, rolled back at the end.
 insert into locations (id, code, name, time_zone) values
-  ('00000000-0000-0000-0000-0000000000b1', 'back-bay', 'Back Bay', 'America/New_York');
+  ('00000000-0000-0000-0000-0000000000b1', 'test-back-bay', 'Back Bay', 'America/New_York');
 insert into specialties (id, code, name) values
-  ('00000000-0000-0000-0000-00000000005a', 'general', 'General dentistry');
+  ('00000000-0000-0000-0000-00000000005a', 'test-general', 'General dentistry');
 insert into services (id, code, name, duration_minutes, specialty_id) values
-  ('00000000-0000-0000-0000-0000000005e1', 'D1110', 'Adult cleaning', 60, '00000000-0000-0000-0000-00000000005a');
+  ('00000000-0000-0000-0000-0000000005e1', 'T1110', 'Adult cleaning', 60, '00000000-0000-0000-0000-00000000005a');
 
 select throws_ok(
-  $$ insert into services (code, name, duration_minutes) values ('D1110', 'Duplicate code', 30) $$,
+  $$ insert into services (code, name, duration_minutes) values ('T1110', 'Duplicate code', 30) $$,
   '23505', null, 'a service code is unique'
 );
 select throws_ok(
-  $$ insert into services (code, name, duration_minutes) values ('D0000', 'No time', 0) $$,
+  $$ insert into services (code, name, duration_minutes) values ('T0000', 'No time', 0) $$,
   '23514', null, 'a service must take some time'
 );
 
@@ -45,7 +47,7 @@ select throws_ok(
   '23505', null, 'one price per service per location'
 );
 select throws_ok(
-  $$ delete from services where code = 'D1110' $$,
+  $$ delete from services where code = 'T1110' $$,
   '23503', null, 'a service that has prices cannot be deleted'
 );
 
