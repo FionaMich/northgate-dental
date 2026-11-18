@@ -91,9 +91,9 @@ create function private.required_resource(service uuid) returns public.resource_
 language sql stable security definer set search_path = '' as $$
   select s.requires_resource from public.services s where s.id = service
 $$;
-create function private.resource_fits(res uuid, loc uuid, kind public.resource_kind) returns boolean
+create function private.resource_fits(res uuid, loc uuid, wanted public.resource_kind) returns boolean
 language sql stable security definer set search_path = '' as $$
-  select exists (select 1 from public.resources r where r.id = res and r.location_id = loc and (kind is null or r.kind = kind))
+  select exists (select 1 from public.resources r where r.id = res and r.location_id = loc and (wanted is null or r.kind = wanted))
 $$;
 grant execute on function private.works_at(uuid, uuid), private.offers(uuid, uuid), private.required_resource(uuid),
   private.resource_fits(uuid, uuid, public.resource_kind) to authenticated;
