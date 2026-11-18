@@ -78,20 +78,40 @@ create trigger appointments_record_event after insert or update of status on pub
 -- the clinician works at the location; a room belongs to the location and matches the service's equipment;
 -- status only moves forward; through the API a direct booking starts as 'booked' (holds come from hold_slot);
 -- booked_by is the session's user; version increases with every change.
+-- Lookups the rules need, made as the database owner so the caller's own access rules cannot hide the answer.
+create function private.works_at(practitioner uuid, loc uuid) returns boolean
+language sql stable security definer set search_path = '' as $$
+  select exists (select 1 from public.practitioner_roles pr where pr.practitioner_id = practitioner and pr.location_id = loc)
+$$;
+create function private.offers(loc uuid, service uuid) returns boolean
+language sql stable security definer set search_path = '' as $$
+  select exists (select 1 from public.location_services ls where ls.location_id = loc and ls.service_id = service)
+$$;
+create function private.required_resource(service uuid) returns public.resource_kind
+language sql stable security definer set search_path = '' as $$
+  select s.requires_resource from public.services s where s.id = service
+$$;
+create function private.resource_fits(res uuid, loc uuid, kind public.resource_kind) returns boolean
+language sql stable security definer set search_path = '' as $$
+  select exists (select 1 from public.resources r where r.id = res and r.location_id = loc and (kind is null or r.kind = kind))
+$$;
+grant execute on function private.works_at(uuid, uuid), private.offers(uuid, uuid), private.required_resource(uuid),
+  private.resource_fits(uuid, uuid, public.resource_kind) to authenticated;
+
 create function private.check_appointment() returns trigger
 language plpgsql set search_path = '' as $$
 declare
   api boolean := current_user in ('authenticated', 'anon');
   needed public.resource_kind;
 begin
-  if not exists (select 1 from public.practitioner_roles pr
-                  where pr.practitioner_id = new.practitioner_id and pr.location_id = new.location_id) then
+  if not private.offers(new.location_id, new.service_id) then
+    raise exception 'the location does not offer this service' using errcode = 'check_violation';
+  end if;
+  if not private.works_at(new.practitioner_id, new.location_id) then
     raise exception 'the clinician does not work at this location' using errcode = 'check_violation';
   end if;
-  select s.requires_resource into needed from public.services s where s.id = new.service_id;
-  if new.resource_id is not null and not exists (
-       select 1 from public.resources r
-        where r.id = new.resource_id and r.location_id = new.location_id and (needed is null or r.kind = needed)) then
+  needed := private.required_resource(new.service_id);
+  if new.resource_id is not null and not private.resource_fits(new.resource_id, new.location_id, needed) then
     raise exception 'the room or equipment is not at this location or does not suit the service' using errcode = 'check_violation';
   end if;
   if needed is not null and new.resource_id is null and new.status in ('held', 'booked', 'arrived') then

@@ -53,7 +53,7 @@ select throws_ok($$ insert into appointments (patient_id, location_id, practitio
 select throws_ok($$ insert into appointments (patient_id, location_id, practitioner_id, service_id, starts_at, ends_at, status)
   values ('30000000-0000-4000-8000-000000000001', pg_temp.loc('cambridge'), pg_temp.dr('10000000-0000-4000-8000-000000000012'),
           pg_temp.svc('D6010'), '2026-12-03 15:00+00', '2026-12-03 17:00+00', 'booked') $$,
-  '23503', null, 'a service the location does not offer cannot be booked there');
+  '23514', null, 'a service the location does not offer cannot be booked there');
 select throws_ok($$ insert into appointments (patient_id, location_id, practitioner_id, service_id, starts_at, ends_at, status)
   values ('30000000-0000-4000-8000-000000000001', pg_temp.loc('cambridge'), pg_temp.dr('10000000-0000-4000-8000-000000000012'),
           pg_temp.svc('D1110'), '2026-12-03 16:00+00', '2026-12-03 15:00+00', 'booked') $$,
@@ -98,9 +98,9 @@ select throws_ok($$ insert into public.appointments (patient_id, location_id, pr
 select throws_ok($$ delete from public.appointments where id = '40000000-0000-4000-8000-000000000001' $$, '42501', null, 'nobody deletes an appointment; it is cancelled');
 select is((select booked_by::text from public.appointments where starts_at = '2026-12-07 15:00+00' and location_id = pg_temp.loc('cambridge')),
   '10000000-0000-4000-8000-000000000003', 'a booking records who made it, taken from the session');
-select throws_ok($$ insert into public.appointments (patient_id, location_id, practitioner_id, service_id, starts_at, ends_at, status, hold_expires_at)
+select throws_ok($$ insert into public.appointments (patient_id, location_id, practitioner_id, service_id, starts_at, ends_at, status)
   values ('30000000-0000-4000-8000-000000000001', pg_temp.loc('cambridge'), pg_temp.dr('10000000-0000-4000-8000-000000000012'),
-          pg_temp.svc('D1110'), '2026-12-08 15:00+00', '2026-12-08 16:00+00', 'held', '2099-01-01') $$,
+          pg_temp.svc('D1110'), '2026-12-08 15:00+00', '2026-12-08 16:00+00', 'held') $$,
   '23514', null, 'front desk cannot create holds directly; holds come only from the booking function');
 select throws_ok($$ update public.appointments set patient_id = '30000000-0000-4000-8000-000000000003' where id = '40000000-0000-4000-8000-000000000001' $$,
   '42501', null, 'front desk cannot move an appointment to another patient');
