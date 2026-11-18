@@ -1,0 +1,32 @@
+# Applies database migrations to the staging Supabase project after a merge into develop.
+# The staging environment only accepts deployments from develop, so pull requests never see its secrets.
+name: deploy-staging
+
+on:
+  push:
+    branches: [develop]
+    paths: ['supabase/migrations/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false # never cut a migration off half way
+
+jobs:
+  migrate:
+    name: migrate staging database
+    runs-on: ubuntu-latest
+    environment: staging
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.STAGING_DB_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v3
+        with:
+          version: 3.2.0
+      - run: supabase link --project-ref "${{ vars.STAGING_PROJECT_REF }}"
+      - run: supabase db push # migrations only; the synthetic seed is not pushed
