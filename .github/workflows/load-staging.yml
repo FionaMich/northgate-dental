@@ -1,0 +1,43 @@
+# Loads generated synthetic patients into the staging database. Run by hand from the Actions tab.
+# Loading is idempotent: ids are fixed by the seed, so running it twice changes nothing.
+name: load-staging
+
+on:
+  workflow_dispatch:
+    inputs:
+      patients:
+        description: Number of generated patients (personas are always included)
+        default: "3000"
+      seed:
+        description: Generator seed (the same seed always produces the same patients)
+        default: "2026"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: staging-database
+  cancel-in-progress: false
+
+jobs:
+  load:
+    name: load synthetic data into staging
+    runs-on: ubuntu-latest
+    environment: staging
+    env:
+      STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
+    defaults:
+      run:
+        working-directory: services/synthdata
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --locked
+      - run: uv run synthdata check-target "$STAGING_DB_URL" # refuses production (E28)
+      - run: uv run synthdata generate --patients "${{ inputs.patients }}" --seed "${{ inputs.seed }}" > generated.sql
+      - run: psql -v ON_ERROR_STOP=1 -q "$STAGING_DB_URL" -f generated.sql
+      - name: counts (no patient details)
+        run: |
+          psql -At "$STAGING_DB_URL" -c "select 'patients', count(*) from patients union all select 'encounters', count(*) from encounters
+            union all select 'procedures', count(*) from dental_procedures union all select 'tooth_conditions', count(*) from tooth_conditions
+            union all select 'treatment_plans', count(*) from treatment_plans"
