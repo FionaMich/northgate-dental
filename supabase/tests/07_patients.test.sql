@@ -1,6 +1,6 @@
 -- Patients and their dental records: synthetic-only rules, chart rules, and who can see whom.
 begin;
-select plan(27);
+select plan(38);
 
 select has_table('public', 'patients', 'patients exists');
 select has_table('public', 'encounters', 'encounters exists');
@@ -56,21 +56,60 @@ select throws_ok($$ insert into dental_procedures (patient_id, location_id, serv
   values ('20000000-0000-4000-8000-000000000001', pg_temp.loc('cambridge'), (select id from services where code = 'D6010'), 'planned', 320000) $$,
   '23503', null, 'an implant cannot be planned at Cambridge, which does not offer it');
 
+-- Records always belong to one patient: a procedure cannot point at another patient's visit.
+select throws_ok($$ insert into dental_procedures (patient_id, location_id, service_id, encounter_id, status, fee_cents)
+  values ('20000000-0000-4000-8000-000000000001', pg_temp.loc('back-bay'), (select id from services where code = 'D1110'),
+          (select id from encounters where patient_id = '20000000-0000-4000-8000-000000000002'), 'planned', 13000) $$,
+  '23503', null, 'a procedure cannot be linked to another patient''s visit');
+update location_services set active = false
+ where location_id = pg_temp.loc('quincy') and service_id = (select id from services where code = 'D5110');
+select throws_ok($$ insert into dental_procedures (patient_id, location_id, service_id, status, fee_cents)
+  values ('20000000-0000-4000-8000-000000000003', pg_temp.loc('quincy'), (select id from services where code = 'D5110'), 'planned', 160000) $$,
+  '23514', null, 'a procedure cannot be planned for a service the location has switched off');
+select throws_ok($$ insert into patients (mrn, given_name, family_name, date_of_birth, sex_at_birth, home_location_id)
+  values ('NG9000012', 'Future', 'Birth', '2999-01-01', 'female', pg_temp.loc('quincy')) $$,
+  '23514', null, 'a birth date in the future is refused');
+select throws_ok($$ update patients set deceased_at = '1980-01-01' where id = '20000000-0000-4000-8000-000000000001' $$,
+  '23514', null, 'a death before birth is refused');
+
+-- Audit entries for patient tables record which columns changed, never the patient's details.
+update patients set family_name = 'Renamed' where id = '20000000-0000-4000-8000-000000000003';
+select is_empty(
+  $$ select 1 from audit_log where table_name = 'patients' and (old_row::text like '%UntreatedQuincy%' or new_row::text like '%Renamed%'
+       or new_row::text like '%test.synthetic%' or new_row::text like '%1970-07-07%') $$,
+  'the audit log holds no patient names, contact details or birth dates');
+
 -- E29: the Cambridge receptionist sees Cambridge patients only.
 select pg_temp.act_as('10000000-0000-4000-8000-000000000003');
 select isnt_empty($$ select 1 from public.patients where id = '20000000-0000-4000-8000-000000000001' $$, 'the Cambridge receptionist sees a Cambridge patient');
 select is_empty($$ select 1 from public.patients where id = '20000000-0000-4000-8000-000000000002' $$, 'the Cambridge receptionist does not see a Quincy patient');
 select is_empty($$ select 1 from public.encounters where patient_id = '20000000-0000-4000-8000-000000000002' $$, 'nor that patient''s visits');
 select throws_ok($$ insert into public.patients (mrn, given_name, family_name, date_of_birth, sex_at_birth, home_location_id)
-  values ('NG9000010', 'New', 'Patient', '2000-01-01', 'female', (select '00000000-0000-0000-0000-000000000000'::uuid)) $$,
+  values ('NG9000010', 'New', 'Patient', '2000-01-01', 'female', pg_temp.loc('quincy')) $$,
   '42501', null, 'the Cambridge receptionist cannot register a patient at another location');
 select throws_ok($$ delete from public.patients where id = '20000000-0000-4000-8000-000000000001' $$, '42501', null, 'nobody deletes a patient record');
+select lives_ok($$ insert into public.patients (mrn, given_name, family_name, date_of_birth, sex_at_birth, home_location_id)
+  values ('NG9000011', 'New', 'Cambridge', '2001-02-03', 'female', pg_temp.loc('cambridge')) $$,
+  'the Cambridge receptionist can register a Cambridge patient');
+select lives_ok($$ update public.patients set preferred_name = 'Tess' where id = '20000000-0000-4000-8000-000000000001' $$,
+  'the Cambridge receptionist can update a Cambridge patient''s details');
+select throws_ok($$ update public.patients set is_canary = true where id = '20000000-0000-4000-8000-000000000001' $$,
+  '42501', null, 'front desk cannot change the canary flag or other system fields');
+select throws_ok($$ insert into public.tooth_conditions (patient_id, tooth, condition, recorded_at)
+  values ('20000000-0000-4000-8000-000000000001', '3', 'caries', now()) $$,
+  '42501', null, 'a receptionist cannot write to the dental chart');
 reset role;
 
 -- Clinicians also see patients they have treated, wherever those patients belong.
 select pg_temp.act_as('10000000-0000-4000-8000-000000000011');
 select isnt_empty($$ select 1 from public.patients where id = '20000000-0000-4000-8000-000000000002' $$, 'the orthodontist sees a Quincy patient they treated');
 select is_empty($$ select 1 from public.patients where id = '20000000-0000-4000-8000-000000000003' $$, 'the orthodontist does not see a Quincy patient they never treated');
+select throws_ok($$ insert into public.encounters (patient_id, location_id, practitioner_id, occurred_at, kind)
+  values ('20000000-0000-4000-8000-000000000002', pg_temp.loc('back-bay'), (select id from public.practitioners limit 1), now(), 'exam') $$,
+  '42501', null, 'clinical records are written only through approved paths for now');
+reset role;
+select pg_temp.act_as('10000000-0000-4000-8000-000000000007');
+select is((select count(*)::int from public.patients where id::text like '20000000-%'), 2, 'the Quincy manager sees the Quincy patients');
 reset role;
 
 select pg_temp.act_as('10000000-0000-4000-8000-000000000004');
