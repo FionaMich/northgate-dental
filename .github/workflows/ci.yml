@@ -47,7 +47,14 @@ jobs:
       - uses: supabase/setup-cli@v3
         with:
           version: 3.2.0
-      - run: supabase db start # Postgres only; applies supabase/migrations
+      - run: supabase db start # Postgres only; applies supabase/migrations and the seed
+      - uses: astral-sh/setup-uv@v6
+      - name: load personas and a sample of generated patients
+        run: |
+          cd services/synthdata && uv sync --locked
+          url=postgresql://postgres:postgres@127.0.0.1:54322/postgres
+          uv run synthdata check-target "$url"
+          uv run synthdata generate --patients 50 --seed 2026 | psql -v ON_ERROR_STOP=1 -q "$url"
       - run: supabase test db
 
   synthdata:
