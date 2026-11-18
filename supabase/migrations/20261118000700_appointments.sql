@@ -34,7 +34,8 @@ create table public.appointments (
   ends_at         timestamptz not null,
   status          text not null check (status in ('held', 'booked', 'arrived', 'completed', 'cancelled', 'no_show')),
   hold_expires_at timestamptz,
-  booked_by       uuid,
+  booked_by       uuid default auth.uid(),            -- always the session's user, set by trigger
+  version         int not null default 1,             -- increases with every change (Addendum D ordering)
   created_at      timestamptz not null default now(),
   check (ends_at > starts_at),
   check ((status = 'held') = (hold_expires_at is not null)),
@@ -53,8 +54,10 @@ create table public.appointment_events (
   appointment_id uuid not null references public.appointments (id) on delete restrict,
   occurred_at    timestamptz not null default now(),
   actor_id       uuid,
+  version        int not null,
   from_status    text,
-  to_status      text not null
+  to_status      text not null,
+  unique (appointment_id, version)
 );
 create index appointment_events_appointment_idx on public.appointment_events (appointment_id);
 
@@ -62,8 +65,8 @@ create function private.record_appointment_event() returns trigger
 language plpgsql security definer set search_path = '' as $$
 begin
   if tg_op = 'INSERT' or new.status is distinct from old.status then
-    insert into public.appointment_events (appointment_id, actor_id, from_status, to_status)
-    values (new.id, auth.uid(), case when tg_op = 'UPDATE' then old.status end, new.status);
+    insert into public.appointment_events (appointment_id, actor_id, version, from_status, to_status)
+    values (new.id, auth.uid(), new.version, case when tg_op = 'UPDATE' then old.status end, new.status);
   end if;
   return null;
 end;
@@ -71,22 +74,78 @@ $$;
 create trigger appointments_record_event after insert or update of status on public.appointments
   for each row execute function private.record_appointment_event();
 
--- Audit: any table holding a patient_id (or the patients table) records changed column names only,
--- never values, so new patient tables cannot leak details into the audit log by accident.
+-- Rules checked before every write:
+-- the clinician works at the location; a room belongs to the location and matches the service's equipment;
+-- status only moves forward; through the API a direct booking starts as 'booked' (holds come from hold_slot);
+-- booked_by is the session's user; version increases with every change.
+create function private.check_appointment() returns trigger
+language plpgsql set search_path = '' as $$
+declare
+  api boolean := current_user in ('authenticated', 'anon');
+  needed public.resource_kind;
+begin
+  if not exists (select 1 from public.practitioner_roles pr
+                  where pr.practitioner_id = new.practitioner_id and pr.location_id = new.location_id) then
+    raise exception 'the clinician does not work at this location' using errcode = 'check_violation';
+  end if;
+  select s.requires_resource into needed from public.services s where s.id = new.service_id;
+  if new.resource_id is not null and not exists (
+       select 1 from public.resources r
+        where r.id = new.resource_id and r.location_id = new.location_id and (needed is null or r.kind = needed)) then
+    raise exception 'the room or equipment is not at this location or does not suit the service' using errcode = 'check_violation';
+  end if;
+  if needed is not null and new.resource_id is null and new.status in ('held', 'booked', 'arrived') then
+    raise exception 'this service needs a % booked with it', needed using errcode = 'check_violation';
+  end if;
+  if tg_op = 'INSERT' then
+    if api then
+      if new.status <> 'booked' then
+        raise exception 'bookings made directly start as booked' using errcode = 'check_violation';
+      end if;
+      new.booked_by := auth.uid();
+    end if;
+    new.version := 1;
+  else
+    if new.status is distinct from old.status and not (
+         (old.status = 'held' and new.status in ('booked', 'cancelled'))
+      or (old.status = 'booked' and new.status in ('arrived', 'completed', 'cancelled', 'no_show'))
+      or (old.status = 'arrived' and new.status in ('completed', 'no_show'))) then
+      raise exception 'an appointment cannot move from % to %', old.status, new.status using errcode = 'check_violation';
+    end if;
+    new.version := old.version + 1;
+  end if;
+  return new;
+end;
+$$;
+create trigger appointments_check before insert or update on public.appointments
+  for each row execute function private.check_appointment();
+
+-- Audit: tables holding patient or staff-health details record changed column names only, never values.
+-- A table is treated that way if it has a patient_id column or is listed here; each migration adds its own.
+create table private.audit_redacted_tables (table_name text primary key);
+insert into private.audit_redacted_tables values ('patients'), ('appointment_events'), ('availability_exceptions');
+
 create or replace function private.audit_row() returns trigger
 language plpgsql security definer set search_path = '' as $$
 declare
   r   jsonb := coalesce(to_jsonb(new), to_jsonb(old));
   o   jsonb := case when tg_op <> 'INSERT' then to_jsonb(old) end;
   n   jsonb := case when tg_op <> 'DELETE' then to_jsonb(new) end;
-  pii boolean := tg_table_name = 'patients' or r ? 'patient_id';
+  pii boolean := r ? 'patient_id' or exists (select 1 from private.audit_redacted_tables t where t.table_name = tg_table_name);
+  pk  text;
 begin
+  -- The row key is read from the table's real primary key, so new tables need no special case.
+  select string_agg(r ->> a.attname, ':' order by array_position(i.indkey::int2[], a.attnum))
+    into pk
+    from pg_catalog.pg_index i
+    join pg_catalog.pg_attribute a on a.attrelid = i.indrelid and a.attnum = any (i.indkey)
+   where i.indrelid = tg_relid and i.indisprimary;
   insert into public.audit_log (actor_id, actor_role, table_name, row_pk, action, old_row, new_row)
   values (
     auth.uid(),
     private.my_role(),
     tg_table_name,
-    coalesce(r ->> 'id', concat_ws(':', r ->> 'location_id', r ->> 'service_id', r ->> 'profile_id', r ->> 'from_location', r ->> 'to_location')),
+    pk,
     tg_op,
     case when pii then null else o end,
     case when pii then jsonb_build_object('changed_columns',
@@ -104,8 +163,12 @@ $$;
 ------------------------------------------------------------------------------------------
 
 grant select on public.location_travel, public.availability_exceptions, public.appointments, public.appointment_events to authenticated;
-grant insert, update on public.location_travel, public.availability_exceptions, public.appointments to authenticated;
+grant insert, update on public.location_travel, public.availability_exceptions to authenticated;
 grant delete on public.availability_exceptions to authenticated;
+-- Front desk sets who, where, what and when; never patient changes, holds, booked_by or version.
+grant insert (patient_id, location_id, practitioner_id, service_id, resource_id, starts_at, ends_at, status)
+  on public.appointments to authenticated;
+grant update (practitioner_id, resource_id, starts_at, ends_at, status) on public.appointments to authenticated;
 
 do $$
 declare t text;
@@ -126,8 +189,12 @@ create policy admin_writes_location_travel on public.location_travel for all to 
   using ((select private.is_org_admin())) with check ((select private.is_org_admin()));
 
 -- Leave: staff can see it; a clinician records their own; managers for clinicians working at their locations.
+-- Leave (and its reason) is visible only to the clinician, managers of their locations and org_admin.
 create policy read_availability_exceptions on public.availability_exceptions for select to authenticated
-  using ((select private.is_staff()));
+  using ((select private.is_org_admin())
+         or practitioner_id = (select private.current_practitioner_id())
+         or exists (select 1 from public.practitioner_roles pr
+                     where pr.practitioner_id = availability_exceptions.practitioner_id and private.manages(pr.location_id)));
 create policy manage_availability_exceptions on public.availability_exceptions for all to authenticated
   using ((select private.is_org_admin())
          or practitioner_id = (select private.current_practitioner_id())
@@ -142,7 +209,10 @@ create policy read_appointments on public.appointments for select to authenticat
   using ((select private.is_org_admin())
          or location_id in (select private.my_location_ids())
          or practitioner_id = (select private.current_practitioner_id()));
-create policy front_desk_books_appointments on public.appointments for all to authenticated
+create policy front_desk_books_appointments on public.appointments for insert to authenticated
+  with check ((select private.is_org_admin())
+         or ((select private.my_role()) in ('receptionist', 'location_manager') and location_id in (select private.my_location_ids())));
+create policy front_desk_updates_appointments on public.appointments for update to authenticated
   using ((select private.is_org_admin())
          or ((select private.my_role()) in ('receptionist', 'location_manager') and location_id in (select private.my_location_ids())))
   with check ((select private.is_org_admin())
