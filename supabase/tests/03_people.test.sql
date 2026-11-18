@@ -59,11 +59,12 @@ select throws_ok(
 );
 
 -- E13: only an organisation administrator can change a role. A temporary open policy (rolled back)
--- isolates the role guard from row level security, which arrives in T5.
+-- isolates the role guard from the other row level security rules. Sessions are aal2, because staff
+-- without a verified second factor are blocked before the guard is reached (T5).
 create policy test_select_any on public.profiles for select to authenticated using (true);
 create policy test_update_any on public.profiles for update to authenticated using (true) with check (true);
 
-select set_config('request.jwt.claims', '{"sub": "00000000-0000-0000-0000-00000000a002", "role": "authenticated"}', true);
+select set_config('request.jwt.claims', '{"sub": "00000000-0000-0000-0000-00000000a002", "role": "authenticated", "aal": "aal2"}', true);
 set local role authenticated;
 select throws_ok(
   $$ update public.profiles set role = 'org_admin' where id = '00000000-0000-0000-0000-00000000a002' $$,
@@ -71,7 +72,7 @@ select throws_ok(
 );
 reset role;
 
-select set_config('request.jwt.claims', '{"sub": "00000000-0000-0000-0000-00000000a001", "role": "authenticated"}', true);
+select set_config('request.jwt.claims', '{"sub": "00000000-0000-0000-0000-00000000a001", "role": "authenticated", "aal": "aal2"}', true);
 set local role authenticated;
 select lives_ok(
   $$ update public.profiles set role = 'location_manager' where id = '00000000-0000-0000-0000-00000000a002' $$,
