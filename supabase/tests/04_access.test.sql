@@ -38,9 +38,11 @@ insert into profiles (id, role, display_name) values
   ('00000000-0000-0000-0000-00000000a004', 'location_manager', 'Synthetic Manager'),
   ('00000000-0000-0000-0000-00000000a005', 'patient', 'Synthetic Patient'),
   ('00000000-0000-0000-0000-00000000a006', 'location_manager', 'Synthetic Cambridge Manager'),
-  ('00000000-0000-0000-0000-00000000a008', 'receptionist', 'Synthetic New Receptionist');
+  ('00000000-0000-0000-0000-00000000a008', 'receptionist', 'Synthetic New Receptionist')
+on conflict (id) do update set role = excluded.role, display_name = excluded.display_name;
 insert into profiles (id, role, display_name, active) values
-  ('00000000-0000-0000-0000-00000000a007', 'clinician', 'Synthetic Former Clinician', false);
+  ('00000000-0000-0000-0000-00000000a007', 'clinician', 'Synthetic Former Clinician', false)
+on conflict (id) do update set role = excluded.role, display_name = excluded.display_name, active = excluded.active;
 insert into staff_locations (profile_id, location_id) values
   ('00000000-0000-0000-0000-00000000a002', '00000000-0000-0000-0000-0000000000c1'),
   ('00000000-0000-0000-0000-00000000a003', '00000000-0000-0000-0000-0000000000c1'),
