@@ -57,6 +57,7 @@ from (values
   ('D9110', 'Emergency palliative treatment',  30,  'general',      null)
 ) as v(code, name, minutes, specialty, resource)
 join public.specialties s on s.code = v.specialty;
+update public.services set self_bookable = false where code = 'D9110';   -- emergencies are booked by the practice
 
 -- Prices per location, in whole cents (12000 is $120.00). Synthetic; Fiona reviews these line by line.
 insert into public.location_services (location_id, service_id, price_cents)
