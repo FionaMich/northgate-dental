@@ -15,7 +15,9 @@ begin
   set local role authenticated;
 end;
 $$;
-create function pg_temp.loc(c text) returns uuid language sql as $$ select id from public.locations where code = c $$;
+create function pg_temp.loc(c text) returns uuid language sql security definer as $$ select id from public.locations where code = c $$;
+-- New functions are not runnable by default (T1); the signed-in tests below need this helper.
+grant execute on function pg_temp.loc(text) to authenticated;
 
 -- Fixture patients (synthetic, rolled back): one at Cambridge, two at Quincy; the orthodontist treated one of them at Back Bay.
 insert into patients (id, mrn, given_name, family_name, date_of_birth, sex_at_birth, home_location_id, email, phone) values
@@ -54,7 +56,7 @@ select throws_ok($$ insert into dental_procedures (patient_id, location_id, serv
   '23514', null, 'a negative fee is refused');
 select throws_ok($$ insert into dental_procedures (patient_id, location_id, service_id, status, fee_cents)
   values ('20000000-0000-4000-8000-000000000001', pg_temp.loc('cambridge'), (select id from services where code = 'D6010'), 'planned', 320000) $$,
-  '23503', null, 'an implant cannot be planned at Cambridge, which does not offer it');
+  '23514', null, 'an implant cannot be planned at Cambridge, which does not offer it');
 
 -- Records always belong to one patient: a procedure cannot point at another patient's visit.
 select throws_ok($$ insert into dental_procedures (patient_id, location_id, service_id, encounter_id, status, fee_cents)
