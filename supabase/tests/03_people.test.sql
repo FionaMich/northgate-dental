@@ -1,5 +1,7 @@
 -- People: sign-in profiles with roles, practitioners, where they work, and the roster.
 begin;
+delete from public.org_settings;
+delete from public.organisation;
 select plan(14);
 
 select has_type('public', 'app_role', 'app_role type exists');
@@ -11,14 +13,14 @@ select has_table('public', 'staff_roster', 'staff_roster exists');
 
 -- Synthetic test data, rolled back at the end.
 insert into locations (id, code, name, time_zone) values
-  ('00000000-0000-0000-0000-0000000000b1', 'back-bay', 'Back Bay', 'America/New_York'),
-  ('00000000-0000-0000-0000-0000000000c1', 'cambridge', 'Cambridge', 'America/New_York');
+  ('00000000-0000-0000-0000-0000000000b1', 'test-back-bay', 'Back Bay', 'America/New_York'),
+  ('00000000-0000-0000-0000-0000000000c1', 'test-cambridge', 'Cambridge', 'America/New_York');
 insert into specialties (id, code, name) values
-  ('00000000-0000-0000-0000-00000000005b', 'ortho', 'Orthodontics');
+  ('00000000-0000-0000-0000-00000000005b', 'test-ortho', 'Orthodontics');
 insert into auth.users (id, email) values
-  ('00000000-0000-0000-0000-00000000a001', 'admin@synthetic.test'),
-  ('00000000-0000-0000-0000-00000000a002', 'receptionist@synthetic.test'),
-  ('00000000-0000-0000-0000-00000000a003', 'orthodontist@synthetic.test');
+  ('00000000-0000-0000-0000-00000000a001', 'admin@tests.synthetic'),
+  ('00000000-0000-0000-0000-00000000a002', 'receptionist@tests.synthetic'),
+  ('00000000-0000-0000-0000-00000000a003', 'orthodontist@tests.synthetic');
 insert into profiles (id, role, display_name) values
   ('00000000-0000-0000-0000-00000000a001', 'org_admin', 'Synthetic Admin'),
   ('00000000-0000-0000-0000-00000000a002', 'receptionist', 'Synthetic Receptionist'),

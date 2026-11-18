@@ -1,34 +1,36 @@
 -- Who can see and change what, role by role. Each role gets allowed and denied cases.
 begin;
+delete from public.org_settings;
+delete from public.organisation;
 select plan(34);
 
 -- Synthetic people and places, rolled back at the end.
 insert into locations (id, code, name, time_zone) values
-  ('00000000-0000-0000-0000-0000000000b1', 'back-bay', 'Back Bay', 'America/New_York'),
-  ('00000000-0000-0000-0000-0000000000c1', 'cambridge', 'Cambridge', 'America/New_York'),
-  ('00000000-0000-0000-0000-0000000000e1', 'quincy', 'Quincy', 'America/New_York');
+  ('00000000-0000-0000-0000-0000000000b1', 'test-back-bay', 'Back Bay', 'America/New_York'),
+  ('00000000-0000-0000-0000-0000000000c1', 'test-cambridge', 'Cambridge', 'America/New_York'),
+  ('00000000-0000-0000-0000-0000000000e1', 'test-quincy', 'Quincy', 'America/New_York');
 insert into organisation (name) values ('Northgate Dental (synthetic)');
 insert into location_hours (location_id, weekday, opens, closes) values
   ('00000000-0000-0000-0000-0000000000b1', 1, '08:00', '18:00'),
   ('00000000-0000-0000-0000-0000000000c1', 1, '09:00', '17:00'),
   ('00000000-0000-0000-0000-0000000000e1', 1, '07:00', '20:00');
-insert into specialties (id, code, name) values ('00000000-0000-0000-0000-00000000005a', 'general', 'General dentistry');
+insert into specialties (id, code, name) values ('00000000-0000-0000-0000-00000000005a', 'test-general', 'General dentistry');
 insert into services (id, code, name, duration_minutes, specialty_id) values
-  ('00000000-0000-0000-0000-0000000005e1', 'D1110', 'Adult cleaning', 60, '00000000-0000-0000-0000-00000000005a');
+  ('00000000-0000-0000-0000-0000000005e1', 'T1110', 'Adult cleaning', 60, '00000000-0000-0000-0000-00000000005a');
 insert into location_services (location_id, service_id, price_cents) values
   ('00000000-0000-0000-0000-0000000000b1', '00000000-0000-0000-0000-0000000005e1', 13000),
   ('00000000-0000-0000-0000-0000000000c1', '00000000-0000-0000-0000-0000000005e1', 12000),
   ('00000000-0000-0000-0000-0000000000e1', '00000000-0000-0000-0000-0000000005e1', 11000);
 
 insert into auth.users (id, email) values
-  ('00000000-0000-0000-0000-00000000a001', 'admin@synthetic.test'),
-  ('00000000-0000-0000-0000-00000000a002', 'cambridge.receptionist@synthetic.test'),
-  ('00000000-0000-0000-0000-00000000a003', 'orthodontist@synthetic.test'),
-  ('00000000-0000-0000-0000-00000000a004', 'quincy.manager@synthetic.test'),
-  ('00000000-0000-0000-0000-00000000a005', 'patient@synthetic.test'),
-  ('00000000-0000-0000-0000-00000000a006', 'cambridge.manager@synthetic.test'),
-  ('00000000-0000-0000-0000-00000000a007', 'former.clinician@synthetic.test'),
-  ('00000000-0000-0000-0000-00000000a008', 'new.receptionist@synthetic.test');
+  ('00000000-0000-0000-0000-00000000a001', 'admin@tests.synthetic'),
+  ('00000000-0000-0000-0000-00000000a002', 'cambridge.receptionist@tests.synthetic'),
+  ('00000000-0000-0000-0000-00000000a003', 'orthodontist@tests.synthetic'),
+  ('00000000-0000-0000-0000-00000000a004', 'quincy.manager@tests.synthetic'),
+  ('00000000-0000-0000-0000-00000000a005', 'patient@tests.synthetic'),
+  ('00000000-0000-0000-0000-00000000a006', 'cambridge.manager@tests.synthetic'),
+  ('00000000-0000-0000-0000-00000000a007', 'former.clinician@tests.synthetic'),
+  ('00000000-0000-0000-0000-00000000a008', 'new.receptionist@tests.synthetic');
 insert into profiles (id, role, display_name) values
   ('00000000-0000-0000-0000-00000000a001', 'org_admin', 'Synthetic Admin'),
   ('00000000-0000-0000-0000-00000000a002', 'receptionist', 'Synthetic Receptionist'),
@@ -54,7 +56,7 @@ insert into staff_roster (practitioner_id, location_id, starts_at, ends_at) valu
   ('00000000-0000-0000-0000-0000000000d2', '00000000-0000-0000-0000-0000000000e1', '2026-12-01 13:00+00', '2026-12-01 17:00+00');
 -- A retired service whose prices were left active.
 insert into services (id, code, name, duration_minutes, active) values
-  ('00000000-0000-0000-0000-0000000005e2', 'D9999', 'Retired service', 30, false);
+  ('00000000-0000-0000-0000-0000000005e2', 'T9999', 'Retired service', 30, false);
 insert into location_services (location_id, service_id, price_cents) values
   ('00000000-0000-0000-0000-0000000000e1', '00000000-0000-0000-0000-0000000005e2', 5000);
 
@@ -184,7 +186,7 @@ reset role;
 
 -- E14: a patient sees public information at active locations but no staff data, and needs no second factor.
 select pg_temp.act_as('00000000-0000-0000-0000-00000000a005', 'aal1');
-select is((select count(*)::int from public.location_services), 3, 'a patient sees prices at every active location');
+select is((select count(*)::int from public.location_services where service_id = '00000000-0000-0000-0000-0000000005e1'), 3, 'a patient sees prices at every active location');
 select is_empty($$ select 1 from public.location_services where service_id = '00000000-0000-0000-0000-0000000005e2' $$,
   'a patient does not see prices for a retired service');
 select is_empty($$ select 1 from public.staff_roster $$, 'a patient cannot see the staff roster');
@@ -199,7 +201,7 @@ select results_eq(
   'the administrator can change a price'
 );
 select throws_ok(
-  $$ delete from public.locations where code = 'quincy' $$,
+  $$ delete from public.locations where code = 'test-quincy' $$,
   '42501', null, 'nobody can delete a location, not even the administrator'
 );
 

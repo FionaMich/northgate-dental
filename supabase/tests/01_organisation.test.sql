@@ -1,5 +1,7 @@
 -- Organisation, locations, opening hours, closures and settings inheritance.
 begin;
+delete from public.org_settings;
+delete from public.organisation;
 select plan(17);
 
 select has_table('public', 'organisation', 'organisation exists');
@@ -18,8 +20,8 @@ select throws_ok(
 );
 
 insert into locations (id, code, name, time_zone) values
-  ('00000000-0000-0000-0000-0000000000b1', 'back-bay', 'Back Bay', 'America/New_York'),
-  ('00000000-0000-0000-0000-0000000000a1', 'quincy', 'Quincy', 'America/New_York');
+  ('00000000-0000-0000-0000-0000000000b1', 'test-back-bay', 'Back Bay', 'America/New_York'),
+  ('00000000-0000-0000-0000-0000000000a1', 'test-quincy', 'Quincy', 'America/New_York');
 
 select throws_ok(
   $$ insert into locations (code, name, time_zone) values ('mars', 'Mars', 'Mars/Olympus_Mons') $$,
@@ -62,14 +64,14 @@ select throws_ok(
 select is(
   (select ('2026-03-02'::date + h.opens) at time zone l.time_zone
      from location_hours h join locations l on l.id = h.location_id
-    where l.code = 'back-bay' and h.weekday = 1),
+    where l.code = 'test-back-bay' and h.weekday = 1),
   '2026-03-02 13:00:00+00'::timestamptz,
   '08:00 at Back Bay is 13:00 UTC before daylight saving starts'
 );
 select is(
   (select ('2026-03-09'::date + h.opens) at time zone l.time_zone
      from location_hours h join locations l on l.id = h.location_id
-    where l.code = 'back-bay' and h.weekday = 1),
+    where l.code = 'test-back-bay' and h.weekday = 1),
   '2026-03-09 12:00:00+00'::timestamptz,
   '08:00 at Back Bay is 12:00 UTC after daylight saving starts'
 );
@@ -82,7 +84,7 @@ select throws_ok(
 
 -- E17: a location with history cannot be deleted; it is deactivated instead.
 select throws_ok(
-  $$ delete from locations where code = 'back-bay' $$,
+  $$ delete from locations where code = 'test-back-bay' $$,
   '23503', null, 'a location with opening hours cannot be deleted'
 );
 
