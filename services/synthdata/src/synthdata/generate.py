@@ -147,11 +147,17 @@ def _teeth(age: int) -> list[str]:
     return PERMANENT
 
 
-def generate(patients: int, seed: int) -> Dataset:
+def generate(patients: int, seed: int, personas: bool = True) -> Dataset:
     rng = random.Random(seed)
     fake = Faker("en_US")
     fake.seed_instance(seed)
     ds = Dataset()
+
+    if personas:  # named personas first, each with a history fixed by its own id, whatever the seed
+        from synthdata.personas import PERSONAS
+        for p in PERSONAS:
+            ds.patients.append(p)
+            _history(ds, random.Random(p.id), p.id, p.age_on_anchor, p.home_location, p.deceased_at)
 
     for i in range(patients):
         mrn_no = FIRST_GENERATED_MRN + i
@@ -279,7 +285,12 @@ def _chunks(rows: list, size: int = 1000):
 
 def to_sql(ds: Dataset) -> str:
     """Idempotent SQL for the dataset. Locations, practitioners and fees are resolved inside the database."""
-    out = ["-- Generated synthetic data. Describes no real person.", "begin;"]
+    from synthdata.personas import DR_CHEN_NAME, DR_CHEN_PROFILE
+    out = ["-- Generated synthetic data. Describes no real person.", "begin;",
+           f"update public.profiles set display_name = {_q(DR_CHEN_NAME)}"
+           f" where id = {_q(DR_CHEN_PROFILE)} and display_name is distinct from {_q(DR_CHEN_NAME)};",
+           f"update public.practitioners set display_name = {_q(DR_CHEN_NAME)}"
+           f" where profile_id = {_q(DR_CHEN_PROFILE)} and display_name is distinct from {_q(DR_CHEN_NAME)};"]
     for chunk in _chunks(ds.patients):
         out.append(
             "insert into public.patients (id, mrn, given_name, family_name, date_of_birth, sex_at_birth, home_location_id,"
