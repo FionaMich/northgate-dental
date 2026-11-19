@@ -69,6 +69,23 @@ jobs:
       - run: uv sync --locked
       - run: uv run pytest -q
 
+  mobile:
+    name: mobile (flutter test)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.50.0
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test
+
   pr-title:
     name: pr-title (Conventional Commits)
     if: github.event_name == 'pull_request'
