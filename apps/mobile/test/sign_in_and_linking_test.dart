@@ -24,9 +24,19 @@ Future<FakeAccountRepository> pumpApp(WidgetTester tester, FakeAccountRepository
   return repo;
 }
 
+/// Scrolls the control into view first, as a person would, then taps it.
+Future<void> tapKey(WidgetTester tester, String key) async {
+  await tester.ensureVisible(find.byKey(Key(key)));
+  await tester.pumpAndSettle();
+  await tester.tap(find.byKey(Key(key)));
+  await tester.pumpAndSettle();
+}
+
 Future<void> signIn(WidgetTester tester, {String password = 'right'}) async {
   await tester.enterText(find.byKey(const Key('email')), 'patient@northgate.synthetic');
   await tester.enterText(find.byKey(const Key('password')), password);
+  await tester.ensureVisible(find.byKey(const Key('sign-in')));
+  await tester.pumpAndSettle();
   await tester.tap(find.byKey(const Key('sign-in')));
   await tester.pumpAndSettle();
 }
@@ -55,8 +65,7 @@ void main() {
     await signIn(tester);
     expect(find.text('Link your record'), findsOneWidget);
     await tester.enterText(find.byKey(const Key('code')), 'abcd1234efgh5678');
-    await tester.tap(find.byKey(const Key('link')));
-    await tester.pumpAndSettle();
+    await tapKey(tester, 'link');
     expect(find.textContaining('Elena'), findsWidgets);
   });
 
@@ -64,8 +73,7 @@ void main() {
     await pumpApp(tester, FakeAccountRepository());
     await signIn(tester);
     await tester.enterText(find.byKey(const Key('code')), 'NOPE');
-    await tester.tap(find.byKey(const Key('link')));
-    await tester.pumpAndSettle();
+    await tapKey(tester, 'link');
     expect(find.textContaining('Ask the front desk'), findsOneWidget);
   });
 
@@ -81,8 +89,7 @@ void main() {
     );
     await signIn(tester);
     expect(find.text('Hello, Ana'), findsOneWidget);
-    await tester.tap(find.byKey(const Key('person-p-sofia')));
-    await tester.pumpAndSettle();
+    await tapKey(tester, 'person-p-sofia');
     expect(find.text('Hello, Sofia'), findsOneWidget);
   });
 
@@ -94,13 +101,11 @@ void main() {
       ),
     );
     await signIn(tester);
-    await tester.tap(find.byKey(const Key('tab-profile')));
-    await tester.pumpAndSettle();
-    await tester.ensureVisible(find.byKey(const Key('sign-out')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('sign-out')));
-    await tester.pumpAndSettle();
+    await tapKey(tester, 'tab-profile');
+    await tapKey(tester, 'sign-out');
+    await tapKey(tester, 'confirm-sign-out');
     expect(repo.signOutCalls, 1);
     expect(find.byKey(const Key('sign-in')), findsOneWidget);
+    expect(find.textContaining('signed out'), findsOneWidget);
   });
 }

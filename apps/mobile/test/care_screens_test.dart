@@ -1,10 +1,9 @@
 import 'package:dental/data/account_repository.dart';
 import 'package:dental/data/care_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:material_ui/material_ui.dart';
 
 import 'fakes.dart';
-import 'sign_in_and_linking_test.dart' show pumpApp, signIn;
+import 'sign_in_and_linking_test.dart' show pumpApp, signIn, tapKey;
 
 const elena = LinkedPatient(id: 'p-elena', name: 'Elena Marsh', isSelf: true);
 
@@ -80,16 +79,14 @@ void main() {
     final newer = tester.getTopLeft(find.text('Treatment').first).dy;
     final older = tester.getTopLeft(find.text('Exam').first).dy;
     expect(newer, lessThan(older));
-    await tester.tap(find.byKey(const Key('tab-records')));
-    await tester.pumpAndSettle();
+    await tapKey(tester, 'tab-records');
     expect(find.text('Composite filling · tooth 3'), findsOneWidget);
   });
 
   testWidgets('the plan card shows progress and opens the phase list', (tester) async {
     await openHome(tester, CareSummary(plans: [_plan]));
     expect(find.text('Phase 2 of 3'), findsOneWidget);
-    await tester.tap(find.byKey(const Key('plan-card')));
-    await tester.pumpAndSettle();
+    await tapKey(tester, 'plan-card');
     expect(find.text('Restore'), findsWidgets);
     expect(find.text('Porcelain crown · tooth 19'), findsOneWidget);
   });

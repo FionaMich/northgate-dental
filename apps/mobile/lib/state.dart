@@ -47,3 +47,14 @@ final careSummaryProvider = FutureProvider<CareSummary>(retry: (_, _) => null, (
   if (person == null) return const CareSummary();
   return ref.watch(careRepositoryProvider).summary(person.id);
 });
+
+/// True right after the person chose Sign out, so the sign-in screen can confirm it happened.
+class SignedOutNotice extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void show() => state = true;
+  void clear() => state = false;
+}
+
+final signedOutNoticeProvider = NotifierProvider<SignedOutNotice, bool>(SignedOutNotice.new);

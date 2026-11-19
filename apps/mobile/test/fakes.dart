@@ -40,6 +40,46 @@ class FakeAccountRepository implements AccountRepository {
   @override
   Future<List<LinkedPatient>> linkedPatients() async => patients;
 
+  // Sign-up and reset, in memory. The code emailed is always [emailCode].
+  final emailCode = '123456';
+  final sent = <String>[];
+  String? newPassword;
+  bool rateLimited = false;
+
+  @override
+  Future<void> signUp({required String name, required String email, required String password}) async {
+    if (rateLimited) throw const AccountError(tooManyError);
+    sent.add('signup:$email');
+  }
+
+  @override
+  Future<void> verifySignUpCode(String email, String code) async {
+    if (code != emailCode) throw const AccountError(codeError);
+    _signedIn = true;
+    _changes.add(true);
+  }
+
+  @override
+  Future<void> resendSignUpCode(String email) async => sent.add('resend:$email');
+
+  @override
+  Future<void> sendPasswordReset(String email) async {
+    if (rateLimited) throw const AccountError(tooManyError);
+    sent.add('reset:$email');
+  }
+
+  @override
+  Future<void> verifyResetCode(String email, String code) async {
+    if (code != emailCode) throw const AccountError(codeError);
+  }
+
+  @override
+  Future<void> setNewPassword(String password) async {
+    newPassword = password;
+    _signedIn = true;
+    _changes.add(true);
+  }
+
   @override
   Future<void> redeemCode(String code) async {
     if (code.trim().toUpperCase() != validCode) {
