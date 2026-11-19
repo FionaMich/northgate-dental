@@ -20,7 +20,7 @@ final linkedPatientsProvider = FutureProvider<List<LinkedPatient>>((ref) async {
 class SelectedPatient extends Notifier<String?> {
   @override
   String? build() {
-    ref.watch(signedInProvider);   // forget the choice on sign-out
+    ref.watch(signedInProvider); // forget the choice on sign-out
     return null;
   }
 

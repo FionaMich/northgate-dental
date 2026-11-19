@@ -1,13 +1,13 @@
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'design/tokens.dart';
 import 'features/home_screen.dart';
 import 'features/link_code_screen.dart';
 import 'features/sign_in_screen.dart';
 import 'state.dart';
-
-const _teal = Color(0xFF04899A);
 
 class NorthgateApp extends StatefulWidget {
   const NorthgateApp({super.key});
@@ -17,15 +17,17 @@ class NorthgateApp extends StatefulWidget {
 }
 
 class _NorthgateAppState extends State<NorthgateApp> {
-  final _router = GoRouter(routes: [GoRoute(path: '/', builder: (_, _) => const Gate())]);
+  final _router = GoRouter(
+    routes: [GoRoute(path: '/', builder: (_, _) => const Gate())],
+  );
 
   @override
   Widget build(BuildContext context) => MaterialApp.router(
-        title: 'Northgate Dental',
-        theme: ThemeData(colorScheme: ColorScheme.fromSeed(seedColor: _teal)),
-        routerConfig: _router,
-        builder: (context, child) => SyntheticFrame(child: child!),
-      );
+    title: 'Northgate Dental',
+    theme: northgateTheme(),
+    routerConfig: _router,
+    builder: (context, child) => SyntheticFrame(child: child!),
+  );
 }
 
 /// A strip on every screen: this app only ever holds synthetic data.
@@ -35,23 +37,31 @@ class SyntheticFrame extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Column(children: [
-      Material(
-        color: scheme.tertiaryContainer,
-        child: SafeArea(
-          bottom: false,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: Center(
-              child: Text('Synthetic data. Not a real practice or patient.',
-                  style: TextStyle(fontSize: 12, color: scheme.onTertiaryContainer)),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light,
+      child: Column(
+        children: [
+          Material(
+            color: Palette.deepSea,
+            child: SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 5),
+                child: Center(
+                  child: Text(
+                    'Synthetic data. Not a real practice or patient.',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFFA9DCD1)),
+                  ),
+                ),
+              ),
             ),
           ),
-        ),
+          Expanded(
+            child: MediaQuery.removePadding(context: context, removeTop: true, child: child),
+          ),
+        ],
       ),
-      Expanded(child: MediaQuery.removePadding(context: context, removeTop: true, child: child)),
-    ]);
+    );
   }
 }
 
@@ -65,7 +75,9 @@ class Gate extends ConsumerWidget {
     final signedIn = ref.watch(signedInProvider).value;
     if (signedIn == null) return loading;
     if (!signedIn) return const SignInScreen();
-    return ref.watch(linkedPatientsProvider).when(
+    return ref
+        .watch(linkedPatientsProvider)
+        .when(
           loading: () => loading,
           error: (_, _) => Scaffold(
             body: Center(

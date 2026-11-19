@@ -21,8 +21,10 @@ Future<void> main() async {
     publishableKey: _publishableKey,
     authOptions: FlutterAuthClientOptions(localStorage: SecureSessionStorage()),
   );
-  runApp(ProviderScope(
-    overrides: [accountRepositoryProvider.overrideWithValue(SupabaseAccountRepository(Supabase.instance.client))],
-    child: const NorthgateApp(),
-  ));
+  runApp(
+    ProviderScope(
+      overrides: [accountRepositoryProvider.overrideWithValue(SupabaseAccountRepository(Supabase.instance.client))],
+      child: const NorthgateApp(),
+    ),
+  );
 }

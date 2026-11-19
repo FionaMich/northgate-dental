@@ -8,10 +8,7 @@ import 'package:material_ui/material_ui.dart';
 import 'fakes.dart';
 
 Future<FakeAccountRepository> pumpApp(WidgetTester tester, FakeAccountRepository repo) async {
-  await tester.pumpWidget(ProviderScope(
-    overrides: [accountRepositoryProvider.overrideWithValue(repo)],
-    child: const NorthgateApp(),
-  ));
+  await tester.pumpWidget(ProviderScope(overrides: [accountRepositoryProvider.overrideWithValue(repo)], child: const NorthgateApp()));
   await tester.pumpAndSettle();
   return repo;
 }
@@ -62,10 +59,15 @@ void main() {
   });
 
   testWidgets('a parent switches between themselves and a child (E40)', (tester) async {
-    await pumpApp(tester, FakeAccountRepository(patients: const [
-      LinkedPatient(id: 'p-ana', name: 'Ana Reyes', isSelf: true),
-      LinkedPatient(id: 'p-sofia', name: 'Sofia Reyes', isSelf: false),
-    ]));
+    await pumpApp(
+      tester,
+      FakeAccountRepository(
+        patients: const [
+          LinkedPatient(id: 'p-ana', name: 'Ana Reyes', isSelf: true),
+          LinkedPatient(id: 'p-sofia', name: 'Sofia Reyes', isSelf: false),
+        ],
+      ),
+    );
     await signIn(tester);
     expect(find.text('Hello, Ana'), findsOneWidget);
     await tester.tap(find.byKey(const Key('person-p-sofia')));
@@ -74,7 +76,12 @@ void main() {
   });
 
   testWidgets('signing out returns to the sign-in screen (E39)', (tester) async {
-    final repo = await pumpApp(tester, FakeAccountRepository(patients: const [LinkedPatient(id: 'p-elena', name: 'Elena Marsh', isSelf: true)]));
+    final repo = await pumpApp(
+      tester,
+      FakeAccountRepository(
+        patients: const [LinkedPatient(id: 'p-elena', name: 'Elena Marsh', isSelf: true)],
+      ),
+    );
     await signIn(tester);
     await tester.tap(find.byKey(const Key('sign-out')));
     await tester.pumpAndSettle();
