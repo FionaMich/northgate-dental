@@ -1,5 +1,6 @@
 import 'package:dental/app.dart';
 import 'package:dental/data/account_repository.dart';
+import 'package:dental/features/intro_screen.dart';
 import 'package:dental/state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -16,6 +17,7 @@ Future<FakeAccountRepository> pumpApp(WidgetTester tester, FakeAccountRepository
       overrides: [
         accountRepositoryProvider.overrideWithValue(repo),
         careRepositoryProvider.overrideWithValue(care ?? FakeCareRepository()),
+        introDurationProvider.overrideWithValue(Duration.zero),
       ],
       child: const NorthgateApp(),
     ),
@@ -42,11 +44,6 @@ Future<void> signIn(WidgetTester tester, {String password = 'right'}) async {
 }
 
 void main() {
-  testWidgets('every screen says the data is synthetic', (tester) async {
-    await pumpApp(tester, FakeAccountRepository());
-    expect(find.textContaining('Synthetic data'), findsOneWidget);
-  });
-
   testWidgets('a wrong password shows a plain message', (tester) async {
     await pumpApp(tester, FakeAccountRepository());
     await signIn(tester, password: 'wrong');

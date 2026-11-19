@@ -11,6 +11,12 @@ Future<void> enterCode(WidgetTester tester, String code) async {
 }
 
 void main() {
+  testWidgets('the sign-up screen says the app holds synthetic data only', (tester) async {
+    await pumpApp(tester, FakeAccountRepository());
+    await tapKey(tester, 'go-sign-up');
+    expect(find.textContaining('synthetic data only'), findsOneWidget);
+  });
+
   testWidgets('a new patient signs up, confirms the emailed code and is asked to link a record (E34)', (tester) async {
     final repo = await pumpApp(tester, FakeAccountRepository());
     await tapKey(tester, 'go-sign-up');

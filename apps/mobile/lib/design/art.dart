@@ -240,3 +240,42 @@ class Lockup extends StatelessWidget {
     );
   }
 }
+
+/// The mint-tinted variation of the tooth, used by the brushing loader.
+void paintMintTooth(Canvas canvas, Size size) {
+  final rect = Offset.zero & size;
+  final tooth = _tooth(size);
+  canvas.drawPath(
+    tooth.shift(Offset(0, size.height * 0.04)),
+    Paint()
+      ..color = const Color(0xFF021614).withValues(alpha: 0.35)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10),
+  );
+  canvas.drawPath(
+    tooth,
+    Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment(-0.7, -1),
+        end: Alignment(0.7, 1),
+        colors: [Colors.white, Color(0xFFDFF8EF), Color(0xFF9EE3CC), Color(0xFF5BBFA6)],
+        stops: [0, 0.4, 0.78, 1],
+      ).createShader(rect),
+  );
+  canvas.drawPath(
+    tooth,
+    Paint()
+      ..shader = const RadialGradient(
+        center: Alignment(-0.36, -0.56),
+        radius: 0.5,
+        colors: [Colors.white, Color(0x00FFFFFF)],
+      ).createShader(rect),
+  );
+  canvas.drawPath(
+    _shine(size),
+    Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = size.width * 0.07
+      ..strokeCap = StrokeCap.round,
+  );
+}

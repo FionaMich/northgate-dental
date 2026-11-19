@@ -23,6 +23,9 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
+  assets:
+    - assets/images/intro_clinic.jpg
+
   # Fonts ship inside the app; never fetched from a font URL at runtime (privacy: no user IP to Google).
   fonts:
     - family: PlusJakartaSans
