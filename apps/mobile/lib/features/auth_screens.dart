@@ -126,7 +126,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> with _Busy {
         PrimaryButton(key: const Key('create-account'), label: 'Create account', busy: busy, onPressed: _ready ? _create : null),
         const SizedBox(height: 14),
         const Text(
-          'By creating an account you agree that Northgate Dental may use your email to send sign-in codes.',
+          'By creating an account you agree that Northgate Dental may use your email to send sign-in codes. This app holds synthetic data only.',
           textAlign: TextAlign.center,
           style: TextStyle(fontSize: 12, height: 1.45, color: Palette.muted),
         ),

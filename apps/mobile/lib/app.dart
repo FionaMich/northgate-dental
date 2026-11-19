@@ -33,7 +33,7 @@ class _NorthgateAppState extends State<NorthgateApp> {
   );
 }
 
-/// Light status bar icons over the app's dark tops. The app carries no on-screen synthetic label (decision 2026-11-19).
+/// Light status bar icons over the app's dark tops. The synthetic label lives in quiet copy on sign-up and profile, not a strip (decision 2026-11-19).
 class SyntheticFrame extends StatelessWidget {
   const SyntheticFrame({super.key, required this.child});
   final Widget child;

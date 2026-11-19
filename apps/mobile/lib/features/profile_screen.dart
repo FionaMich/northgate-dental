@@ -84,7 +84,7 @@ class ProfileScreen extends ConsumerWidget {
           const EmptyNote(
             icon: Icons.verified_user_outlined,
             title: 'Your data stays protected',
-            body: 'Your sign-in is kept in the phone\'s secure storage and removed when you sign out.',
+            body: 'Your sign-in is kept in the phone\'s secure storage and removed when you sign out. This app holds synthetic data only.',
           ),
           const SizedBox(height: 28),
           OutlinedButton.icon(
