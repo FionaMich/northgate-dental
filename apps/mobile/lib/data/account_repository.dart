@@ -68,9 +68,11 @@ class SupabaseAccountRepository implements AccountRepository {
     try {
       await _db.rpc('redeem_link_invitation', params: {'code': code});
     } on PostgrestException catch (e) {
-      throw AccountError(e.code == '22023'
-          ? 'This code is not valid or has expired. Ask the front desk for a new one.'
-          : 'Linking did not work. Please try again.');
+      throw AccountError(
+        e.code == '22023'
+            ? 'This code is not valid or has expired. Ask the front desk for a new one.'
+            : 'Linking did not work. Please try again.',
+      );
     }
   }
 }
