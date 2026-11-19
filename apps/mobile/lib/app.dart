@@ -29,13 +29,13 @@ class _NorthgateAppState extends State<NorthgateApp> {
     theme: northgateTheme(),
     routerConfig: _router,
     // The intro shows once per cold start, then hands over to the sign-in or home gate.
-    builder: (context, child) => SyntheticFrame(child: _introDone ? child! : IntroScreen(onDone: () => setState(() => _introDone = true))),
+    builder: (context, child) => LightStatusBar(child: _introDone ? child! : IntroScreen(onDone: () => setState(() => _introDone = true))),
   );
 }
 
-/// Light status bar icons over the app's dark tops. The synthetic label lives in quiet copy on sign-up and profile, not a strip (decision 2026-11-19).
-class SyntheticFrame extends StatelessWidget {
-  const SyntheticFrame({super.key, required this.child});
+/// Light status bar icons over the app's dark tops. The synthetic label lives in quiet copy on sign-up and profile (decision 2026-11-19).
+class LightStatusBar extends StatelessWidget {
+  const LightStatusBar({super.key, required this.child});
   final Widget child;
 
   @override

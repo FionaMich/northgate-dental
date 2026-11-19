@@ -56,7 +56,7 @@ class _LinkCodeScreenState extends ConsumerState<LinkCodeScreen> {
                 children: [
                   Stack(
                     children: [
-                      HeroStage(height: (box.maxHeight * 0.36).clamp(220, 320)),
+                      HeroStage(height: (box.maxHeight * 0.36).clamp(220, 320), quietCorner: true),
                       Positioned(
                         right: 8,
                         top: 8 + MediaQuery.paddingOf(context).top,
