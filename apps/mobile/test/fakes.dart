@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:dental/data/account_repository.dart';
+import 'package:dental/data/care_repository.dart';
 
 /// In-memory stand-in for Supabase, so widget tests run without a network.
 class FakeAccountRepository implements AccountRepository {
@@ -45,5 +46,18 @@ class FakeAccountRepository implements AccountRepository {
       throw const AccountError('This code is not valid or has expired. Ask the front desk for a new one.');
     }
     patients = patientsAfterLinking;
+  }
+}
+
+/// Care data for widget tests, keyed by patient ID.
+class FakeCareRepository implements CareRepository {
+  FakeCareRepository([this.byPatient = const {}, this.fail = false]);
+  final Map<String, CareSummary> byPatient;
+  final bool fail;
+
+  @override
+  Future<CareSummary> summary(String patientId) async {
+    if (fail) throw Exception('server refused the query');
+    return byPatient[patientId] ?? const CareSummary();
   }
 }

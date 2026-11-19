@@ -7,8 +7,19 @@ import 'package:material_ui/material_ui.dart';
 
 import 'fakes.dart';
 
-Future<FakeAccountRepository> pumpApp(WidgetTester tester, FakeAccountRepository repo) async {
-  await tester.pumpWidget(ProviderScope(overrides: [accountRepositoryProvider.overrideWithValue(repo)], child: const NorthgateApp()));
+Future<FakeAccountRepository> pumpApp(WidgetTester tester, FakeAccountRepository repo, {FakeCareRepository? care}) async {
+  // Tests run with the phone's reduce-motion setting on, as some patients will; the floating art then stays still.
+  tester.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(disableAnimations: true);
+  addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        accountRepositoryProvider.overrideWithValue(repo),
+        careRepositoryProvider.overrideWithValue(care ?? FakeCareRepository()),
+      ],
+      child: const NorthgateApp(),
+    ),
+  );
   await tester.pumpAndSettle();
   return repo;
 }
@@ -83,6 +94,10 @@ void main() {
       ),
     );
     await signIn(tester);
+    await tester.tap(find.byKey(const Key('tab-profile')));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('sign-out')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('sign-out')));
     await tester.pumpAndSettle();
     expect(repo.signOutCalls, 1);

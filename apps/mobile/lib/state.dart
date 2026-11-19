@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'data/account_repository.dart';
+import 'data/care_repository.dart';
 
 /// Set in main.dart (Supabase) and in tests (a fake).
 final accountRepositoryProvider = Provider<AccountRepository>((ref) => throw UnimplementedError('override in main or tests'));
@@ -34,4 +35,15 @@ final currentPatientProvider = Provider<LinkedPatient?>((ref) {
   if (people.isEmpty) return null;
   final chosen = ref.watch(selectedPatientProvider);
   return people.where((p) => p.id == chosen).firstOrNull ?? people.where((p) => p.isSelf).firstOrNull ?? people.first;
+});
+
+/// Set in main.dart (Supabase) and in tests (a fake).
+final careRepositoryProvider = Provider<CareRepository>((ref) => throw UnimplementedError('override in main or tests'));
+
+/// Upcoming visits, history and plans for the person on screen.
+// No automatic retry: a failure shows the retry message at once instead of an endless loading state.
+final careSummaryProvider = FutureProvider<CareSummary>(retry: (_, _) => null, (ref) async {
+  final person = ref.watch(currentPatientProvider);
+  if (person == null) return const CareSummary();
+  return ref.watch(careRepositoryProvider).summary(person.id);
 });

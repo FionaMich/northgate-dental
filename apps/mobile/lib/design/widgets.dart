@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import 'art.dart';
+import 'motion.dart';
 import 'tokens.dart';
 
 /// Full-width primary action with the brand gradient and a soft lift.
@@ -85,7 +86,11 @@ class HeroStage extends StatelessWidget {
     child: Stack(
       clipBehavior: Clip.none,
       children: [
-        Positioned(right: 36, top: height * 0.12, child: const Orb(size: 64)),
+        Positioned(
+          right: 36,
+          top: height * 0.12,
+          child: const Float(distance: 10, phase: 0.3, child: Orb(size: 64)),
+        ),
         Positioned(
           left: 40,
           bottom: height * 0.14,
@@ -99,7 +104,7 @@ class HeroStage extends StatelessWidget {
         Positioned(left: 24, top: 18, child: const Lockup(onDark: true, markHeight: 34)),
         Align(
           alignment: const Alignment(0, 0.35),
-          child: Tooth3D(height: height * 0.5),
+          child: Float(child: Tooth3D(height: height * 0.5)),
         ),
       ],
     ),

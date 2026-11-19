@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app.dart';
 import 'data/account_repository.dart';
+import 'data/care_repository.dart';
 import 'data/secure_session_storage.dart';
 import 'state.dart';
 
@@ -23,7 +24,10 @@ Future<void> main() async {
   );
   runApp(
     ProviderScope(
-      overrides: [accountRepositoryProvider.overrideWithValue(SupabaseAccountRepository(Supabase.instance.client))],
+      overrides: [
+        accountRepositoryProvider.overrideWithValue(SupabaseAccountRepository(Supabase.instance.client)),
+        careRepositoryProvider.overrideWithValue(SupabaseCareRepository(Supabase.instance.client)),
+      ],
       child: const NorthgateApp(),
     ),
   );
