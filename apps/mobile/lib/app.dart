@@ -6,6 +6,7 @@ import 'package:material_ui/material_ui.dart';
 import 'design/tokens.dart';
 import 'features/shell.dart';
 import 'features/intro_screen.dart';
+import 'features/details_screen.dart';
 import 'features/link_code_screen.dart';
 import 'features/sign_in_screen.dart';
 import 'state.dart';
@@ -42,7 +43,7 @@ class LightStatusBar extends StatelessWidget {
   Widget build(BuildContext context) => AnnotatedRegion<SystemUiOverlayStyle>(value: SystemUiOverlayStyle.light, child: child);
 }
 
-/// Sends the person to sign-in, linking or home, depending on where they are.
+/// Sends the person to sign-in, linking, their clinic and address, or home, depending on where they are.
 class Gate extends ConsumerWidget {
   const Gate({super.key});
 
@@ -64,7 +65,12 @@ class Gate extends ConsumerWidget {
               ),
             ),
           ),
-          data: (people) => people.isEmpty ? const LinkCodeScreen() : const AppShell(),
+          data: (people) {
+            if (people.isEmpty) return const LinkCodeScreen();
+            // Asked once after linking: the account holder's clinic and address.
+            final unconfirmed = people.where((p) => p.isSelf && !p.detailsConfirmed).firstOrNull;
+            return unconfirmed == null ? const AppShell() : DetailsScreen(patient: unconfirmed);
+          },
         );
   }
 }

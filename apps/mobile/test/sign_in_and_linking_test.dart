@@ -28,6 +28,10 @@ Future<FakeAccountRepository> pumpApp(WidgetTester tester, FakeAccountRepository
 
 /// Scrolls the control into view first, as a person would, then taps it.
 Future<void> tapKey(WidgetTester tester, String key) async {
+  // Lists build lazily, so a control far down may not exist until the list scrolls towards it.
+  if (find.byKey(Key(key)).evaluate().isEmpty) {
+    await tester.scrollUntilVisible(find.byKey(Key(key)), 200, scrollable: find.byType(Scrollable).first);
+  }
   await tester.ensureVisible(find.byKey(Key(key)));
   await tester.pumpAndSettle();
   await tester.tap(find.byKey(Key(key)));

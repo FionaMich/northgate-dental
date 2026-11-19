@@ -11,7 +11,9 @@ class FakeAccountRepository implements AccountRepository {
   final String validCode;
   final String role;
   List<LinkedPatient> patients;
-  final List<LinkedPatient> patientsAfterLinking = const [LinkedPatient(id: 'p-elena', name: 'Elena Marsh', isSelf: true)];
+  final List<LinkedPatient> patientsAfterLinking = const [
+    LinkedPatient(id: 'p-elena', name: 'Elena Marsh', isSelf: true, detailsConfirmed: false),
+  ];
   final _changes = StreamController<bool>.broadcast();
   bool _signedIn = false;
   int signOutCalls = 0;
@@ -86,6 +88,31 @@ class FakeAccountRepository implements AccountRepository {
       throw const AccountError('This code is not valid or has expired. Ask the front desk for a new one.');
     }
     patients = patientsAfterLinking;
+  }
+
+  // Clinic and address, in memory. Confirmed records already have Back Bay and an address on file.
+  final saved = <(String, PatientDetails)>[];
+  final _details = <String, PatientDetails>{};
+
+  @override
+  Future<List<Clinic>> clinics() async => const [
+    Clinic(id: 'back-bay', name: 'Back Bay', address: '1 Example Street, Boston, MA 02116'),
+    Clinic(id: 'cambridge', name: 'Cambridge', address: '2 Example Avenue, Cambridge, MA 02139'),
+    Clinic(id: 'quincy', name: 'Quincy', address: '3 Example Road, Quincy, MA 02169'),
+  ];
+
+  @override
+  Future<PatientDetails> details(String patientId) async =>
+      _details[patientId] ??
+      (patients.any((p) => p.id == patientId && p.detailsConfirmed)
+          ? const PatientDetails(clinicId: 'back-bay', line1: '1 Example Street', city: 'Boston', state: 'MA', zip: '02116')
+          : const PatientDetails(clinicId: 'back-bay'));
+
+  @override
+  Future<void> saveDetails(String patientId, PatientDetails details) async {
+    saved.add((patientId, details));
+    _details[patientId] = details;
+    patients = [for (final p in patients) p.id == patientId ? LinkedPatient(id: p.id, name: p.name, isSelf: p.isSelf) : p];
   }
 }
 

@@ -2,13 +2,45 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// A patient record this sign-in may see: their own, or a child's through proxy access.
 class LinkedPatient {
-  const LinkedPatient({required this.id, required this.name, required this.isSelf});
+  const LinkedPatient({required this.id, required this.name, required this.isSelf, this.detailsConfirmed = true});
   final String id;
   final String name;
   final bool isSelf;
 
+  /// False until the patient has confirmed their clinic and address in the app.
+  final bool detailsConfirmed;
+
   String get firstName => name.split(' ').first;
 }
+
+/// One of the group's open clinics, as patients see it.
+class Clinic {
+  const Clinic({required this.id, required this.name, required this.address});
+  final String id, name, address;
+}
+
+/// The preferred clinic (the record's home location) and home address.
+class PatientDetails {
+  const PatientDetails({this.clinicId, this.line1 = '', this.line2 = '', this.city = '', this.state = '', this.zip = ''});
+  final String? clinicId;
+  final String line1, line2, city, state, zip;
+
+  @override
+  bool operator ==(Object other) =>
+      other is PatientDetails &&
+      other.clinicId == clinicId &&
+      other.line1 == line1 &&
+      other.line2 == line2 &&
+      other.city == city &&
+      other.state == state &&
+      other.zip == zip;
+
+  @override
+  int get hashCode => Object.hash(clinicId, line1, line2, city, state, zip);
+}
+
+/// Seed and staff data name clinics "Back Bay (synthetic)"; the patient app shows the plain name (decision 2026-11-19).
+String clinicLabel(String name) => name.replaceAll(' (synthetic)', '');
 
 /// A message safe to show the patient as it is.
 class AccountError implements Exception {
@@ -40,6 +72,12 @@ abstract class AccountRepository {
   Future<void> verifyResetCode(String email, String code);
 
   Future<void> setNewPassword(String password);
+
+  Future<List<Clinic>> clinics();
+  Future<PatientDetails> details(String patientId);
+
+  /// Saves the clinic and address for a record this sign-in may see; marks the details confirmed.
+  Future<void> saveDetails(String patientId, PatientDetails details);
 }
 
 /// The rules the server enforces (supabase/config.toml), shown to people before they hit them.
@@ -85,10 +123,15 @@ class SupabaseAccountRepository implements AccountRepository {
   @override
   Future<List<LinkedPatient>> linkedPatients() async {
     final self = await _db.from('patient_links').select('patient_id').eq('profile_id', _db.auth.currentUser!.id).maybeSingle();
-    final rows = await _db.from('patients').select('id, given_name, family_name').order('date_of_birth');
+    final rows = await _db.from('patients').select('id, given_name, family_name, details_confirmed_at').order('date_of_birth');
     return [
       for (final r in rows)
-        LinkedPatient(id: r['id'] as String, name: '${r['given_name']} ${r['family_name']}', isSelf: r['id'] == self?['patient_id']),
+        LinkedPatient(
+          id: r['id'] as String,
+          name: '${r['given_name']} ${r['family_name']}',
+          isSelf: r['id'] == self?['patient_id'],
+          detailsConfirmed: r['details_confirmed_at'] != null,
+        ),
     ];
   }
 
@@ -168,6 +211,64 @@ class SupabaseAccountRepository implements AccountRepository {
             ? 'This code is not valid or has expired. Ask the front desk for a new one.'
             : 'Linking did not work. Please try again.',
       );
+    }
+  }
+
+  @override
+  Future<List<Clinic>> clinics() async {
+    final rows = await _db.from('locations').select('id, name, address_line, city, state, postal_code').eq('active', true).order('name');
+    return [
+      for (final r in rows)
+        Clinic(
+          id: r['id'] as String,
+          name: clinicLabel(r['name'] as String),
+          address: [
+            r['address_line'],
+            r['city'],
+            '${r['state'] ?? ''} ${r['postal_code'] ?? ''}'.trim(),
+          ].where((s) => s != null && '$s'.isNotEmpty).join(', '),
+        ),
+    ];
+  }
+
+  @override
+  Future<PatientDetails> details(String patientId) async {
+    final r = await _db
+        .from('patients')
+        .select('home_location_id, address_line1, address_line2, city, state, postal_code')
+        .eq('id', patientId)
+        .single();
+    return PatientDetails(
+      clinicId: r['home_location_id'] as String?,
+      line1: r['address_line1'] as String? ?? '',
+      line2: r['address_line2'] as String? ?? '',
+      city: r['city'] as String? ?? '',
+      state: r['state'] as String? ?? '',
+      zip: r['postal_code'] as String? ?? '',
+    );
+  }
+
+  @override
+  Future<void> saveDetails(String patientId, PatientDetails d) async {
+    try {
+      await _db.rpc(
+        'update_my_details',
+        params: {
+          'patient': patientId,
+          'location': d.clinicId,
+          'line1': d.line1,
+          'line2': d.line2,
+          'town': d.city,
+          'region': d.state,
+          'zip': d.zip,
+        },
+      );
+    } on PostgrestException catch (e) {
+      throw AccountError(switch (e.code) {
+        '22023' => 'That clinic is not taking patients right now. Please choose another.',
+        '23514' => 'Please check the address: street, city, a 2-letter state and a 5-digit ZIP code.',
+        _ => 'Saving did not work. Please try again.',
+      });
     }
   }
 }
