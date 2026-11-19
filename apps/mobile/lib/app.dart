@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'design/tokens.dart';
-import 'features/home_screen.dart';
+import 'features/shell.dart';
 import 'features/link_code_screen.dart';
 import 'features/sign_in_screen.dart';
 import 'state.dart';
@@ -87,7 +87,7 @@ class Gate extends ConsumerWidget {
               ),
             ),
           ),
-          data: (people) => people.isEmpty ? const LinkCodeScreen() : const HomeScreen(),
+          data: (people) => people.isEmpty ? const LinkCodeScreen() : const AppShell(),
         );
   }
 }
