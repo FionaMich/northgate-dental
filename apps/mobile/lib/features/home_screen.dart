@@ -60,7 +60,7 @@ class _Header extends ConsumerWidget {
         gradient: heroGradient,
         borderRadius: BorderRadius.vertical(bottom: Radius.circular(36)),
       ),
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 60),
+      padding: EdgeInsets.fromLTRB(20, 16 + MediaQuery.paddingOf(context).top, 20, 60),
       child: Stack(
         clipBehavior: Clip.none,
         children: [

@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 
 import 'design/tokens.dart';
 import 'features/shell.dart';
+import 'features/intro_screen.dart';
 import 'features/link_code_screen.dart';
 import 'features/sign_in_screen.dart';
 import 'state.dart';
@@ -17,6 +18,7 @@ class NorthgateApp extends StatefulWidget {
 }
 
 class _NorthgateAppState extends State<NorthgateApp> {
+  bool _introDone = false;
   final _router = GoRouter(
     routes: [GoRoute(path: '/', builder: (_, _) => const Gate())],
   );
@@ -26,43 +28,18 @@ class _NorthgateAppState extends State<NorthgateApp> {
     title: 'Northgate Dental',
     theme: northgateTheme(),
     routerConfig: _router,
-    builder: (context, child) => SyntheticFrame(child: child!),
+    // The intro shows once per cold start, then hands over to the sign-in or home gate.
+    builder: (context, child) => SyntheticFrame(child: _introDone ? child! : IntroScreen(onDone: () => setState(() => _introDone = true))),
   );
 }
 
-/// A strip on every screen: this app only ever holds synthetic data.
+/// Light status bar icons over the app's dark tops. The app carries no on-screen synthetic label (decision 2026-11-19).
 class SyntheticFrame extends StatelessWidget {
   const SyntheticFrame({super.key, required this.child});
   final Widget child;
 
   @override
-  Widget build(BuildContext context) {
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.light,
-      child: Column(
-        children: [
-          Material(
-            color: Palette.deepSea,
-            child: SafeArea(
-              bottom: false,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 5),
-                child: Center(
-                  child: Text(
-                    'Synthetic data. Not a real practice or patient.',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFFA9DCD1)),
-                  ),
-                ),
-              ),
-            ),
-          ),
-          Expanded(
-            child: MediaQuery.removePadding(context: context, removeTop: true, child: child),
-          ),
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context) => AnnotatedRegion<SystemUiOverlayStyle>(value: SystemUiOverlayStyle.light, child: child);
 }
 
 /// Sends the person to sign-in, linking or home, depending on where they are.

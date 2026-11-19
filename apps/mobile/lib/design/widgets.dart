@@ -78,36 +78,43 @@ class ErrorNote extends StatelessWidget {
 
 /// Deep teal stage with the rendered tooth and floating spheres, behind sign-in and linking.
 class HeroStage extends StatelessWidget {
-  const HeroStage({super.key, required this.height});
+  const HeroStage({super.key, required this.height, this.quietCorner = false});
   final double height;
 
+  /// Keeps the top-right corner clear for a close button.
+  final bool quietCorner;
+
   @override
-  Widget build(BuildContext context) => SizedBox(
-    height: height,
-    child: Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Positioned(
-          right: 36,
-          top: height * 0.12,
-          child: const Float(distance: 10, phase: 0.3, child: Orb(size: 64)),
-        ),
-        Positioned(
-          left: 40,
-          bottom: height * 0.14,
-          child: const Orb(size: 40, tone: OrbTone.pearl),
-        ),
-        Positioned(
-          right: 30,
-          bottom: height * 0.2,
-          child: const Orb(size: 26, tone: OrbTone.teal),
-        ),
-        Positioned(left: 24, top: 18, child: const Lockup(onDark: true, markHeight: 34)),
-        Align(
-          alignment: const Alignment(0, 0.35),
-          child: Float(child: Tooth3D(height: height * 0.5)),
-        ),
-      ],
+  // Starts below the status bar so the logo and art never sit under the clock.
+  Widget build(BuildContext context) => Padding(
+    padding: EdgeInsets.only(top: MediaQuery.paddingOf(context).top),
+    child: SizedBox(
+      height: height,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned(
+            right: 36,
+            top: height * (quietCorner ? 0.42 : 0.12),
+            child: const Float(distance: 10, phase: 0.3, child: Orb(size: 64)),
+          ),
+          Positioned(
+            left: 40,
+            bottom: height * 0.14,
+            child: const Orb(size: 40, tone: OrbTone.pearl),
+          ),
+          Positioned(
+            right: 30,
+            bottom: height * 0.2,
+            child: const Orb(size: 26, tone: OrbTone.teal),
+          ),
+          Positioned(left: 24, top: 18, child: const Lockup(onDark: true, markHeight: 34)),
+          Align(
+            alignment: const Alignment(0, 0.35),
+            child: Float(child: Tooth3D(height: height * 0.5)),
+          ),
+        ],
+      ),
     ),
   );
 }
@@ -149,11 +156,11 @@ class AuthLayout extends StatelessWidget {
               children: [
                 Stack(
                   children: [
-                    HeroStage(height: (box.maxHeight * heroFraction).clamp(200, 380)),
+                    HeroStage(height: (box.maxHeight * heroFraction).clamp(200, 380), quietCorner: showBack),
                     if (showBack)
                       Positioned(
                         right: 12,
-                        top: 10,
+                        top: 10 + MediaQuery.paddingOf(context).top,
                         child: IconButton.filledTonal(
                           tooltip: 'Back',
                           style: IconButton.styleFrom(backgroundColor: Colors.white.withValues(alpha: 0.14), foregroundColor: Colors.white),

@@ -59,7 +59,7 @@ class _LinkCodeScreenState extends ConsumerState<LinkCodeScreen> {
                       HeroStage(height: (box.maxHeight * 0.36).clamp(220, 320)),
                       Positioned(
                         right: 8,
-                        top: 8,
+                        top: 8 + MediaQuery.paddingOf(context).top,
                         child: TextButton(
                           key: const Key('sign-out'),
                           style: TextButton.styleFrom(foregroundColor: Colors.white),
