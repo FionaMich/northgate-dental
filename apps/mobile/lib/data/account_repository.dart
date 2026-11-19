@@ -24,7 +24,36 @@ abstract class AccountRepository {
   Future<void> signOut();
   Future<List<LinkedPatient>> linkedPatients();
   Future<void> redeemCode(String code);
+
+  /// Creates a patient account; Supabase emails a 6-digit code to confirm the address.
+  Future<void> signUp({required String name, required String email, required String password});
+
+  /// Confirms the sign-up code; success signs the new patient in.
+  Future<void> verifySignUpCode(String email, String code);
+
+  Future<void> resendSignUpCode(String email);
+
+  /// Emails a reset code. Says nothing about whether the account exists.
+  Future<void> sendPasswordReset(String email);
+
+  /// Checks the reset code; success opens a short session that may only set a new password.
+  Future<void> verifyResetCode(String email, String code);
+
+  Future<void> setNewPassword(String password);
 }
+
+/// The rules the server enforces (supabase/config.toml), shown to people before they hit them.
+abstract final class PasswordRules {
+  static const minLength = 10;
+  static bool longEnough(String p) => p.length >= minLength;
+  static bool hasUpper(String p) => p.contains(RegExp('[A-Z]'));
+  static bool hasLower(String p) => p.contains(RegExp('[a-z]'));
+  static bool hasDigit(String p) => p.contains(RegExp('[0-9]'));
+  static bool ok(String p) => longEnough(p) && hasUpper(p) && hasLower(p) && hasDigit(p);
+}
+
+const codeError = 'That code is not right or has expired. Check the latest email, or ask for a new code.';
+const tooManyError = 'Too many tries. Please wait a minute, then try again.';
 
 class SupabaseAccountRepository implements AccountRepository {
   SupabaseAccountRepository(this._db);
@@ -61,6 +90,72 @@ class SupabaseAccountRepository implements AccountRepository {
       for (final r in rows)
         LinkedPatient(id: r['id'] as String, name: '${r['given_name']} ${r['family_name']}', isSelf: r['id'] == self?['patient_id']),
     ];
+  }
+
+  static AccountError _authError(AuthException e, {String fallback = 'That did not work. Please try again.'}) {
+    if (e.statusCode == '429' || (e.code ?? '').contains('rate_limit')) return const AccountError(tooManyError);
+    if (e.code == 'weak_password') {
+      return const AccountError('Choose a stronger password: 10 or more characters with upper and lower case letters and a number.');
+    }
+    if (e.code == 'otp_expired' || e.code == 'otp_disabled') return const AccountError(codeError);
+    return AccountError(fallback);
+  }
+
+  @override
+  Future<void> signUp({required String name, required String email, required String password}) async {
+    try {
+      await _db.auth.signUp(email: email.trim(), password: password, data: {'display_name': name.trim()});
+    } on AuthException catch (e) {
+      throw _authError(e);
+    }
+  }
+
+  @override
+  Future<void> verifySignUpCode(String email, String code) async {
+    try {
+      await _db.auth.verifyOTP(type: OtpType.signup, email: email.trim(), token: code.trim());
+    } on AuthException catch (e) {
+      throw _authError(e, fallback: codeError);
+    }
+  }
+
+  @override
+  Future<void> resendSignUpCode(String email) async {
+    try {
+      await _db.auth.resend(type: OtpType.signup, email: email.trim());
+    } on AuthException catch (e) {
+      throw _authError(e);
+    }
+  }
+
+  @override
+  Future<void> sendPasswordReset(String email) async {
+    try {
+      await _db.auth.resetPasswordForEmail(email.trim());
+    } on AuthException catch (e) {
+      // Only rate limits are reported; anything else looks the same as success so accounts cannot be probed.
+      if (e.statusCode == '429' || (e.code ?? '').contains('rate_limit')) {
+        throw const AccountError(tooManyError);
+      }
+    }
+  }
+
+  @override
+  Future<void> verifyResetCode(String email, String code) async {
+    try {
+      await _db.auth.verifyOTP(type: OtpType.recovery, email: email.trim(), token: code.trim());
+    } on AuthException catch (e) {
+      throw _authError(e, fallback: codeError);
+    }
+  }
+
+  @override
+  Future<void> setNewPassword(String password) async {
+    try {
+      await _db.auth.updateUser(UserAttributes(password: password));
+    } on AuthException catch (e) {
+      throw _authError(e);
+    }
   }
 
   @override

@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'art.dart';
@@ -125,5 +126,164 @@ class BottomSheetPanel extends StatelessWidget {
       borderRadius: BorderRadius.vertical(top: Radius.circular(36)),
     ),
     child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: children),
+  );
+}
+
+/// Every signed-out screen: hero art on top, a white sheet with the form below, optional back button.
+class AuthLayout extends StatelessWidget {
+  const AuthLayout({super.key, required this.children, this.heroFraction = 0.36, this.showBack = false});
+  final List<Widget> children;
+  final double heroFraction;
+  final bool showBack;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    body: DecoratedBox(
+      decoration: const BoxDecoration(gradient: heroGradient),
+      child: LayoutBuilder(
+        builder: (context, box) => SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: box.maxHeight),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Stack(
+                  children: [
+                    HeroStage(height: (box.maxHeight * heroFraction).clamp(200, 380)),
+                    if (showBack)
+                      Positioned(
+                        right: 12,
+                        top: 10,
+                        child: IconButton.filledTonal(
+                          tooltip: 'Back',
+                          style: IconButton.styleFrom(backgroundColor: Colors.white.withValues(alpha: 0.14), foregroundColor: Colors.white),
+                          onPressed: () => Navigator.of(context).maybePop(),
+                          icon: const Icon(Icons.close_rounded),
+                        ),
+                      ),
+                  ],
+                ),
+                BottomSheetPanel(children: children),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+/// Six boxes for an emailed code. One hidden text field underneath keeps paste, autofill and screen readers working.
+class CodeBoxes extends StatefulWidget {
+  const CodeBoxes({super.key, required this.onCompleted, this.enabled = true});
+  final ValueChanged<String> onCompleted;
+  final bool enabled;
+
+  @override
+  State<CodeBoxes> createState() => _CodeBoxesState();
+}
+
+class _CodeBoxesState extends State<CodeBoxes> {
+  final _c = TextEditingController();
+  final _focus = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    _c.addListener(() {
+      setState(() {});
+      if (_c.text.length == 6) widget.onCompleted(_c.text);
+    });
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    _focus.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    onTap: () => _focus.requestFocus(),
+    child: Stack(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            for (var i = 0; i < 6; i++)
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 160),
+                width: 48,
+                height: 58,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: i < _c.text.length ? Colors.white : const Color(0xFFF4F8F7),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: _focus.hasFocus && i == _c.text.length.clamp(0, 5) ? Palette.teal : Palette.line,
+                    width: _focus.hasFocus && i == _c.text.length.clamp(0, 5) ? 2 : 1,
+                  ),
+                ),
+                child: Text(
+                  i < _c.text.length ? _c.text[i] : '',
+                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: Palette.deepSea),
+                ),
+              ),
+          ],
+        ),
+        Positioned.fill(
+          child: Opacity(
+            opacity: 0,
+            child: TextField(
+              key: const Key('code-input'),
+              controller: _c,
+              focusNode: _focus,
+              enabled: widget.enabled,
+              autofocus: true,
+              keyboardType: TextInputType.number,
+              autofillHints: const [AutofillHints.oneTimeCode],
+              maxLength: 6,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              decoration: const InputDecoration(counterText: '', border: InputBorder.none, filled: false),
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+/// A tick list that turns green as the password meets each server rule.
+class PasswordChecklist extends StatelessWidget {
+  const PasswordChecklist({super.key, required this.rules});
+  final List<(String, bool)> rules;
+
+  @override
+  Widget build(BuildContext context) => Wrap(
+    spacing: 14,
+    runSpacing: 6,
+    children: [
+      for (final (label, met) in rules)
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 180),
+              child: Icon(
+                met ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+                key: ValueKey(met),
+                size: 18,
+                color: met ? Palette.teal : const Color(0xFF9AB0AC),
+              ),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: met ? Palette.teal : Palette.muted),
+            ),
+          ],
+        ),
+    ],
   );
 }

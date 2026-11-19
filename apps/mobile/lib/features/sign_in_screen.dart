@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../data/account_repository.dart';
 import '../design/tokens.dart';
+import 'auth_screens.dart';
 import '../design/widgets.dart';
 import '../state.dart';
 
@@ -20,6 +21,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
   bool _busy = false;
 
   Future<void> _submit() async {
+    ref.read(signedOutNoticeProvider.notifier).clear();
     setState(() {
       _busy = true;
       _error = null;
@@ -56,6 +58,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                   HeroStage(height: (box.maxHeight * 0.42).clamp(240, 380)),
                   BottomSheetPanel(
                     children: [
+                      if (ref.watch(signedOutNoticeProvider)) ...[const _SignedOutNote(), const SizedBox(height: 18)],
                       Text('Welcome back', style: text.headlineMedium),
                       const SizedBox(height: 6),
                       Text('Visits, plans and bookings across Back Bay, Cambridge and Quincy.', style: text.bodyLarge),
@@ -77,9 +80,30 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                         onSubmitted: (_) => _submit(),
                         decoration: const InputDecoration(labelText: 'Password'),
                       ),
-                      if (_error != null) ...[const SizedBox(height: 14), ErrorNote(_error!)],
-                      const SizedBox(height: 22),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          key: const Key('go-reset'),
+                          onPressed: () =>
+                              Navigator.of(context).push(MaterialPageRoute(builder: (_) => ResetRequestScreen(email: _email.text.trim()))),
+                          child: const Text('Forgot password?'),
+                        ),
+                      ),
+                      if (_error != null) ...[ErrorNote(_error!), const SizedBox(height: 14)],
+                      const SizedBox(height: 8),
                       PrimaryButton(key: const Key('sign-in'), label: 'Sign in', busy: _busy, onPressed: _submit),
+                      const SizedBox(height: 18),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Text('New to Northgate?', style: TextStyle(color: Palette.muted, fontSize: 15)),
+                          TextButton(
+                            key: const Key('go-sign-up'),
+                            onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SignUpScreen())),
+                            child: const Text('Create an account'),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ],
@@ -90,4 +114,29 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
       ),
     );
   }
+}
+
+class _SignedOutNote extends StatelessWidget {
+  const _SignedOutNote();
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    liveRegion: true,
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(color: Palette.enamel, borderRadius: BorderRadius.circular(14)),
+      child: const Row(
+        children: [
+          Icon(Icons.check_circle_rounded, color: Palette.teal, size: 20),
+          SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'You have signed out. Your sign-in was removed from this phone.',
+              style: TextStyle(color: Palette.tealDark, fontSize: 14, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 }

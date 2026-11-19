@@ -89,7 +89,7 @@ class ProfileScreen extends ConsumerWidget {
           const SizedBox(height: 28),
           OutlinedButton.icon(
             key: const Key('sign-out'),
-            onPressed: () => ref.read(accountRepositoryProvider).signOut(),
+            onPressed: () => _confirmSignOut(context, ref),
             icon: const Icon(Icons.logout_rounded),
             label: const Text('Sign out'),
             style: OutlinedButton.styleFrom(
@@ -104,4 +104,58 @@ class ProfileScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+Future<void> _confirmSignOut(BuildContext context, WidgetRef ref) async {
+  final yes = await showModalBottomSheet<bool>(
+    context: context,
+    backgroundColor: Colors.white,
+    showDragHandle: true,
+    isScrollControlled: true, // size to content and scroll on short screens instead of overflowing
+    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(32))),
+    builder: (context) => SafeArea(
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Center(child: IconTile(Icons.logout_rounded, size: 64)),
+              const SizedBox(height: 18),
+              Text('Sign out of Northgate?', textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineMedium),
+              const SizedBox(height: 8),
+              const Text(
+                'We remove your sign-in from this phone. You will need your email and password to come back.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 15, height: 1.5, color: Palette.muted),
+              ),
+              const SizedBox(height: 24),
+              FilledButton(
+                key: const Key('confirm-sign-out'),
+                onPressed: () => Navigator.of(context).pop(true),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size.fromHeight(56),
+                  backgroundColor: Palette.error,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                  textStyle: const TextStyle(fontFamily: uiFont, fontSize: 16, fontWeight: FontWeight.w700),
+                ),
+                child: const Text('Sign out'),
+              ),
+              const SizedBox(height: 10),
+              TextButton(
+                key: const Key('cancel-sign-out'),
+                onPressed: () => Navigator.of(context).pop(false),
+                style: TextButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+                child: const Text('Stay signed in'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+  if (yes != true) return;
+  ref.read(signedOutNoticeProvider.notifier).show();
+  await ref.read(accountRepositoryProvider).signOut();
 }
