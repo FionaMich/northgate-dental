@@ -62,9 +62,43 @@ class CareSummary {
   }
 }
 
-/// Reads one patient's care. Row level security decides what this sign-in may see.
+/// A service patients may book themselves at a clinic.
+class BookableService {
+  const BookableService({required this.id, required this.name, required this.minutes});
+  final String id, name;
+  final int minutes;
+}
+
+/// A free time from `available_slots`, with the dentist the server matched to it.
+class Slot {
+  const Slot({required this.practitionerId, required this.startsAt, required this.endsAt});
+  final String practitionerId;
+  final DateTime startsAt, endsAt;
+}
+
+/// A booking problem safe to show as it is.
+class BookingError implements Exception {
+  const BookingError(this.message);
+  final String message;
+}
+
+const slotTakenError = 'Someone has just taken that time. Please pick another.';
+const holdExpiredError = 'Your hold has run out. Please pick a time again.';
+
+/// Reads one patient's care and books visits. Row level security and the booking functions decide what is allowed.
 abstract class CareRepository {
   Future<CareSummary> summary(String patientId);
+  Future<List<BookableService>> services(String clinicId);
+
+  /// Free times over [days] days from [fromDay], one per start time, soonest first.
+  Future<List<Slot>> slots(String clinicId, String serviceId, DateTime fromDay, {int days = 14});
+
+  /// Holds the time for 10 minutes and returns the held appointment's ID. Nothing is booked yet.
+  Future<String> hold({required String clinicId, required String serviceId, required Slot slot, required String patientId});
+
+  /// Turns a hold into a booking. Only the server's answer makes it confirmed.
+  Future<void> confirm(String appointmentId);
+  Future<void> cancel(String appointmentId);
 }
 
 class SupabaseCareRepository implements CareRepository {
@@ -140,5 +174,81 @@ class SupabaseCareRepository implements CareRepository {
           ),
       ],
     );
+  }
+
+  static String _day(DateTime d) => '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  static Never _bookingError(PostgrestException e) => throw BookingError(switch (e.code) {
+    '23P01' => slotTakenError,
+    '22023' => holdExpiredError,
+    '42501' => 'This visit cannot be booked in the app. Please call the practice.',
+    _ => 'Booking did not work. Please try again.',
+  });
+
+  @override
+  Future<List<BookableService>> services(String clinicId) async {
+    final rows = await _db
+        .from('location_services')
+        .select('services(id, name, duration_minutes, self_bookable, active)')
+        .eq('location_id', clinicId)
+        .eq('active', true);
+    final list = [
+      for (final r in rows)
+        if (r['services'] case {'self_bookable': true, 'active': true} && final s)
+          BookableService(id: s['id'] as String, name: s['name'] as String, minutes: s['duration_minutes'] as int),
+    ];
+    return list..sort((a, b) => a.name.compareTo(b.name));
+  }
+
+  @override
+  Future<List<Slot>> slots(String clinicId, String serviceId, DateTime fromDay, {int days = 14}) async {
+    final rows =
+        await _db.rpc('available_slots', params: {'loc': clinicId, 'service': serviceId, 'from_day': _day(fromDay), 'days': days}) as List;
+    final byStart = <DateTime, Slot>{};
+    for (final r in rows) {
+      final start = DateTime.parse(r['starts_at'] as String).toLocal();
+      byStart.putIfAbsent(
+        start,
+        () =>
+            Slot(practitionerId: r['practitioner_id'] as String, startsAt: start, endsAt: DateTime.parse(r['ends_at'] as String).toLocal()),
+      );
+    }
+    return byStart.values.toList()..sort((a, b) => a.startsAt.compareTo(b.startsAt));
+  }
+
+  @override
+  Future<String> hold({required String clinicId, required String serviceId, required Slot slot, required String patientId}) async {
+    try {
+      return await _db.rpc(
+        'hold_slot',
+        params: {
+          'loc': clinicId,
+          'service': serviceId,
+          'practitioner': slot.practitionerId,
+          'starts': slot.startsAt.toUtc().toIso8601String(),
+          'patient': patientId,
+        },
+      ) as String;
+    } on PostgrestException catch (e) {
+      _bookingError(e);
+    }
+  }
+
+  @override
+  Future<void> confirm(String appointmentId) async {
+    try {
+      await _db.rpc('confirm_booking', params: {'appointment': appointmentId});
+    } on PostgrestException catch (e) {
+      _bookingError(e);
+    }
+  }
+
+  @override
+  Future<void> cancel(String appointmentId) async {
+    try {
+      await _db.rpc('cancel_appointment', params: {'appointment': appointmentId});
+    } on PostgrestException catch (e) {
+      _bookingError(e);
+    }
   }
 }

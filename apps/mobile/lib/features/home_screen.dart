@@ -6,7 +6,9 @@ import '../design/art.dart';
 import '../design/format.dart';
 import '../design/motion.dart';
 import '../design/tokens.dart';
+import '../design/widgets.dart';
 import '../state.dart';
+import 'booking_screen.dart';
 import 'care_widgets.dart';
 import 'plan_screen.dart';
 import 'shell.dart';
@@ -119,15 +121,7 @@ class _Body extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Reveal(
-          child: next != null
-              ? _NextVisit(next)
-              : const EmptyNote(
-                  icon: Icons.event_available_outlined,
-                  title: 'No visit booked',
-                  body: 'Booking from the app arrives in the next update. Until then the front desk can book you in.',
-                ),
-        ),
+        Reveal(child: next != null ? _NextVisit(next) : const _BookPrompt()),
         const SizedBox(height: 22),
         Reveal(
           order: 1,
@@ -176,12 +170,109 @@ class _Body extends ConsumerWidget {
   }
 }
 
-class _NextVisit extends StatelessWidget {
+void _openBooking(BuildContext context, WidgetRef ref) {
+  final person = ref.read(currentPatientProvider);
+  if (person == null) return;
+  Navigator.of(context).push(MaterialPageRoute(builder: (_) => BookingScreen(patient: person)));
+}
+
+/// No visit yet: invite the patient to book one.
+class _BookPrompt extends ConsumerWidget {
+  const _BookPrompt();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) => Panel(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Row(
+          children: [
+            IconTile(Icons.event_available_outlined),
+            SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'No visit booked',
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: Palette.deepSea),
+                  ),
+                  SizedBox(height: 3),
+                  Text('Pick a time at your clinic in under a minute.', style: TextStyle(fontSize: 14, height: 1.4, color: Palette.muted)),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        PrimaryButton(key: const Key('book-visit'), label: 'Book a visit', onPressed: () => _openBooking(context, ref)),
+      ],
+    ),
+  );
+}
+
+Future<void> _confirmCancel(BuildContext context, WidgetRef ref, Appointment a) async {
+  final yes = await showModalBottomSheet<bool>(
+    context: context,
+    backgroundColor: Colors.white,
+    showDragHandle: true,
+    isScrollControlled: true,
+    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(32))),
+    builder: (context) => SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Center(child: IconTile(Icons.event_busy_rounded, size: 64)),
+            const SizedBox(height: 18),
+            Text('Cancel this visit?', textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineMedium),
+            const SizedBox(height: 8),
+            Text(
+              '${a.service}, ${weekday(a.startsAt)} ${dayMonth(a.startsAt)} at ${clock(a.startsAt)}. The time goes back to other patients.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 15, height: 1.5, color: Palette.muted),
+            ),
+            const SizedBox(height: 24),
+            FilledButton(
+              key: const Key('confirm-cancel'),
+              onPressed: () => Navigator.of(context).pop(true),
+              style: FilledButton.styleFrom(
+                minimumSize: const Size.fromHeight(56),
+                backgroundColor: Palette.error,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                textStyle: const TextStyle(fontFamily: uiFont, fontSize: 16, fontWeight: FontWeight.w700),
+              ),
+              child: const Text('Cancel visit'),
+            ),
+            const SizedBox(height: 10),
+            TextButton(
+              key: const Key('keep-visit'),
+              onPressed: () => Navigator.of(context).pop(false),
+              style: TextButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+              child: const Text('Keep my visit'),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+  if (yes != true || !context.mounted) return;
+  try {
+    await ref.read(careRepositoryProvider).cancel(a.id);
+    ref.invalidate(careSummaryProvider);
+  } on BookingError catch (e) {
+    if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+  }
+}
+
+class _NextVisit extends ConsumerWidget {
   const _NextVisit(this.appointment);
   final Appointment appointment;
 
   @override
-  Widget build(BuildContext context) => Panel(
+  Widget build(BuildContext context, WidgetRef ref) => Panel(
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -242,6 +333,16 @@ class _NextVisit extends StatelessWidget {
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 10),
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton(
+            key: const Key('cancel-visit'),
+            onPressed: () => _confirmCancel(context, ref, appointment),
+            style: TextButton.styleFrom(foregroundColor: Palette.error),
+            child: const Text('Cancel visit'),
+          ),
         ),
       ],
     ),
