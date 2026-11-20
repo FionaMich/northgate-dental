@@ -23,15 +23,17 @@ Future<void> pumpWithIntro(WidgetTester tester) async {
 }
 
 void main() {
-  testWidgets('the intro shows the brand, then hands over to sign-in after 5 seconds', (tester) async {
+  testWidgets('the intro shows the brand, then stays for a minute, then hands over to sign-in', (tester) async {
     await pumpWithIntro(tester);
     expect(find.text('Healthy smiles across Boston'), findsOneWidget);
-    await tester.pump(const Duration(seconds: 5));
+    await tester.pump(const Duration(seconds: 59));
+    expect(find.text('Healthy smiles across Boston'), findsOneWidget, reason: 'still showing just before the minute');
+    await tester.pump(const Duration(seconds: 1));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('sign-in')), findsOneWidget);
   });
 
-  testWidgets('a tap skips the intro straight away', (tester) async {
+  testWidgets('a tap continues to the next screen straight away', (tester) async {
     await pumpWithIntro(tester);
     await tester.tap(find.byType(IntroScreen));
     await tester.pumpAndSettle();
