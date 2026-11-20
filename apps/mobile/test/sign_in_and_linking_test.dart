@@ -98,22 +98,38 @@ void main() {
     expect(repo.patients, isEmpty);
   });
 
-  testWidgets('the front-desk code still works as a fallback', (tester) async {
-    await pumpApp(tester, FakeAccountRepository());
+  testWidgets('a new patient registers, with no front-desk code, and is asked for a clinic', (tester) async {
+    final repo = await pumpApp(tester, FakeAccountRepository());
     await signIn(tester);
-    await tapKey(tester, 'switch-link-method');
-    await tester.enterText(find.byKey(const Key('code')), 'abcd1234efgh5678');
+    expect(find.byKey(const Key('code')), findsNothing, reason: 'the front-desk code is gone');
+    await tapKey(tester, 'patient-kind');
+    await tester.tap(find.text('I am new'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('given-name')), 'Jordan');
+    await tester.enterText(find.byKey(const Key('family-name')), 'Lee');
+    await tester.enterText(find.byKey(const Key('dob')), '05011990');
+    await tapKey(tester, 'sex-male');
     await tapKey(tester, 'link');
-    expect(find.textContaining('Elena'), findsWidgets);
+    expect(repo.registered, ['Jordan Lee 1990-5-1 male']);
+    expect(find.text('Choose your clinic'), findsOneWidget);
   });
 
-  testWidgets('a wrong code is refused with advice', (tester) async {
-    await pumpApp(tester, FakeAccountRepository());
+  testWidgets('an under-18 cannot register in the app', (tester) async {
+    final repo = await pumpApp(tester, FakeAccountRepository());
     await signIn(tester);
-    await tapKey(tester, 'switch-link-method');
-    await tester.enterText(find.byKey(const Key('code')), 'NOPE');
+    await tester.tap(find.text('I am new'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('given-name')), 'Young');
+    await tester.enterText(find.byKey(const Key('family-name')), 'Person');
+    final teen = DateTime.now().subtract(const Duration(days: 365 * 15));
+    await tester.enterText(
+      find.byKey(const Key('dob')),
+      '${teen.month.toString().padLeft(2, '0')}${teen.day.toString().padLeft(2, '0')}${teen.year}',
+    );
+    await tapKey(tester, 'sex-female');
     await tapKey(tester, 'link');
-    expect(find.textContaining('Ask the front desk'), findsOneWidget);
+    expect(find.textContaining('registered by a parent or guardian'), findsOneWidget);
+    expect(repo.registered, isEmpty);
   });
 
   testWidgets('a parent switches between themselves and a child (E40)', (tester) async {

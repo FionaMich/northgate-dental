@@ -7,8 +7,8 @@ import '../design/tokens.dart';
 import '../design/widgets.dart';
 import '../state.dart';
 
-/// Shown until the sign-in is linked to a patient record. The patient confirms their date of birth;
-/// the record must already use the email they proved at sign-up. A front-desk code is the fallback.
+/// Shown until the sign-in has a patient record. Existing patients confirm their date of birth (the record must
+/// already use the email proved at sign-up); new patients register and a record is created for them.
 class LinkCodeScreen extends ConsumerStatefulWidget {
   const LinkCodeScreen({super.key});
 
@@ -18,8 +18,10 @@ class LinkCodeScreen extends ConsumerStatefulWidget {
 
 class _LinkCodeScreenState extends ConsumerState<LinkCodeScreen> {
   final _dob = TextEditingController();
-  final _code = TextEditingController();
-  bool _useCode = false;
+  final _given = TextEditingController();
+  final _family = TextEditingController();
+  String? _sex;
+  bool _newPatient = false;
   String? _error;
   bool _busy = false;
 
@@ -59,21 +61,28 @@ class _LinkCodeScreenState extends ConsumerState<LinkCodeScreen> {
       (r) async => switch (await r.linkByBirthDate(dob)) {
         LinkOutcome.linked => null,
         LinkOutcome.noMatch =>
-          'We could not find a record for your email with that date of birth. Check the date, or use a code from the front desk.',
-        LinkOutcome.locked => 'Too many tries. Ask the front desk for a code, or try again tomorrow.',
+          'We could not find a record for your email with that date of birth. Check the date, or register as a new patient.',
+        LinkOutcome.locked => 'Too many tries. Please call the practice, or try again tomorrow.',
       },
     );
   }
 
-  Future<void> _linkWithCode() => _go((r) async {
-    await r.redeemCode(_code.text);
-    return null;
-  });
+  Future<void> _register() async {
+    final dob = _birthDate;
+    if (_given.text.trim().isEmpty || _family.text.trim().isEmpty) return setState(() => _error = 'Enter your first and last name.');
+    if (dob == null) return setState(() => _error = 'Enter your date of birth as MM/DD/YYYY.');
+    if (_sex == null) return setState(() => _error = 'Choose an option for sex at birth.');
+    await _go((r) async {
+      await r.registerNewPatient(given: _given.text.trim(), family: _family.text.trim(), birthDate: dob, sex: _sex!);
+      return null;
+    });
+  }
 
   @override
   void dispose() {
-    _dob.dispose();
-    _code.dispose();
+    for (final c in [_dob, _given, _family]) {
+      c.dispose();
+    }
     super.dispose();
   }
 
@@ -107,59 +116,91 @@ class _LinkCodeScreenState extends ConsumerState<LinkCodeScreen> {
                   ),
                   BottomSheetPanel(
                     children: [
-                      Text(_useCode ? 'Use a front-desk code' : 'Find your record', style: text.headlineMedium),
+                      Text(_newPatient ? 'Register as a new patient' : 'Find your record', style: text.headlineMedium),
                       const SizedBox(height: 6),
                       Text(
-                        _useCode
-                            ? 'Enter the 16-character code from the front desk. It works once and lasts 7 days.'
+                        _newPatient
+                            ? 'Tell us who you are and we will create your Northgate record.'
                             : 'Confirm your date of birth and we will find the record that uses this email.',
                         style: text.bodyLarge,
                       ),
-                      const SizedBox(height: 22),
-                      AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 200),
-                        child: _useCode
-                            ? TextField(
-                                key: const Key('code'),
-                                controller: _code,
-                                textCapitalization: TextCapitalization.characters,
-                                autocorrect: false,
-                                enableSuggestions: false,
-                                maxLength: 16,
-                                inputFormatters: [FilteringTextInputFormatter.allow(RegExp('[A-Za-z0-9]'))],
-                                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, letterSpacing: 3, color: Palette.deepSea),
-                                onSubmitted: (_) => _linkWithCode(),
-                                decoration: const InputDecoration(labelText: 'Code', counterText: ''),
-                              )
-                            : TextField(
-                                key: const Key('dob'),
-                                controller: _dob,
-                                keyboardType: TextInputType.number,
-                                autofillHints: const [AutofillHints.birthday],
-                                inputFormatters: [_DateMask()],
-                                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, letterSpacing: 2, color: Palette.deepSea),
-                                onSubmitted: (_) => _linkWithBirthDate(),
-                                decoration: const InputDecoration(labelText: 'Date of birth', hintText: 'MM/DD/YYYY'),
-                              ),
+                      const SizedBox(height: 18),
+                      SegmentedButton<bool>(
+                        key: const Key('patient-kind'),
+                        showSelectedIcon: false,
+                        segments: const [
+                          ButtonSegment(value: false, label: Text('I am a patient')),
+                          ButtonSegment(value: true, label: Text('I am new')),
+                        ],
+                        selected: {_newPatient},
+                        onSelectionChanged: (v) => setState(() {
+                          _newPatient = v.first;
+                          _error = null;
+                        }),
                       ),
+                      const SizedBox(height: 20),
+                      if (_newPatient) ...[
+                        TextField(
+                          key: const Key('given-name'),
+                          controller: _given,
+                          textCapitalization: TextCapitalization.words,
+                          autofillHints: const [AutofillHints.givenName],
+                          textInputAction: TextInputAction.next,
+                          decoration: const InputDecoration(labelText: 'First name'),
+                        ),
+                        const SizedBox(height: 14),
+                        TextField(
+                          key: const Key('family-name'),
+                          controller: _family,
+                          textCapitalization: TextCapitalization.words,
+                          autofillHints: const [AutofillHints.familyName],
+                          textInputAction: TextInputAction.next,
+                          decoration: const InputDecoration(labelText: 'Last name'),
+                        ),
+                        const SizedBox(height: 14),
+                      ],
+                      TextField(
+                        key: const Key('dob'),
+                        controller: _dob,
+                        keyboardType: TextInputType.number,
+                        autofillHints: const [AutofillHints.birthday],
+                        inputFormatters: [_DateMask()],
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, letterSpacing: 1.5, color: Palette.deepSea),
+                        onSubmitted: (_) => _newPatient ? _register() : _linkWithBirthDate(),
+                        decoration: const InputDecoration(labelText: 'Date of birth', hintText: 'MM/DD/YYYY'),
+                      ),
+                      if (_newPatient) ...[
+                        const SizedBox(height: 16),
+                        const Text(
+                          'Sex at birth',
+                          style: TextStyle(fontWeight: FontWeight.w700, color: Palette.deepSea),
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          children: [
+                            for (final (value, label) in const [('female', 'Female'), ('male', 'Male'), ('unknown', 'Prefer not to say')])
+                              ChoiceChip(
+                                key: Key('sex-$value'),
+                                label: Text(label),
+                                selected: _sex == value,
+                                onSelected: (_) => setState(() => _sex = value),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Used for your dental care only. Children under 18 are added by a parent or guardian at the practice.',
+                          style: TextStyle(fontSize: 13, height: 1.4, color: Palette.muted),
+                        ),
+                      ],
                       if (_error != null) ...[const SizedBox(height: 14), ErrorNote(_error!)],
                       const SizedBox(height: 22),
                       PrimaryButton(
                         key: const Key('link'),
-                        label: 'Link my record',
+                        label: _newPatient ? 'Create my record' : 'Find my record',
                         busy: _busy,
-                        onPressed: _useCode ? _linkWithCode : _linkWithBirthDate,
-                      ),
-                      const SizedBox(height: 8),
-                      Center(
-                        child: TextButton(
-                          key: const Key('switch-link-method'),
-                          onPressed: () => setState(() {
-                            _useCode = !_useCode;
-                            _error = null;
-                          }),
-                          child: Text(_useCode ? 'Use my date of birth instead' : 'I have a code from the front desk'),
-                        ),
+                        onPressed: _newPatient ? _register : _linkWithBirthDate,
                       ),
                     ],
                   ),

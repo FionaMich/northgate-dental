@@ -70,7 +70,9 @@ abstract class AccountRepository {
   Future<void> resendSignInCode(String email);
   Future<void> signOut();
   Future<List<LinkedPatient>> linkedPatients();
-  Future<void> redeemCode(String code);
+
+  /// Creates a record for a new adult patient and links it to this account.
+  Future<void> registerNewPatient({required String given, required String family, required DateTime birthDate, required String sex});
 
   /// Links the record that uses this sign-in's confirmed email, if the date of birth matches.
   Future<LinkOutcome> linkByBirthDate(DateTime birthDate);
@@ -269,15 +271,20 @@ class SupabaseAccountRepository implements AccountRepository {
   }
 
   @override
-  Future<void> redeemCode(String code) async {
+  Future<void> registerNewPatient({required String given, required String family, required DateTime birthDate, required String sex}) async {
+    final day =
+        '${birthDate.year.toString().padLeft(4, '0')}-${birthDate.month.toString().padLeft(2, '0')}-${birthDate.day.toString().padLeft(2, '0')}';
     try {
-      await _db.rpc('redeem_link_invitation', params: {'code': code});
+      await _db.rpc('register_new_patient', params: {'given': given, 'family': family, 'birth_date': day, 'sex': sex});
     } on PostgrestException catch (e) {
-      throw AccountError(
-        e.code == '22023'
-            ? 'This code is not valid or has expired. Ask the front desk for a new one.'
-            : 'Linking did not work. Please try again.',
-      );
+      final m = e.message.toLowerCase();
+      throw AccountError(switch (m) {
+        _ when m.contains('already uses this email') =>
+          'A record already uses your email. Choose "I am already a patient" and confirm your date of birth.',
+        _ when m.contains('under 18') => 'Patients under 18 are registered by a parent or guardian at the practice.',
+        _ when m.contains('already has a record') => 'This account already has a record.',
+        _ => 'Registering did not work. Please try again.',
+      });
     }
   }
 
