@@ -42,6 +42,9 @@ class PatientDetails {
 /// Seed and staff data name clinics "Back Bay (synthetic)"; the patient app shows the plain name (decision 2026-11-19).
 String clinicLabel(String name) => name.replaceAll(' (synthetic)', '');
 
+/// What happened when a patient confirmed their date of birth to link a record.
+enum LinkOutcome { linked, noMatch, locked }
+
 /// A message safe to show the patient as it is.
 class AccountError implements Exception {
   const AccountError(this.message);
@@ -56,6 +59,9 @@ abstract class AccountRepository {
   Future<void> signOut();
   Future<List<LinkedPatient>> linkedPatients();
   Future<void> redeemCode(String code);
+
+  /// Links the record that uses this sign-in's confirmed email, if the date of birth matches.
+  Future<LinkOutcome> linkByBirthDate(DateTime birthDate);
 
   /// Creates a patient account; Supabase emails a 6-digit code to confirm the address.
   Future<void> signUp({required String name, required String email, required String password});
@@ -276,6 +282,21 @@ class SupabaseAccountRepository implements AccountRepository {
         '23514' => 'Please check the address: street, city, a 2-letter state and a 5-digit ZIP code.',
         _ => 'Saving did not work. Please try again.',
       });
+    }
+  }
+
+  @override
+  Future<LinkOutcome> linkByBirthDate(DateTime d) async {
+    final day = '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+    try {
+      final result = await _db.rpc('link_by_birth_date', params: {'birth_date': day});
+      return switch (result) {
+        'linked' => LinkOutcome.linked,
+        'locked' => LinkOutcome.locked,
+        _ => LinkOutcome.noMatch,
+      };
+    } on PostgrestException {
+      throw const AccountError('Linking did not work. Please try again.');
     }
   }
 }

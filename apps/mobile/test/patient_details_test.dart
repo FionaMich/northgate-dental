@@ -17,7 +17,7 @@ void main() {
   testWidgets('after linking, the patient chooses a clinic and gives an address, then reaches home', (tester) async {
     final repo = await pumpApp(tester, FakeAccountRepository());
     await signIn(tester);
-    await tester.enterText(find.byKey(const Key('code')), 'abcd1234efgh5678');
+    await tester.enterText(find.byKey(const Key('dob')), '04121988');
     await tapKey(tester, 'link');
     expect(find.text('Choose your clinic'), findsOneWidget);
     await tapKey(tester, 'clinic-cambridge');

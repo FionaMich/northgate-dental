@@ -90,6 +90,19 @@ class FakeAccountRepository implements AccountRepository {
     patients = patientsAfterLinking;
   }
 
+  // Date-of-birth linking: Elena's record matches 04/12/1988; five misses lock it.
+  int birthDateMisses = 0;
+
+  @override
+  Future<LinkOutcome> linkByBirthDate(DateTime birthDate) async {
+    if (birthDateMisses >= 5) return LinkOutcome.locked;
+    if (birthDate == DateTime(1988, 4, 12)) {
+      patients = patientsAfterLinking;
+      return LinkOutcome.linked;
+    }
+    return ++birthDateMisses >= 5 ? LinkOutcome.locked : LinkOutcome.noMatch;
+  }
+
   // Clinic and address, in memory. Confirmed records already have Back Bay and an address on file.
   final saved = <(String, PatientDetails)>[];
   final _details = <String, PatientDetails>{};
