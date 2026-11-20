@@ -14,6 +14,7 @@ Future<FakeAccountRepository> pumpApp(
   FakeAccountRepository repo, {
   FakeCareRepository? care,
   MemoryWearStore? wear,
+  FakeAlignerReminders? reminders,
   List<dynamic> extra = const [],
 }) async {
   // Tests run with the phone's reduce-motion setting on, as some patients will; the floating art then stays still.
@@ -26,6 +27,7 @@ Future<FakeAccountRepository> pumpApp(
         careRepositoryProvider.overrideWithValue(care ?? FakeCareRepository()),
         introDurationProvider.overrideWithValue(Duration.zero),
         wearStoreProvider.overrideWithValue(wear ?? MemoryWearStore()),
+        alignerRemindersProvider.overrideWithValue(reminders ?? FakeAlignerReminders()),
         ...extra,
       ],
       child: const NorthgateApp(),

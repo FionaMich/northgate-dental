@@ -17,6 +17,7 @@ Future<void> pumpWithIntro(WidgetTester tester) async {
         accountRepositoryProvider.overrideWithValue(FakeAccountRepository()),
         careRepositoryProvider.overrideWithValue(FakeCareRepository()),
         wearStoreProvider.overrideWithValue(MemoryWearStore()),
+        alignerRemindersProvider.overrideWithValue(FakeAlignerReminders()),
       ],
       child: const NorthgateApp(),
     ),

@@ -52,9 +52,12 @@ class Gate extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     const loading = Scaffold(body: Center(child: CircularProgressIndicator()));
-    // Signing out wipes what this phone keeps for the person (aligner wear logs).
+    // Signing out wipes what this phone keeps for the person (aligner wear logs and their reminders).
     ref.listen(signedInProvider, (_, next) {
-      if (next.value == false) ref.read(wearStoreProvider).clearAll();
+      if (next.value == false) {
+        ref.read(wearStoreProvider).clearAll();
+        ref.read(alignerRemindersProvider).clearAll().catchError((_) {});
+      }
     });
     final signedIn = ref.watch(signedInProvider).value;
     if (signedIn == null) return loading;

@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:dental/data/account_repository.dart';
 import 'package:dental/data/care_repository.dart';
+import 'package:dental/data/aligner_reminders.dart';
 import 'package:dental/data/wear_log.dart';
 
 /// In-memory stand-in for Supabase, so widget tests run without a network.
@@ -280,4 +281,18 @@ class MemoryWearStore implements WearStore {
 
   @override
   Future<void> clearAll() async => values.removeWhere((k, _) => k.startsWith('aligner:'));
+}
+
+/// Records reminders instead of scheduling phone notifications.
+class FakeAlignerReminders implements AlignerReminders {
+  final calls = <String>[];
+
+  @override
+  Future<void> takenOut(DateTime at) async => calls.add('out:${at.hour}:${at.minute}');
+
+  @override
+  Future<void> backIn() async => calls.add('in');
+
+  @override
+  Future<void> clearAll() async => calls.add('clear');
 }

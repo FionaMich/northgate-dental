@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../data/account_repository.dart';
+import '../data/aligner_reminders.dart';
 import '../data/wear_log.dart';
 import '../design/format.dart';
 import '../design/tokens.dart';
@@ -16,6 +17,9 @@ final clockProvider = Provider<DateTime Function()>((ref) => DateTime.now);
 
 /// The phone's encrypted store for wear logs, replaceable in tests.
 final wearStoreProvider = Provider<WearStore>((ref) => SecureWearStore());
+
+/// Phone reminders to put aligners back in, replaceable in tests.
+final alignerRemindersProvider = Provider<AlignerReminders>((ref) => LocalAlignerReminders());
 
 String hoursMinutes(Duration d) => '${d.inHours}h ${d.inMinutes % 60}m';
 
@@ -59,6 +63,12 @@ class _AlignerScreenState extends ConsumerState<AlignerScreen> {
     final next = log.wearing ? log.stop(now) : log.start(now);
     setState(() => _log = next);
     await ref.read(wearStoreProvider).write(_key, next.encode());
+    final reminders = ref.read(alignerRemindersProvider);
+    try {
+      next.wearing ? await reminders.backIn() : await reminders.takenOut(now);
+    } on Exception {
+      // Reminders are a nicety: if the phone refuses them, the timer still works.
+    }
   }
 
   @override
@@ -148,7 +158,7 @@ class _AlignerScreenState extends ConsumerState<AlignerScreen> {
                                   Text(
                                     log.wearing
                                         ? 'Since ${clock(log.sessions.last.$1)}. Take them out only to eat, drink anything but water, and brush.'
-                                        : 'Put them back in after eating and brushing.',
+                                        : 'Put them back in after eating and brushing. We will remind you after 30 minutes.',
                                     style: const TextStyle(fontSize: 14, height: 1.4, color: Palette.muted),
                                   ),
                                 ],
