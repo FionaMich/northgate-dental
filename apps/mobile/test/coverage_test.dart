@@ -27,33 +27,54 @@ Future<FakeCareRepository> openCoverage(WidgetTester tester, {FakeCareRepository
 }
 
 Future<void> fillCard(WidgetTester tester) async {
-  await tester.enterText(find.byKey(const Key('payer')), 'Delta Dental');
+  await tapKey(tester, 'plan-picker');
+  await tapKey(tester, 'plan-Harborline Dental PPO');
   await tester.enterText(find.byKey(const Key('member-id')), 'SYN123456');
   await tester.pumpAndSettle();
 }
 
 void main() {
-  testWidgets('a patient photographs both sides, saves, and sees the card waiting for review', (tester) async {
+  testWidgets('a patient picks a plan, adds the member ID, saves without photos, and sees it waiting for review', (tester) async {
     final care = await openCoverage(tester);
     await fillCard(tester);
+    await tapKey(tester, 'save-coverage');
+    expect(care.calls, ['coverage:p-elena:plan-ppo:Harborline Dental PPO:SYN123456:front=0:back=0']);
+    expect(find.text('Harborline Dental PPO'), findsOneWidget);
+    expect(find.text('Checking your card'), findsOneWidget);
+  });
+
+  testWidgets('searching the list, and adding photos of both sides', (tester) async {
+    final care = await openCoverage(tester);
+    await tapKey(tester, 'plan-picker');
+    await tester.enterText(find.byKey(const Key('plan-search')), 'mass');
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('plan-Harborline Dental PPO')), findsNothing);
+    await tapKey(tester, 'plan-MassHealth Dental');
+    await tester.enterText(find.byKey(const Key('member-id')), 'SYN123456');
     await tapKey(tester, 'photo-front');
     await tapKey(tester, 'photo-camera');
     await tapKey(tester, 'photo-back');
     await tapKey(tester, 'photo-camera');
     await tapKey(tester, 'save-coverage');
-    expect(care.calls, ['coverage:p-elena:Delta Dental:SYN123456:front=3:back=3']);
-    expect(find.text('Delta Dental'), findsOneWidget);
-    expect(find.text('Checking your card'), findsOneWidget);
+    expect(care.calls, ['coverage:p-elena:plan-masshealth:MassHealth Dental:SYN123456:front=3:back=3']);
   });
 
-  testWidgets('missing details or photos are not saved', (tester) async {
+  testWidgets('a plan that is not listed can be typed in', (tester) async {
+    final care = await openCoverage(tester);
+    await tapKey(tester, 'plan-picker');
+    await tapKey(tester, 'plan-other');
+    await tester.enterText(find.byKey(const Key('payer')), 'Small Employer Dental Trust');
+    await tester.enterText(find.byKey(const Key('member-id')), 'SYN987');
+    await tester.pumpAndSettle();
+    await tapKey(tester, 'save-coverage');
+    expect(care.calls, ['coverage:p-elena:none:Small Employer Dental Trust:SYN987:front=0:back=0']);
+  });
+
+  testWidgets('a card with no plan or no member ID is not saved', (tester) async {
     final care = await openCoverage(tester);
     await tapKey(tester, 'save-coverage');
-    expect(find.text('Enter the insurance company.'), findsOneWidget);
+    expect(find.text('Choose your insurance plan.'), findsOneWidget);
     expect(find.text('Enter the member ID from the card.'), findsOneWidget);
-    await fillCard(tester);
-    await tapKey(tester, 'save-coverage');
-    expect(find.text('Add a photo of the front and the back of the card.'), findsOneWidget);
     expect(care.calls, isEmpty);
   });
 
@@ -65,7 +86,7 @@ void main() {
       await tapKey(tester, 'photo-camera');
     }
     await tapKey(tester, 'save-coverage');
-    expect(find.textContaining('could not upload'), findsOneWidget);
+    expect(find.textContaining('could not save your card'), findsOneWidget);
     expect(find.byKey(const Key('save-coverage')), findsOneWidget);
   });
 }

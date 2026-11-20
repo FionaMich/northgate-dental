@@ -96,13 +96,22 @@ class Coverage {
   final String id, payer, memberId, status;
 }
 
+/// A dental plan patients can pick when adding a card.
+class InsurancePlan {
+  const InsurancePlan({required this.id, required this.name, required this.kind});
+  final String id, name;
+
+  /// commercial, medicaid (MassHealth) or medicare.
+  final String kind;
+}
+
 /// A coverage problem safe to show as it is.
 class CoverageError implements Exception {
   const CoverageError(this.message);
   final String message;
 }
 
-const uploadError = 'We could not upload your card. Check your connection and try again.';
+const uploadError = 'We could not save your card. Check your connection and try again.';
 
 /// Reads one patient's care and books visits. Row level security and the booking functions decide what is allowed.
 abstract class CareRepository {
@@ -120,15 +129,17 @@ abstract class CareRepository {
   Future<void> cancel(String appointmentId);
 
   Future<List<Coverage>> coverages(String patientId);
+  Future<List<InsurancePlan>> insurancePlans();
 
-  /// Uploads both photos to the patient's private folder, then records the card as waiting for review.
+  /// Records the card as waiting for review. Photos are optional; when given, they go to the patient's private folder first.
   Future<void> addCoverage({
     required String patientId,
+    String? planId,
     required String payer,
     required String memberId,
     String? group,
-    required Uint8List front,
-    required Uint8List back,
+    Uint8List? front,
+    Uint8List? back,
   });
 }
 
@@ -307,28 +318,37 @@ class SupabaseCareRepository implements CareRepository {
   }
 
   @override
+  Future<List<InsurancePlan>> insurancePlans() async {
+    final rows = await _db.from('insurance_plans').select('id, name, kind').eq('active', true).order('name', ascending: true);
+    return [for (final r in rows) InsurancePlan(id: r['id'] as String, name: r['name'] as String, kind: r['kind'] as String)];
+  }
+
+  @override
   Future<void> addCoverage({
     required String patientId,
+    String? planId,
     required String payer,
     required String memberId,
     String? group,
-    required Uint8List front,
-    required Uint8List back,
+    Uint8List? front,
+    Uint8List? back,
   }) async {
     final stamp = DateTime.now().millisecondsSinceEpoch;
     final bucket = _db.storage.from('coverage-cards');
-    final paths = ['$patientId/$stamp-front.jpg', '$patientId/$stamp-back.jpg'];
+    String? upload(String side, Uint8List? bytes) => bytes == null ? null : '$patientId/$stamp-$side.jpg';
+    final frontPath = upload('front', front), backPath = upload('back', back);
     try {
-      for (final (path, bytes) in [(paths[0], front), (paths[1], back)]) {
-        await bucket.uploadBinary(path, bytes, fileOptions: const FileOptions(contentType: 'image/jpeg'));
+      for (final (path, bytes) in [(frontPath, front), (backPath, back)]) {
+        if (path != null) await bucket.uploadBinary(path, bytes!, fileOptions: const FileOptions(contentType: 'image/jpeg'));
       }
       await _db.from('coverages').insert({
         'patient_id': patientId,
+        'plan_id': planId,
         'payer_name': payer,
         'member_id': memberId,
         'group_number': (group ?? '').isEmpty ? null : group,
-        'front_path': paths[0],
-        'back_path': paths[1],
+        'front_path': frontPath,
+        'back_path': backPath,
       });
     } on StorageException {
       throw const CoverageError(uploadError);
