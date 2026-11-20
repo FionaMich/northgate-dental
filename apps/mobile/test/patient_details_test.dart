@@ -5,9 +5,9 @@ import 'package:material_ui/material_ui.dart';
 import 'fakes.dart';
 import 'sign_in_and_linking_test.dart' show pumpApp, signIn, tapKey;
 
-Future<void> fillAddress(WidgetTester tester, {String zip = '02139'}) async {
-  await tester.enterText(find.byKey(const Key('line1')), '12 Example Lane');
-  await tester.enterText(find.byKey(const Key('city')), 'Cambridge');
+Future<void> fillAddress(WidgetTester tester, {String line1 = '1 City Hall Sq', String zip = '02201'}) async {
+  await tester.enterText(find.byKey(const Key('line1')), line1);
+  await tester.enterText(find.byKey(const Key('city')), 'Boston');
   await tester.enterText(find.byKey(const Key('state')), 'ma');
   await tester.enterText(find.byKey(const Key('zip')), zip);
   await tester.pumpAndSettle();
@@ -23,10 +23,22 @@ void main() {
     await tapKey(tester, 'clinic-cambridge');
     await fillAddress(tester);
     await tapKey(tester, 'save-details');
+    expect(repo.saved, isEmpty, reason: 'nothing is saved until the patient confirms the checked address');
+    expect(find.text('Is this your address?'), findsOneWidget);
+    await tapKey(tester, 'address-match-0');
     expect(repo.saved, [
-      ('p-elena', const PatientDetails(clinicId: 'cambridge', line1: '12 Example Lane', city: 'Cambridge', state: 'MA', zip: '02139')),
-    ]);
+      ('p-elena', const PatientDetails(clinicId: 'cambridge', line1: '1 City Hall Ave', city: 'Boston', state: 'MA', zip: '02108')),
+    ], reason: 'the official form of the address is saved');
     expect(find.text('Hello, Elena'), findsOneWidget);
+  });
+
+  testWidgets('an address that does not exist is refused', (tester) async {
+    final repo = await pumpApp(tester, FakeAccountRepository(patients: [elenaNew]));
+    await signIn(tester);
+    await fillAddress(tester, line1: '12 Example Lane');
+    await tapKey(tester, 'save-details');
+    expect(find.textContaining('could not find that address'), findsOneWidget);
+    expect(repo.saved, isEmpty);
   });
 
   testWidgets('an address that is missing or has a bad ZIP code is not saved', (tester) async {
@@ -39,7 +51,7 @@ void main() {
     await tapKey(tester, 'save-details');
     expect(find.text('Enter a 5-digit ZIP code.'), findsOneWidget);
     expect(repo.saved, isEmpty);
-    await tester.enterText(find.byKey(const Key('zip')), '02139');
+    await tester.enterText(find.byKey(const Key('zip')), '02201');
     await tester.pumpAndSettle();
     expect(find.text('Enter a 5-digit ZIP code.'), findsNothing, reason: 'errors clear as soon as the field is fixed');
   });
@@ -55,7 +67,7 @@ void main() {
     await tapKey(tester, 'clinic-quincy');
     await tapKey(tester, 'save-details');
     expect(repo.saved.single.$2.clinicId, 'quincy');
-    expect(repo.saved.single.$2.line1, '1 Example Street', reason: 'the address already on file is kept');
+    expect(repo.saved.single.$2.line1, '1 Example Street', reason: 'the address already on file is kept, without a new check');
     expect(find.text('Quincy'), findsOneWidget);
   });
 }

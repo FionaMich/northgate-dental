@@ -130,6 +130,17 @@ class FakeAccountRepository implements AccountRepository {
     return ++birthDateMisses >= 5 ? LinkOutcome.locked : LinkOutcome.noMatch;
   }
 
+  // Address check: Boston City Hall exists (and comes back in its official form); anything else does not.
+  @override
+  Future<List<AddressMatch>> verifyAddress({
+    required String line1,
+    required String city,
+    required String state,
+    required String zip,
+  }) async => line1.toLowerCase().contains('city hall')
+      ? const [AddressMatch(line1: '1 City Hall Ave', city: 'Boston', state: 'MA', zip: '02108')]
+      : const [];
+
   // Clinic and address, in memory. Confirmed records already have Back Bay and an address on file.
   final saved = <(String, PatientDetails)>[];
   final _details = <String, PatientDetails>{};
