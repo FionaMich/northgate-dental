@@ -4,6 +4,7 @@ import '../data/care_repository.dart';
 import '../design/format.dart';
 import '../design/motion.dart';
 import '../design/tokens.dart';
+import 'visit_screen.dart';
 
 /// White rounded card with the house shadow.
 class Panel extends StatelessWidget {
@@ -163,34 +164,9 @@ class VisitTile extends StatelessWidget {
 }
 
 /// Bottom sheet with what happened at one visit.
-Future<void> showVisit(BuildContext context, Visit visit) => showModalBottomSheet(
-  context: context,
-  backgroundColor: Colors.white,
-  showDragHandle: true,
-  shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(32))),
-  builder: (context) => SafeArea(
-    child: Padding(
-      padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(visitTitle(visit.kind), style: Theme.of(context).textTheme.headlineMedium),
-          const SizedBox(height: 4),
-          Text(
-            '${weekday(visit.at)} ${dayMonthYear(visit.at)} · ${visit.location}',
-            style: const TextStyle(color: Palette.muted, fontSize: 15),
-          ),
-          const SizedBox(height: 20),
-          if (visit.procedures.isEmpty)
-            const Text('No procedures were recorded at this visit.', style: TextStyle(color: Palette.muted, fontSize: 15))
-          else
-            for (final p in visit.procedures) ProcedureRow(p),
-        ],
-      ),
-    ),
-  ),
-);
+/// Opens the full visit page.
+Future<void> showVisit(BuildContext context, Visit visit) =>
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => VisitScreen(visit: visit)));
 
 class ProcedureRow extends StatelessWidget {
   const ProcedureRow(this.procedure, {super.key});

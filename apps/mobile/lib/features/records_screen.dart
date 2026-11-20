@@ -4,8 +4,9 @@ import 'package:material_ui/material_ui.dart';
 import '../design/tokens.dart';
 import '../state.dart';
 import 'care_widgets.dart';
+import 'visit_screen.dart';
 
-/// Every past visit for the person on screen, newest first, grouped by year.
+/// Every past visit for the person on screen, newest first, grouped by year, and documents the practice shared.
 class RecordsScreen extends ConsumerWidget {
   const RecordsScreen({super.key});
 
@@ -51,7 +52,10 @@ class RecordsScreen extends ConsumerWidget {
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            VisitTile(visit: v, onTap: () => showVisit(context, v)),
+                            KeyedSubtree(
+                              key: Key('visit-${v.id}'),
+                              child: VisitTile(visit: v, onTap: () => showVisit(context, v)),
+                            ),
                             for (final p in v.procedures)
                               Padding(padding: const EdgeInsets.only(left: 66, right: 4), child: ProcedureRow(p)),
                           ],
@@ -59,6 +63,11 @@ class RecordsScreen extends ConsumerWidget {
                       );
                 }
                 return [
+                  if (c.documents.isNotEmpty) ...[
+                    const SectionTitle('Documents'),
+                    for (final d in c.documents.take(4)) DocumentTile(document: d),
+                    const SizedBox(height: 14),
+                  ],
                   for (final e in years.entries) ...[
                     SectionTitle('${e.key}'),
                     Panel(

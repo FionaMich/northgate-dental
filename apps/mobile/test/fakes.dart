@@ -183,6 +183,12 @@ class FakeCareRepository implements CareRepository {
   }
 
   @override
+  Future<String> documentLink(String path) async {
+    calls.add('link:$path');
+    return 'https://files.test/$path?token=short';
+  }
+
+  @override
   Future<List<BookableService>> services(String clinicId) async => const [
     BookableService(
       id: 'cleaning',
@@ -232,6 +238,7 @@ class FakeCareRepository implements CareRepository {
       ],
       visits: before.visits,
       plans: before.plans,
+      documents: before.documents,
     );
   }
 
