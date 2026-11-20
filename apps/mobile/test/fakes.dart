@@ -129,15 +129,81 @@ class FakeAccountRepository implements AccountRepository {
   }
 }
 
-/// Care data for widget tests, keyed by patient ID.
+/// Care data and booking for widget tests, keyed by patient ID.
 class FakeCareRepository implements CareRepository {
-  FakeCareRepository([this.byPatient = const {}, this.fail = false]);
+  FakeCareRepository([Map<String, CareSummary> byPatient = const {}, this.fail = false]) : byPatient = {...byPatient};
   final Map<String, CareSummary> byPatient;
   final bool fail;
+  final calls = <String>[];
+  bool takeNextHold = false;
+  ({String patient, String service, Slot slot})? _held;
 
   @override
   Future<CareSummary> summary(String patientId) async {
     if (fail) throw Exception('server refused the query');
     return byPatient[patientId] ?? const CareSummary();
+  }
+
+  @override
+  Future<List<BookableService>> services(String clinicId) async => const [
+    BookableService(id: 'cleaning', name: 'Adult cleaning', minutes: 60),
+    BookableService(id: 'exam', name: 'Comprehensive oral exam', minutes: 45),
+  ];
+
+  @override
+  Future<List<Slot>> slots(String clinicId, String serviceId, DateTime fromDay, {int days = 14}) async {
+    final day = DateTime(fromDay.year, fromDay.month, fromDay.day + 1);
+    return [
+      for (final h in [9, 10, 14])
+        Slot(
+          practitionerId: 'dr-1',
+          startsAt: day.add(Duration(hours: h)),
+          endsAt: day.add(Duration(hours: h + 1)),
+        ),
+    ];
+  }
+
+  @override
+  Future<String> hold({required String clinicId, required String serviceId, required Slot slot, required String patientId}) async {
+    calls.add('hold:$clinicId:$serviceId');
+    if (takeNextHold) throw const BookingError(slotTakenError);
+    _held = (patient: patientId, service: serviceId, slot: slot);
+    return 'a-1';
+  }
+
+  @override
+  Future<void> confirm(String appointmentId) async {
+    calls.add('confirm:$appointmentId');
+    final h = _held!;
+    final before = byPatient[h.patient] ?? const CareSummary();
+    byPatient[h.patient] = CareSummary(
+      upcoming: [
+        Appointment(
+          id: appointmentId,
+          startsAt: h.slot.startsAt,
+          endsAt: h.slot.endsAt,
+          service: 'Adult cleaning',
+          location: 'Back Bay',
+          status: 'booked',
+        ),
+      ],
+      visits: before.visits,
+      plans: before.plans,
+    );
+  }
+
+  @override
+  Future<void> cancel(String appointmentId) async {
+    calls.add('cancel:$appointmentId');
+    byPatient.updateAll(
+      (_, c) => CareSummary(
+        upcoming: [
+          for (final a in c.upcoming)
+            if (a.id != appointmentId) a,
+        ],
+        visits: c.visits,
+        plans: c.plans,
+      ),
+    );
   }
 }
