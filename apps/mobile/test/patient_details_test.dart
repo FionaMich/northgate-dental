@@ -39,6 +39,9 @@ void main() {
     await tapKey(tester, 'save-details');
     expect(find.text('Enter a 5-digit ZIP code.'), findsOneWidget);
     expect(repo.saved, isEmpty);
+    await tester.enterText(find.byKey(const Key('zip')), '02139');
+    await tester.pumpAndSettle();
+    expect(find.text('Enter a 5-digit ZIP code.'), findsNothing, reason: 'errors clear as soon as the field is fixed');
   });
 
   testWidgets('Profile shows the clinic and address, and editing saves a new clinic', (tester) async {

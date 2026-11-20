@@ -87,7 +87,7 @@ class SupabaseCareRepository implements CareRepository {
           .eq('patient_id', patientId)
           .inFilter('status', ['booked', 'arrived'])
           .gte('starts_at', now)
-          .order('starts_at'),
+          .order('starts_at', ascending: true), // soonest first (the client defaults to descending)
       _db
           .from('encounters')
           .select('id, occurred_at, kind, locations(name), dental_procedures(status, tooth, location_services(services(name)))')

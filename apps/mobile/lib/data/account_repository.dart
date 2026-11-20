@@ -123,7 +123,10 @@ class SupabaseAccountRepository implements AccountRepository {
   @override
   Future<List<LinkedPatient>> linkedPatients() async {
     final self = await _db.from('patient_links').select('patient_id').eq('profile_id', _db.auth.currentUser!.id).maybeSingle();
-    final rows = await _db.from('patients').select('id, given_name, family_name, details_confirmed_at').order('date_of_birth');
+    final rows = await _db
+        .from('patients')
+        .select('id, given_name, family_name, details_confirmed_at')
+        .order('date_of_birth', ascending: true);
     return [
       for (final r in rows)
         LinkedPatient(
@@ -216,7 +219,11 @@ class SupabaseAccountRepository implements AccountRepository {
 
   @override
   Future<List<Clinic>> clinics() async {
-    final rows = await _db.from('locations').select('id, name, address_line, city, state, postal_code').eq('active', true).order('name');
+    final rows = await _db
+        .from('locations')
+        .select('id, name, address_line, city, state, postal_code')
+        .eq('active', true)
+        .order('name', ascending: true);
     return [
       for (final r in rows)
         Clinic(

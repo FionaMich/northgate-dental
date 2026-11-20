@@ -66,6 +66,7 @@ class _DetailsFormState extends ConsumerState<_DetailsForm> {
   late final _state = TextEditingController(text: widget.initial.state.isEmpty ? 'MA' : widget.initial.state);
   late final _zip = TextEditingController(text: widget.initial.zip);
   bool _busy = false;
+  bool _tried = false; // after the first Save, errors update as the person types
   String? _error;
 
   @override
@@ -77,6 +78,7 @@ class _DetailsFormState extends ConsumerState<_DetailsForm> {
   }
 
   Future<void> _save() async {
+    if (!_tried) setState(() => _tried = true);
     if (!_form.currentState!.validate()) return;
     if (_clinic == null) return setState(() => _error = 'Choose the clinic you would like to visit.');
     setState(() {
@@ -139,6 +141,7 @@ class _DetailsFormState extends ConsumerState<_DetailsForm> {
         const SectionTitle('Home address'),
         Form(
           key: _form,
+          autovalidateMode: _tried ? AutovalidateMode.onUserInteraction : AutovalidateMode.disabled,
           child: AutofillGroup(
             child: Column(
               children: [
