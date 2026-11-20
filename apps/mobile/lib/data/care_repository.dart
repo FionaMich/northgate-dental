@@ -18,17 +18,57 @@ class Appointment {
 }
 
 class Procedure {
-  const Procedure({required this.service, required this.status, this.tooth});
+  const Procedure({required this.service, required this.status, this.tooth, this.surface, this.feeCents});
   final String service, status;
-  final String? tooth;
+  final String? tooth, surface;
+
+  /// Whole cents; null when not shown (plans).
+  final int? feeCents;
   bool get done => status == 'completed';
 }
 
+/// Something the dentist noted on a tooth at a visit (tooth_conditions).
+class Finding {
+  const Finding({required this.tooth, required this.condition, this.surface});
+  final String tooth, condition;
+  final String? surface;
+}
+
 class Visit {
-  const Visit({required this.id, required this.at, required this.kind, required this.location, this.procedures = const []});
+  const Visit({
+    required this.id,
+    required this.at,
+    required this.kind,
+    required this.location,
+    this.dentist,
+    this.reason,
+    this.procedures = const [],
+    this.findings = const [],
+  });
   final String id, kind, location;
+  final String? dentist, reason;
   final DateTime at;
   final List<Procedure> procedures;
+  final List<Finding> findings;
+
+  int get totalCents => procedures.fold(0, (sum, p) => sum + (p.feeCents ?? 0));
+}
+
+/// A file the practice shared: X-ray images, visit summaries, letters.
+class PracticeDocument {
+  const PracticeDocument({
+    required this.id,
+    required this.kind,
+    required this.title,
+    required this.path,
+    required this.contentType,
+    required this.sharedAt,
+    this.encounterId,
+  });
+  final String id, kind, title, path, contentType;
+  final String? encounterId;
+  final DateTime sharedAt;
+  bool get isImage => contentType.startsWith('image/');
 }
 
 class PlanPhase {
@@ -49,10 +89,11 @@ class Plan {
 
 /// Everything the home, records and plan screens show for one person.
 class CareSummary {
-  const CareSummary({this.upcoming = const [], this.visits = const [], this.plans = const []});
+  const CareSummary({this.upcoming = const [], this.visits = const [], this.plans = const [], this.documents = const []});
   final List<Appointment> upcoming;
   final List<Visit> visits; // newest first
   final List<Plan> plans;
+  final List<PracticeDocument> documents; // newest first
 
   /// The plan to feature: one in progress, then accepted, then proposed. Finished and declined plans are history.
   Plan? get activePlan {
@@ -116,6 +157,9 @@ const uploadError = 'We could not save your card. Check your connection and try 
 /// Reads one patient's care and books visits. Row level security and the booking functions decide what is allowed.
 abstract class CareRepository {
   Future<CareSummary> summary(String patientId);
+
+  /// A link to one shared document that works for a few minutes only.
+  Future<String> documentLink(String path);
   Future<List<BookableService>> services(String clinicId);
 
   /// Free times over [days] days from [fromDay], one per start time, soonest first.
@@ -150,8 +194,13 @@ class SupabaseCareRepository implements CareRepository {
   // Services hang off the location's price list (location_services), not the row itself.
   static String? _serviceName(Map<String, dynamic> r) => ((r['location_services'] as Map?)?['services'] as Map?)?['name'] as String?;
 
-  static Procedure _procedure(Map<String, dynamic> r) =>
-      Procedure(service: _serviceName(r) ?? 'Procedure', status: r['status'] as String, tooth: r['tooth'] as String?);
+  static Procedure _procedure(Map<String, dynamic> r) => Procedure(
+    service: _serviceName(r) ?? 'Procedure',
+    status: r['status'] as String,
+    tooth: r['tooth'] as String?,
+    surface: r['surface'] as String?,
+    feeCents: r['fee_cents'] as int?,
+  );
 
   @override
   Future<CareSummary> summary(String patientId) async {
@@ -166,7 +215,10 @@ class SupabaseCareRepository implements CareRepository {
           .order('starts_at', ascending: true), // soonest first (the client defaults to descending)
       _db
           .from('encounters')
-          .select('id, occurred_at, kind, locations(name), dental_procedures(status, tooth, location_services(services(name)))')
+          .select(
+            'id, occurred_at, kind, reason, locations(name), practitioners(display_name), '
+            'dental_procedures(status, tooth, surface, fee_cents, location_services(services(name))), tooth_conditions(tooth, surface, condition)',
+          )
           .eq('patient_id', patientId)
           .order('occurred_at', ascending: false),
       _db
@@ -176,6 +228,11 @@ class SupabaseCareRepository implements CareRepository {
           )
           .eq('patient_id', patientId)
           .order('created_at', ascending: false),
+      _db
+          .from('patient_documents')
+          .select('id, encounter_id, kind, title, file_path, content_type, shared_at')
+          .eq('patient_id', patientId)
+          .order('shared_at', ascending: false),
     ]);
     String loc(Map<String, dynamic> r) => clinicLabel((r['locations'] as Map?)?['name'] as String? ?? 'Northgate Dental');
     return CareSummary(
@@ -197,7 +254,25 @@ class SupabaseCareRepository implements CareRepository {
             at: DateTime.parse(r['occurred_at'] as String).toLocal(),
             kind: r['kind'] as String,
             location: loc(r),
+            dentist: (r['practitioners'] as Map?)?['display_name'] as String?,
+            reason: r['reason'] as String?,
             procedures: [for (final p in (r['dental_procedures'] as List? ?? const [])) _procedure(p as Map<String, dynamic>)],
+            findings: [
+              for (final f in (r['tooth_conditions'] as List? ?? const []))
+                Finding(tooth: f['tooth'] as String, surface: f['surface'] as String?, condition: f['condition'] as String),
+            ],
+          ),
+      ],
+      documents: [
+        for (final r in results[3])
+          PracticeDocument(
+            id: r['id'] as String,
+            encounterId: r['encounter_id'] as String?,
+            kind: r['kind'] as String,
+            title: r['title'] as String,
+            path: r['file_path'] as String,
+            contentType: r['content_type'] as String,
+            sharedAt: DateTime.parse(r['shared_at'] as String).toLocal(),
           ),
       ],
       plans: [
@@ -216,6 +291,15 @@ class SupabaseCareRepository implements CareRepository {
           ),
       ],
     );
+  }
+
+  @override
+  Future<String> documentLink(String path) async {
+    try {
+      return await _db.storage.from('patient-documents').createSignedUrl(path, 300); // 5 minutes
+    } on StorageException {
+      throw const CoverageError('We could not open that document. Check your connection and try again.');
+    }
   }
 
   static String _day(DateTime d) => '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
