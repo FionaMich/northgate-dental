@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'account_repository.dart' show clinicLabel;
@@ -64,9 +66,12 @@ class CareSummary {
 
 /// A service patients may book themselves at a clinic.
 class BookableService {
-  const BookableService({required this.id, required this.name, required this.minutes});
+  const BookableService({required this.id, required this.name, required this.minutes, this.summary = ''});
   final String id, name;
   final int minutes;
+
+  /// One plain sentence about what happens, shown before booking.
+  final String summary;
 }
 
 /// A free time from `available_slots`, with the dentist the server matched to it.
@@ -85,6 +90,20 @@ class BookingError implements Exception {
 const slotTakenError = 'Someone has just taken that time. Please pick another.';
 const holdExpiredError = 'Your hold has run out. Please pick a time again.';
 
+/// An insurance card on file; staff check it in the coverage queue.
+class Coverage {
+  const Coverage({required this.id, required this.payer, required this.memberId, required this.status});
+  final String id, payer, memberId, status;
+}
+
+/// A coverage problem safe to show as it is.
+class CoverageError implements Exception {
+  const CoverageError(this.message);
+  final String message;
+}
+
+const uploadError = 'We could not upload your card. Check your connection and try again.';
+
 /// Reads one patient's care and books visits. Row level security and the booking functions decide what is allowed.
 abstract class CareRepository {
   Future<CareSummary> summary(String patientId);
@@ -99,6 +118,18 @@ abstract class CareRepository {
   /// Turns a hold into a booking. Only the server's answer makes it confirmed.
   Future<void> confirm(String appointmentId);
   Future<void> cancel(String appointmentId);
+
+  Future<List<Coverage>> coverages(String patientId);
+
+  /// Uploads both photos to the patient's private folder, then records the card as waiting for review.
+  Future<void> addCoverage({
+    required String patientId,
+    required String payer,
+    required String memberId,
+    String? group,
+    required Uint8List front,
+    required Uint8List back,
+  });
 }
 
 class SupabaseCareRepository implements CareRepository {
@@ -189,13 +220,18 @@ class SupabaseCareRepository implements CareRepository {
   Future<List<BookableService>> services(String clinicId) async {
     final rows = await _db
         .from('location_services')
-        .select('services(id, name, duration_minutes, self_bookable, active)')
+        .select('services(id, name, summary, duration_minutes, self_bookable, active)')
         .eq('location_id', clinicId)
         .eq('active', true);
     final list = [
       for (final r in rows)
         if (r['services'] case {'self_bookable': true, 'active': true} && final s)
-          BookableService(id: s['id'] as String, name: s['name'] as String, minutes: s['duration_minutes'] as int),
+          BookableService(
+            id: s['id'] as String,
+            name: s['name'] as String,
+            minutes: s['duration_minutes'] as int,
+            summary: s['summary'] as String? ?? '',
+          ),
     ];
     return list..sort((a, b) => a.name.compareTo(b.name));
   }
@@ -249,6 +285,55 @@ class SupabaseCareRepository implements CareRepository {
       await _db.rpc('cancel_appointment', params: {'appointment': appointmentId});
     } on PostgrestException catch (e) {
       _bookingError(e);
+    }
+  }
+
+  @override
+  Future<List<Coverage>> coverages(String patientId) async {
+    final rows = await _db
+        .from('coverages')
+        .select('id, payer_name, member_id, status')
+        .eq('patient_id', patientId)
+        .order('created_at', ascending: false);
+    return [
+      for (final r in rows)
+        Coverage(
+          id: r['id'] as String,
+          payer: r['payer_name'] as String,
+          memberId: r['member_id'] as String,
+          status: r['status'] as String,
+        ),
+    ];
+  }
+
+  @override
+  Future<void> addCoverage({
+    required String patientId,
+    required String payer,
+    required String memberId,
+    String? group,
+    required Uint8List front,
+    required Uint8List back,
+  }) async {
+    final stamp = DateTime.now().millisecondsSinceEpoch;
+    final bucket = _db.storage.from('coverage-cards');
+    final paths = ['$patientId/$stamp-front.jpg', '$patientId/$stamp-back.jpg'];
+    try {
+      for (final (path, bytes) in [(paths[0], front), (paths[1], back)]) {
+        await bucket.uploadBinary(path, bytes, fileOptions: const FileOptions(contentType: 'image/jpeg'));
+      }
+      await _db.from('coverages').insert({
+        'patient_id': patientId,
+        'payer_name': payer,
+        'member_id': memberId,
+        'group_number': (group ?? '').isEmpty ? null : group,
+        'front_path': paths[0],
+        'back_path': paths[1],
+      });
+    } on StorageException {
+      throw const CoverageError(uploadError);
+    } on PostgrestException {
+      throw const CoverageError(uploadError);
     }
   }
 }
