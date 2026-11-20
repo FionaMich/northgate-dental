@@ -29,13 +29,36 @@ class FakeAccountRepository implements AccountRepository {
     if (password != this.password) throw const AccountError('That email and password do not match.');
     if (role != 'patient') throw const AccountError('Staff accounts sign in to the portal, not the patient app.');
     _signedIn = true;
+    _verified = false; // password only: the emailed code is still needed
+    _email = email;
+    sent.add('signin:$email');
     _changes.add(true);
   }
+
+  // Second factor, in memory: the code emailed at sign-in is always [emailCode].
+  bool _verified = false;
+  String? _email;
+
+  @override
+  String? get currentEmail => _email;
+
+  @override
+  Future<bool> sessionVerified() async => _signedIn && _verified;
+
+  @override
+  Future<void> verifySignInCode(String email, String code) async {
+    if (code != emailCode) throw const AccountError(codeError);
+    _verified = true;
+  }
+
+  @override
+  Future<void> resendSignInCode(String email) async => sent.add('signin-resend:$email');
 
   @override
   Future<void> signOut() async {
     signOutCalls++;
     _signedIn = false;
+    _verified = false;
     _changes.add(false);
   }
 
@@ -58,6 +81,7 @@ class FakeAccountRepository implements AccountRepository {
   Future<void> verifySignUpCode(String email, String code) async {
     if (code != emailCode) throw const AccountError(codeError);
     _signedIn = true;
+    _verified = true;
     _changes.add(true);
   }
 
@@ -78,8 +102,6 @@ class FakeAccountRepository implements AccountRepository {
   @override
   Future<void> setNewPassword(String password) async {
     newPassword = password;
-    _signedIn = true;
-    _changes.add(true);
   }
 
   @override

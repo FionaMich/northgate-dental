@@ -261,6 +261,11 @@ content_path = "./supabase/templates/confirmation.html"
 subject = "Reset your Northgate Dental password"
 content_path = "./supabase/templates/recovery.html"
 
+# The code at every sign-in (signInWithOtp sends the magic-link template; ours shows only the 6-digit code).
+[auth.email.template.magic_link]
+subject = "Your Northgate Dental sign-in code"
+content_path = "./supabase/templates/magic_link.html"
+
 # Uncomment to customize email template
 # [auth.email.template.invite]
 # subject = "You have been invited"

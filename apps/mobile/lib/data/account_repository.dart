@@ -55,7 +55,18 @@ class AccountError implements Exception {
 abstract class AccountRepository {
   bool get isSignedIn;
   Stream<bool> signedInChanges();
+
+  /// Checks the password, then emails a 6-digit sign-in code. Patient data stays locked until [verifySignInCode].
   Future<void> signIn(String email, String password);
+
+  /// The signed-in email, for the code screen.
+  String? get currentEmail;
+
+  /// True once this session has both factors: password and the emailed code.
+  Future<bool> sessionVerified();
+
+  Future<void> verifySignInCode(String email, String code);
+  Future<void> resendSignInCode(String email);
   Future<void> signOut();
   Future<List<LinkedPatient>> linkedPatients();
   Future<void> redeemCode(String code);
@@ -121,7 +132,41 @@ class SupabaseAccountRepository implements AccountRepository {
       await _db.auth.signOut();
       throw const AccountError('Staff accounts sign in to the portal, not the patient app.');
     }
+    await _sendSignInCode(email.trim());
   }
+
+  // Records the password step on the server, then asks Supabase Auth to email the code.
+  Future<void> _sendSignInCode(String email) async {
+    try {
+      await _db.rpc('start_sign_in_code');
+      await _db.auth.signInWithOtp(email: email, shouldCreateUser: false);
+    } on AuthException catch (e) {
+      throw _authError(e);
+    } on PostgrestException {
+      throw const AccountError('Signing in did not work. Please try again.');
+    }
+  }
+
+  @override
+  String? get currentEmail => _db.auth.currentUser?.email;
+
+  @override
+  Future<bool> sessionVerified() async => await _db.rpc('session_is_verified') == true;
+
+  @override
+  Future<void> verifySignInCode(String email, String code) async {
+    try {
+      await _db.auth.verifyOTP(type: OtpType.email, email: email.trim(), token: code.trim());
+      await _db.rpc('finish_sign_in_code');
+    } on AuthException catch (e) {
+      throw _authError(e, fallback: codeError);
+    } on PostgrestException {
+      throw const AccountError('Your password step has expired. Please sign in again.');
+    }
+  }
+
+  @override
+  Future<void> resendSignInCode(String email) => _sendSignInCode(email.trim());
 
   @override
   Future<void> signOut() => _db.auth.signOut();
@@ -166,8 +211,11 @@ class SupabaseAccountRepository implements AccountRepository {
   Future<void> verifySignUpCode(String email, String code) async {
     try {
       await _db.auth.verifyOTP(type: OtpType.signup, email: email.trim(), token: code.trim());
+      await _db.rpc('finish_sign_in_code'); // the sign-up code verifies a new account's first session
     } on AuthException catch (e) {
       throw _authError(e, fallback: codeError);
+    } on PostgrestException {
+      throw const AccountError('Your account is ready. Please sign in.');
     }
   }
 

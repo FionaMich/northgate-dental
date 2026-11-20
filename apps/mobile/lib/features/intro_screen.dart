@@ -8,7 +8,7 @@ import '../design/motion.dart';
 import '../design/tokens.dart';
 
 /// How long the intro stays on screen. Tests set it to zero.
-final introDurationProvider = Provider<Duration>((ref) => const Duration(seconds: 5));
+final introDurationProvider = Provider<Duration>((ref) => const Duration(minutes: 1));
 
 /// First screen on a cold start: clinic photo under a green wash, a tooth being brushed, then the app.
 class IntroScreen extends ConsumerStatefulWidget {
@@ -21,7 +21,8 @@ class IntroScreen extends ConsumerStatefulWidget {
 
 class _IntroScreenState extends ConsumerState<IntroScreen> with SingleTickerProviderStateMixin {
   late final Duration _length = ref.read(introDurationProvider);
-  late final _progress = AnimationController(vsync: this, duration: _length);
+  // preserve: the intro's length is a timer, not decoration, so reduce-motion must not shorten it.
+  late final _progress = AnimationController(vsync: this, duration: _length, animationBehavior: AnimationBehavior.preserve);
   bool _left = false;
 
   @override
@@ -44,7 +45,7 @@ class _IntroScreenState extends ConsumerState<IntroScreen> with SingleTickerProv
 
   @override
   Widget build(BuildContext context) => Semantics(
-    label: 'Northgate Dental is starting. Tap to skip.',
+    label: 'Northgate Dental. Tap to continue.',
     button: true,
     child: GestureDetector(
       onTap: _finish,
@@ -98,7 +99,7 @@ class _IntroScreenState extends ConsumerState<IntroScreen> with SingleTickerProv
                       ),
                     ),
                     const SizedBox(height: 12),
-                    const Text('Tap anywhere to skip', style: TextStyle(color: Color(0xFFA9DCD1), fontSize: 13)),
+                    const Text('Tap anywhere to continue', style: TextStyle(color: Color(0xFFA9DCD1), fontSize: 13)),
                   ],
                 ),
               ),
