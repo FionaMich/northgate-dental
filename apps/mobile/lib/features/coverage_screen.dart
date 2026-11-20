@@ -55,6 +55,8 @@ class _CoverageScreenState extends ConsumerState<CoverageScreen> {
   final _member = TextEditingController();
   final _group = TextEditingController();
   Uint8List? _front, _back;
+  InsurancePlan? _plan;
+  bool _notListed = false; // the patient types the company instead
   bool _tried = false, _busy = false;
   String? _error;
 
@@ -104,18 +106,18 @@ class _CoverageScreenState extends ConsumerState<CoverageScreen> {
       _error = null;
     });
     if (!_form.currentState!.validate()) return;
-    if (_front == null || _back == null) return setState(() => _error = 'Add a photo of the front and the back of the card.');
     setState(() => _busy = true);
     try {
       await ref
           .read(careRepositoryProvider)
           .addCoverage(
             patientId: widget.patient.id,
-            payer: _payer.text.trim(),
+            planId: _notListed ? null : _plan!.id,
+            payer: _notListed ? _payer.text.trim() : _plan!.name,
             memberId: _member.text.trim(),
             group: _group.text.trim(),
-            front: _front!,
-            back: _back!,
+            front: _front,
+            back: _back,
           );
       ref.invalidate(coveragesProvider(widget.patient.id));
       if (mounted) Navigator.of(context).pop();
@@ -144,14 +146,45 @@ class _CoverageScreenState extends ConsumerState<CoverageScreen> {
           autovalidateMode: _tried ? AutovalidateMode.onUserInteraction : AutovalidateMode.disabled,
           child: Column(
             children: [
-              TextFormField(
-                key: const Key('payer'),
-                controller: _payer,
-                textCapitalization: TextCapitalization.words,
-                textInputAction: TextInputAction.next,
-                validator: (v) => _required(v, 'Enter the insurance company.'),
-                decoration: const InputDecoration(labelText: 'Insurance company'),
+              FormField<void>(
+                validator: (_) => _notListed || _plan != null ? null : 'Choose your insurance plan.',
+                builder: (field) => InkWell(
+                  key: const Key('plan-picker'),
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () async {
+                    final choice = await _choosePlan(context);
+                    if (choice == null) return;
+                    setState(() {
+                      _notListed = choice.id.isEmpty;
+                      _plan = _notListed ? null : choice;
+                    });
+                    field.didChange(null);
+                  },
+                  child: InputDecorator(
+                    isEmpty: _plan == null && !_notListed,
+                    decoration: InputDecoration(
+                      labelText: 'Insurance plan',
+                      errorText: field.errorText,
+                      suffixIcon: const Icon(Icons.expand_more_rounded),
+                    ),
+                    child: Text(
+                      _notListed ? 'Not listed' : _plan?.name ?? '',
+                      style: const TextStyle(fontSize: 16, color: Palette.deepSea),
+                    ),
+                  ),
+                ),
               ),
+              if (_notListed) ...[
+                const SizedBox(height: 14),
+                TextFormField(
+                  key: const Key('payer'),
+                  controller: _payer,
+                  textCapitalization: TextCapitalization.words,
+                  textInputAction: TextInputAction.next,
+                  validator: (v) => _required(v, 'Enter the insurance company.'),
+                  decoration: const InputDecoration(labelText: 'Insurance company, as on the card'),
+                ),
+              ],
               const SizedBox(height: 14),
               TextFormField(
                 key: const Key('member-id'),
@@ -192,7 +225,7 @@ class _CoverageScreenState extends ConsumerState<CoverageScreen> {
             SizedBox(width: 6),
             Expanded(
               child: Text(
-                'Photos go to your private folder at Northgate and are not kept on this phone.',
+                'Photos are optional and help the front desk check your cover faster. They go to your private folder at Northgate and are not kept on this phone.',
                 style: TextStyle(fontSize: 13, color: Palette.muted),
               ),
             ),
@@ -202,6 +235,89 @@ class _CoverageScreenState extends ConsumerState<CoverageScreen> {
         const SizedBox(height: 22),
         PrimaryButton(key: const Key('save-coverage'), label: 'Save card', busy: _busy, onPressed: _save),
       ],
+    );
+  }
+}
+
+/// The plan list, searchable, public programmes first. Returns a plan, or a plan with an empty ID for "not listed".
+Future<InsurancePlan?> _choosePlan(BuildContext context) => showModalBottomSheet<InsurancePlan>(
+  context: context,
+  isScrollControlled: true,
+  backgroundColor: Colors.white,
+  showDragHandle: true,
+  shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(32))),
+  builder: (_) => const FractionallySizedBox(heightFactor: 0.85, child: _PlanSheet()),
+);
+
+final insurancePlansProvider = FutureProvider.autoDispose<List<InsurancePlan>>(
+  retry: (_, _) => null,
+  (ref) => ref.watch(careRepositoryProvider).insurancePlans(),
+);
+
+class _PlanSheet extends ConsumerStatefulWidget {
+  const _PlanSheet();
+
+  @override
+  ConsumerState<_PlanSheet> createState() => _PlanSheetState();
+}
+
+class _PlanSheetState extends ConsumerState<_PlanSheet> {
+  String _query = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final plans = ref.watch(insurancePlansProvider);
+    final shown = (plans.value ?? const <InsurancePlan>[]).where((p) => p.name.toLowerCase().contains(_query.trim().toLowerCase())).toList()
+      ..sort((a, b) => (a.kind == 'commercial' ? 1 : 0).compareTo(b.kind == 'commercial' ? 1 : 0));
+    Widget tile(InsurancePlan p) => ListTile(
+      key: Key('plan-${p.name}'),
+      leading: IconTile(p.kind == 'commercial' ? Icons.shield_outlined : Icons.account_balance_outlined, size: 42),
+      title: Text(
+        p.name,
+        style: const TextStyle(fontWeight: FontWeight.w700, color: Palette.deepSea),
+      ),
+      subtitle: Text(switch (p.kind) {
+        'medicaid' => 'State programme (Medicaid)',
+        'medicare' => 'Federal programme',
+        _ => 'Private dental plan',
+      }),
+      onTap: () => Navigator.of(context).pop(p),
+    );
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+            child: TextField(
+              key: const Key('plan-search'),
+              onChanged: (v) => setState(() => _query = v),
+              decoration: const InputDecoration(labelText: 'Search plans', prefixIcon: Icon(Icons.search_rounded)),
+            ),
+          ),
+          Expanded(
+            child: plans.hasError
+                ? const Padding(padding: EdgeInsets.all(20), child: Text('Could not load the plans. You can still type your plan below.'))
+                : ListView(
+                    children: [
+                      for (final p in shown) tile(p),
+                      const Divider(height: 24),
+                      ListTile(
+                        key: const Key('plan-other'),
+                        leading: const IconTile(Icons.edit_outlined, size: 42),
+                        title: const Text(
+                          'My plan is not listed',
+                          style: TextStyle(fontWeight: FontWeight.w700, color: Palette.deepSea),
+                        ),
+                        subtitle: const Text('Type the company name from your card'),
+                        onTap: () => Navigator.of(context).pop(const InsurancePlan(id: '', name: '', kind: 'commercial')),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                  ),
+          ),
+        ],
+      ),
     );
   }
 }

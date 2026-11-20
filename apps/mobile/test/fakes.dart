@@ -228,16 +228,23 @@ class FakeCareRepository implements CareRepository {
   Future<List<Coverage>> coverages(String patientId) async => _coverages[patientId] ?? const [];
 
   @override
+  Future<List<InsurancePlan>> insurancePlans() async => const [
+    InsurancePlan(id: 'plan-ppo', name: 'Harborline Dental PPO', kind: 'commercial'),
+    InsurancePlan(id: 'plan-masshealth', name: 'MassHealth Dental', kind: 'medicaid'),
+  ];
+
+  @override
   Future<void> addCoverage({
     required String patientId,
+    String? planId,
     required String payer,
     required String memberId,
     String? group,
-    required Uint8List front,
-    required Uint8List back,
+    Uint8List? front,
+    Uint8List? back,
   }) async {
     if (failUpload) throw const CoverageError(uploadError);
-    calls.add('coverage:$patientId:$payer:$memberId:front=${front.length}:back=${back.length}');
+    calls.add('coverage:$patientId:${planId ?? 'none'}:$payer:$memberId:front=${front?.length ?? 0}:back=${back?.length ?? 0}');
     _coverages
         .putIfAbsent(patientId, () => [])
         .insert(0, Coverage(id: 'c-${calls.length}', payer: payer, memberId: memberId, status: 'pending_review'));
