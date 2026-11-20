@@ -45,6 +45,11 @@ Future<void> signIn(WidgetTester tester, {String password = 'right'}) async {
   await tester.pumpAndSettle();
   await tester.tap(find.byKey(const Key('sign-in')));
   await tester.pumpAndSettle();
+  // Second factor: the 6-digit code from the email (the fake always sends 123456).
+  if (find.byKey(const Key('code-input')).evaluate().isNotEmpty) {
+    await tester.enterText(find.byKey(const Key('code-input')), '123456');
+    await tester.pumpAndSettle();
+  }
 }
 
 void main() {

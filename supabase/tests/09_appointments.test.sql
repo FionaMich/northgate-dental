@@ -9,7 +9,10 @@ select has_table('public', 'location_travel', 'location_travel exists');
 
 create function pg_temp.act_as(uid uuid, aal text default 'aal2') returns void language plpgsql as $$
 begin
-  perform set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated', 'aal', aal)::text, true);
+  -- A fully signed-in session: password and emailed code (section 05).
+  insert into auth.sessions (id, user_id) select uid, uid where exists (select 1 from auth.users where id = uid) on conflict do nothing;
+  insert into private.verified_sessions (session_id, user_id) select uid, uid where exists (select 1 from auth.sessions where id = uid) on conflict do nothing;
+  perform set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated', 'aal', aal, 'session_id', uid)::text, true);
   set local role authenticated;
 end;
 $$;

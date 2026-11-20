@@ -69,6 +69,12 @@ void main() {
     await tester.pumpAndSettle();
     await tapKey(tester, 'save-password');
     expect(repo.newPassword, 'NewSynthetic9');
+    expect(
+      find.text('Password saved. Sign in with your new password.'),
+      findsOneWidget,
+      reason: 'a reset proves the inbox only; signing in adds the password step and a code',
+    );
+    expect(find.byKey(const Key('sign-in')), findsOneWidget);
   });
 
   testWidgets('too many requests shows a calm wait message (E42)', (tester) async {
@@ -93,5 +99,34 @@ void main() {
     await tapKey(tester, 'cancel-sign-out');
     expect(repo.signOutCalls, 0);
     expect(find.text('Profile'), findsWidgets);
+  });
+
+  testWidgets('sign-in needs the password and then the emailed code (two factors)', (tester) async {
+    final repo = await pumpApp(
+      tester,
+      FakeAccountRepository(
+        patients: const [LinkedPatient(id: 'p-elena', name: 'Elena Marsh', isSelf: true)],
+      ),
+    );
+    await tester.enterText(find.byKey(const Key('email')), 'elena@northgate.synthetic');
+    await tester.enterText(find.byKey(const Key('password')), 'right');
+    await tapKey(tester, 'sign-in');
+    expect(repo.sent, ['signin:elena@northgate.synthetic']);
+    expect(find.text('Enter your sign-in code'), findsOneWidget);
+    expect(find.text('Hello, Elena'), findsNothing, reason: 'no patient data before the code');
+    await enterCode(tester, '000000');
+    expect(find.text(codeError), findsOneWidget);
+    await enterCode(tester, '123456');
+    expect(find.text('Hello, Elena'), findsOneWidget);
+  });
+
+  testWidgets('"Not you?" on the code screen signs out', (tester) async {
+    final repo = await pumpApp(tester, FakeAccountRepository());
+    await tester.enterText(find.byKey(const Key('email')), 'elena@northgate.synthetic');
+    await tester.enterText(find.byKey(const Key('password')), 'right');
+    await tapKey(tester, 'sign-in');
+    await tapKey(tester, 'code-sign-out');
+    expect(repo.signOutCalls, 1);
+    expect(find.byKey(const Key('sign-in')), findsOneWidget);
   });
 }

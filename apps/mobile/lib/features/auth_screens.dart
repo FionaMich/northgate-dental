@@ -135,7 +135,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> with _Busy {
   }
 }
 
-enum CodePurpose { signUp, reset }
+enum CodePurpose { signUp, signIn, reset }
 
 /// Enter the 6-digit code from the email. Used for sign-up and for password reset.
 class CodeScreen extends ConsumerStatefulWidget {
@@ -171,7 +171,12 @@ class _CodeScreenState extends ConsumerState<CodeScreen> with _Busy {
   Future<void> _verify(String code) async {
     final nav = Navigator.of(context);
     if (widget.purpose == CodePurpose.signUp) {
-      if (await run((r) => r.verifySignUpCode(widget.email, code))) nav.popUntil((r) => r.isFirst);
+      if (await run((r) => r.verifySignUpCode(widget.email, code))) {
+        ref.invalidate(sessionVerifiedProvider);
+        nav.popUntil((r) => r.isFirst);
+      }
+    } else if (widget.purpose == CodePurpose.signIn) {
+      if (await run((r) => r.verifySignInCode(widget.email, code))) ref.invalidate(sessionVerifiedProvider);
     } else {
       if (await run((r) => r.verifyResetCode(widget.email, code))) {
         nav.pushReplacement(MaterialPageRoute(builder: (_) => const NewPasswordScreen()));
@@ -182,7 +187,11 @@ class _CodeScreenState extends ConsumerState<CodeScreen> with _Busy {
 
   Future<void> _resend() async {
     final ok = await run(
-      (r) => widget.purpose == CodePurpose.signUp ? r.resendSignUpCode(widget.email) : r.sendPasswordReset(widget.email),
+      (r) => switch (widget.purpose) {
+        CodePurpose.signUp => r.resendSignUpCode(widget.email),
+        CodePurpose.signIn => r.resendSignInCode(widget.email),
+        CodePurpose.reset => r.sendPasswordReset(widget.email),
+      },
     );
     if (ok) _startTimer();
   }
@@ -196,18 +205,18 @@ class _CodeScreenState extends ConsumerState<CodeScreen> with _Busy {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
+    final signingIn = widget.purpose == CodePurpose.signIn;
     return AuthLayout(
       heroFraction: 0.3,
-      showBack: true,
+      showBack: !signingIn,
       children: [
-        Text('Check your email', style: text.headlineMedium),
+        Text(signingIn ? 'Enter your sign-in code' : 'Check your email', style: text.headlineMedium),
         const SizedBox(height: 6),
-        Text(
-          widget.purpose == CodePurpose.signUp
-              ? 'We sent a 6-digit code to ${widget.email}. It expires in 10 minutes.'
-              : 'If an account uses ${widget.email}, we sent it a 6-digit code. It expires in 10 minutes.',
-          style: text.bodyLarge,
-        ),
+        Text(switch (widget.purpose) {
+          CodePurpose.signUp => 'We sent a 6-digit code to ${widget.email}. It expires in 10 minutes.',
+          CodePurpose.signIn => 'For your security we sent a 6-digit code to ${widget.email}. It expires in 10 minutes.',
+          CodePurpose.reset => 'If an account uses ${widget.email}, we sent it a 6-digit code. It expires in 10 minutes.',
+        }, style: text.bodyLarge),
         const SizedBox(height: 24),
         CodeBoxes(key: ValueKey(_attempt), enabled: !busy, onCompleted: _verify),
         if (error != null) ...[const SizedBox(height: 16), ErrorNote(error!)],
@@ -224,6 +233,16 @@ class _CodeScreenState extends ConsumerState<CodeScreen> with _Busy {
         const Center(
           child: Text('Check your spam folder if it has not arrived.', style: TextStyle(fontSize: 13, color: Palette.muted)),
         ),
+        if (signingIn) ...[
+          const SizedBox(height: 12),
+          Center(
+            child: TextButton(
+              key: const Key('code-sign-out'),
+              onPressed: () => ref.read(accountRepositoryProvider).signOut(),
+              child: const Text('Not you? Sign out'),
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -298,6 +317,9 @@ class _NewPasswordScreenState extends ConsumerState<NewPasswordScreen> with _Bus
   Future<void> _save() async {
     final nav = Navigator.of(context);
     if (PasswordRules.ok(_password.text) && await run((r) => r.setNewPassword(_password.text))) {
+      // The reset session proved the inbox only; signing in again adds the password step.
+      ref.read(passwordChangedNoticeProvider.notifier).show();
+      await ref.read(accountRepositoryProvider).signOut();
       nav.popUntil((r) => r.isFirst);
     }
   }
@@ -340,7 +362,7 @@ class _NewPasswordScreenState extends ConsumerState<NewPasswordScreen> with _Bus
         const SizedBox(height: 22),
         PrimaryButton(
           key: const Key('save-password'),
-          label: 'Save and sign in',
+          label: 'Save password',
           busy: busy,
           onPressed: PasswordRules.ok(_password.text) ? _save : null,
         ),

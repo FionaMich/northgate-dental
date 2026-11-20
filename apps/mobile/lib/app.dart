@@ -6,6 +6,7 @@ import 'package:material_ui/material_ui.dart';
 import 'design/tokens.dart';
 import 'features/shell.dart';
 import 'features/intro_screen.dart';
+import 'features/auth_screens.dart';
 import 'features/details_screen.dart';
 import 'features/link_code_screen.dart';
 import 'features/sign_in_screen.dart';
@@ -53,6 +54,22 @@ class Gate extends ConsumerWidget {
     final signedIn = ref.watch(signedInProvider).value;
     if (signedIn == null) return loading;
     if (!signedIn) return const SignInScreen();
+    // Second factor: the emailed code, checked by the server, before any patient data.
+    final verified = ref.watch(sessionVerifiedProvider);
+    if (verified.hasError) {
+      return Scaffold(
+        body: Center(
+          child: TextButton(
+            onPressed: () => ref.invalidate(sessionVerifiedProvider),
+            child: const Text('Could not reach Northgate. Tap to try again.'),
+          ),
+        ),
+      );
+    }
+    if (!verified.hasValue || verified.isLoading) return loading;
+    if (verified.value == false) {
+      return CodeScreen(email: ref.read(accountRepositoryProvider).currentEmail ?? '', purpose: CodePurpose.signIn);
+    }
     return ref
         .watch(linkedPatientsProvider)
         .when(

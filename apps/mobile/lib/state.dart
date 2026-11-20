@@ -12,8 +12,14 @@ final signedInProvider = StreamProvider<bool>((ref) async* {
   yield* repo.signedInChanges();
 });
 
+/// True once the session has both factors (password and emailed code); false when signed out.
+final sessionVerifiedProvider = FutureProvider<bool>(retry: (_, _) => null, (ref) async {
+  if (!await ref.watch(signedInProvider.future)) return false;
+  return ref.watch(accountRepositoryProvider).sessionVerified();
+});
+
 final linkedPatientsProvider = FutureProvider<List<LinkedPatient>>((ref) async {
-  if (!await ref.watch(signedInProvider.future)) return const [];
+  if (!await ref.watch(sessionVerifiedProvider.future)) return const [];
   return ref.watch(accountRepositoryProvider).linkedPatients();
 });
 
@@ -67,3 +73,6 @@ final patientDetailsProvider = FutureProvider.family<PatientDetails, String>(
   retry: (_, _) => null,
   (ref, patientId) => ref.watch(accountRepositoryProvider).details(patientId),
 );
+
+/// True right after a password reset, so the sign-in screen can say the new password is ready.
+final passwordChangedNoticeProvider = NotifierProvider<SignedOutNotice, bool>(SignedOutNotice.new);
