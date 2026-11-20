@@ -1,4 +1,5 @@
 import 'package:dental/app.dart';
+import 'package:dental/features/aligner_screen.dart';
 import 'package:dental/features/intro_screen.dart';
 import 'package:dental/state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,6 +16,7 @@ Future<void> pumpWithIntro(WidgetTester tester) async {
       overrides: [
         accountRepositoryProvider.overrideWithValue(FakeAccountRepository()),
         careRepositoryProvider.overrideWithValue(FakeCareRepository()),
+        wearStoreProvider.overrideWithValue(MemoryWearStore()),
       ],
       child: const NorthgateApp(),
     ),

@@ -35,6 +35,7 @@ void main() {
     final care = await openBooking(tester);
     expect(find.text('Book a visit'), findsOneWidget);
     expect(find.text('Back Bay'), findsWidgets, reason: 'booking starts at the preferred clinic');
+    expect(find.textContaining('removes plaque and tartar'), findsOneWidget, reason: 'each service says what happens');
     await pickFirstTime(tester);
     await tapTicking(tester, 'hold');
     expect(care.calls, ['hold:back-bay:cleaning']);

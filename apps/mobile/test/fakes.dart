@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:dental/data/account_repository.dart';
 import 'package:dental/data/care_repository.dart';
+import 'package:dental/data/wear_log.dart';
 
 /// In-memory stand-in for Supabase, so widget tests run without a network.
 class FakeAccountRepository implements AccountRepository {
@@ -168,7 +170,12 @@ class FakeCareRepository implements CareRepository {
 
   @override
   Future<List<BookableService>> services(String clinicId) async => const [
-    BookableService(id: 'cleaning', name: 'Adult cleaning', minutes: 60),
+    BookableService(
+      id: 'cleaning',
+      name: 'Adult cleaning',
+      minutes: 60,
+      summary: 'A hygienist removes plaque and tartar and polishes your teeth.',
+    ),
     BookableService(id: 'exam', name: 'Comprehensive oral exam', minutes: 45),
   ];
 
@@ -214,6 +221,28 @@ class FakeCareRepository implements CareRepository {
     );
   }
 
+  bool failUpload = false;
+  final _coverages = <String, List<Coverage>>{};
+
+  @override
+  Future<List<Coverage>> coverages(String patientId) async => _coverages[patientId] ?? const [];
+
+  @override
+  Future<void> addCoverage({
+    required String patientId,
+    required String payer,
+    required String memberId,
+    String? group,
+    required Uint8List front,
+    required Uint8List back,
+  }) async {
+    if (failUpload) throw const CoverageError(uploadError);
+    calls.add('coverage:$patientId:$payer:$memberId:front=${front.length}:back=${back.length}');
+    _coverages
+        .putIfAbsent(patientId, () => [])
+        .insert(0, Coverage(id: 'c-${calls.length}', payer: payer, memberId: memberId, status: 'pending_review'));
+  }
+
   @override
   Future<void> cancel(String appointmentId) async {
     calls.add('cancel:$appointmentId');
@@ -228,4 +257,18 @@ class FakeCareRepository implements CareRepository {
       ),
     );
   }
+}
+
+/// Wear logs in memory instead of the phone's keystore.
+class MemoryWearStore implements WearStore {
+  final values = <String, String>{};
+
+  @override
+  Future<String?> read(String key) async => values[key];
+
+  @override
+  Future<void> write(String key, String value) async => values[key] = value;
+
+  @override
+  Future<void> clearAll() async => values.removeWhere((k, _) => k.startsWith('aligner:'));
 }
