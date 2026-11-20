@@ -86,17 +86,29 @@ class _DetailsFormState extends ConsumerState<_DetailsForm> {
       _error = null;
     });
     final repo = ref.read(accountRepositoryProvider);
+    var line1 = _line1.text.trim(), city = _city.text.trim(), state = _state.text.trim().toUpperCase(), zip = _zip.text.trim();
+    final i = widget.initial;
+    final unchanged = line1 == i.line1 && city == i.city && state == i.state && zip == i.zip;
     try {
+      // A new or changed address must be a real one: check it, and save the official form the patient confirms.
+      if (!unchanged) {
+        final matches = await repo.verifyAddress(line1: line1, city: city, state: state, zip: zip);
+        if (matches.isEmpty) {
+          if (mounted) {
+            setState(() => _error = 'We could not find that address. Check the street number, street name and ZIP code.');
+          }
+          return;
+        }
+        if (!mounted) return;
+        setState(() => _busy = false);
+        final picked = await _confirmAddress(context, matches);
+        if (picked == null || !mounted) return;
+        setState(() => _busy = true);
+        (line1, city, state, zip) = (picked.line1, picked.city, picked.state, picked.zip);
+      }
       await repo.saveDetails(
         widget.patient.id,
-        PatientDetails(
-          clinicId: _clinic,
-          line1: _line1.text.trim(),
-          line2: _line2.text.trim(),
-          city: _city.text.trim(),
-          state: _state.text.trim().toUpperCase(),
-          zip: _zip.text.trim(),
-        ),
+        PatientDetails(clinicId: _clinic, line1: line1, line2: _line2.text.trim(), city: city, state: state, zip: zip),
       );
       ref.invalidate(patientDetailsProvider(widget.patient.id));
       if (widget.editing) {
@@ -230,6 +242,57 @@ class _DetailsFormState extends ConsumerState<_DetailsForm> {
     );
   }
 }
+
+/// "Is this your address?": the official form(s) the Census Bureau found. Returns the one picked, or null to edit.
+Future<AddressMatch?> _confirmAddress(BuildContext context, List<AddressMatch> matches) => showModalBottomSheet<AddressMatch>(
+  context: context,
+  backgroundColor: Colors.white,
+  showDragHandle: true,
+  isScrollControlled: true,
+  shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(32))),
+  builder: (context) => SafeArea(
+    child: SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Center(child: IconTile(Icons.where_to_vote_rounded, size: 64)),
+          const SizedBox(height: 16),
+          Text('Is this your address?', textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineMedium),
+          const SizedBox(height: 6),
+          const Text(
+            'We checked it against the US Census Bureau address list.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 14, color: Palette.muted),
+          ),
+          const SizedBox(height: 18),
+          for (final (n, m) in matches.indexed) ...[
+            Panel(
+              onTap: () => Navigator.of(context).pop(m),
+              child: Row(
+                key: Key('address-match-$n'),
+                children: [
+                  const Icon(Icons.home_rounded, color: Palette.teal),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      m.oneLine,
+                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Palette.deepSea),
+                    ),
+                  ),
+                  const Icon(Icons.chevron_right_rounded, color: Palette.muted),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Edit the address')),
+        ],
+      ),
+    ),
+  ),
+);
 
 /// A selectable clinic: teal ring and check when chosen.
 class _ClinicCard extends StatelessWidget {

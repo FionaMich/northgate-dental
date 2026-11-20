@@ -40,6 +40,16 @@ class PatientDetails {
   int get hashCode => Object.hash(clinicId, line1, line2, city, state, zip);
 }
 
+/// An address the US Census Bureau knows, in its official form.
+class AddressMatch {
+  const AddressMatch({required this.line1, required this.city, required this.state, required this.zip});
+  final String line1, city, state, zip;
+
+  String get oneLine => '$line1, $city, $state $zip';
+}
+
+const addressServiceError = 'We could not check your address right now. Please try again in a minute.';
+
 /// Seed and staff data name clinics "Back Bay (synthetic)"; the patient app shows the plain name (decision 2026-11-19).
 String clinicLabel(String name) => name.replaceAll(' (synthetic)', '');
 
@@ -94,6 +104,9 @@ abstract class AccountRepository {
   Future<void> setNewPassword(String password);
 
   Future<List<Clinic>> clinics();
+
+  /// Checks a US home address (through our verify-address function, run in the US). Empty when it does not exist.
+  Future<List<AddressMatch>> verifyAddress({required String line1, required String city, required String state, required String zip});
   Future<PatientDetails> details(String patientId);
 
   /// Saves the clinic and address for a record this sign-in may see; marks the details confirmed.
@@ -285,6 +298,24 @@ class SupabaseAccountRepository implements AccountRepository {
         _ when m.contains('already has a record') => 'This account already has a record.',
         _ => 'Registering did not work. Please try again.',
       });
+    }
+  }
+
+  @override
+  Future<List<AddressMatch>> verifyAddress({
+    required String line1,
+    required String city,
+    required String state,
+    required String zip,
+  }) async {
+    try {
+      final res = await _db.functions.invoke('verify-address', body: {'street': line1, 'city': city, 'state': state, 'zip': zip});
+      return [
+        for (final m in (res.data as Map)['matches'] as List)
+          AddressMatch(line1: m['line1'] as String, city: m['city'] as String, state: m['state'] as String, zip: m['zip'] as String),
+      ];
+    } on FunctionException {
+      throw const AccountError(addressServiceError);
     }
   }
 
