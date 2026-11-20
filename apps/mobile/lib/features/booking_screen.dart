@@ -128,16 +128,15 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                     title: 'Could not load services',
                     body: 'Check your connection and try again.',
                   ),
-                  AsyncData(:final value) => Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
+                  AsyncData(:final value) => Column(
                     children: [
                       for (final s in value)
                         _Choice(
                           key: Key('service-${s.id}'),
                           selected: s.id == _service,
                           title: s.name,
-                          subtitle: '${s.minutes} min',
+                          minutes: s.minutes,
+                          summary: s.summary,
                           onTap: () => setState(() {
                             _service = s.id;
                             _day = _slot = null;
@@ -321,41 +320,81 @@ class _Header extends StatelessWidget {
   );
 }
 
-/// A service card: teal ring when chosen.
+/// A service card: name, length and what happens; teal ring when chosen.
 class _Choice extends StatelessWidget {
-  const _Choice({super.key, required this.selected, required this.title, required this.subtitle, required this.onTap});
+  const _Choice({
+    super.key,
+    required this.selected,
+    required this.title,
+    required this.minutes,
+    required this.summary,
+    required this.onTap,
+  });
   final bool selected;
-  final String title, subtitle;
+  final String title, summary;
+  final int minutes;
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => Semantics(
-    button: true,
-    selected: selected,
-    child: Pressable(
-      onTap: onTap,
-      child: InkWell(
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 10),
+    child: Semantics(
+      button: true,
+      selected: selected,
+      child: Pressable(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          width: (MediaQuery.sizeOf(context).width - 50) / 2,
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: selected ? Palette.enamel : Colors.white,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: selected ? Palette.teal : Palette.line, width: selected ? 2 : 1),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, height: 1.25, color: Palette.deepSea),
-              ),
-              const SizedBox(height: 4),
-              Text(subtitle, style: const TextStyle(fontSize: 13, color: Palette.muted)),
-            ],
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(20),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: selected ? Palette.enamel : Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: selected ? Palette.teal : Palette.line, width: selected ? 2 : 1),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              title,
+                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, height: 1.25, color: Palette.deepSea),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(color: Palette.mist, borderRadius: BorderRadius.circular(999)),
+                            child: Text(
+                              '$minutes min',
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Palette.muted),
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (summary.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Text(summary, style: const TextStyle(fontSize: 14, height: 1.45, color: Palette.muted)),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Icon(
+                  selected ? Icons.check_circle_rounded : Icons.circle_outlined,
+                  color: selected ? Palette.teal : Palette.line,
+                  size: 24,
+                ),
+              ],
+            ),
           ),
         ),
       ),

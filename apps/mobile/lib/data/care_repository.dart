@@ -66,9 +66,12 @@ class CareSummary {
 
 /// A service patients may book themselves at a clinic.
 class BookableService {
-  const BookableService({required this.id, required this.name, required this.minutes});
+  const BookableService({required this.id, required this.name, required this.minutes, this.summary = ''});
   final String id, name;
   final int minutes;
+
+  /// One plain sentence about what happens, shown before booking.
+  final String summary;
 }
 
 /// A free time from `available_slots`, with the dentist the server matched to it.
@@ -217,13 +220,18 @@ class SupabaseCareRepository implements CareRepository {
   Future<List<BookableService>> services(String clinicId) async {
     final rows = await _db
         .from('location_services')
-        .select('services(id, name, duration_minutes, self_bookable, active)')
+        .select('services(id, name, summary, duration_minutes, self_bookable, active)')
         .eq('location_id', clinicId)
         .eq('active', true);
     final list = [
       for (final r in rows)
         if (r['services'] case {'self_bookable': true, 'active': true} && final s)
-          BookableService(id: s['id'] as String, name: s['name'] as String, minutes: s['duration_minutes'] as int),
+          BookableService(
+            id: s['id'] as String,
+            name: s['name'] as String,
+            minutes: s['duration_minutes'] as int,
+            summary: s['summary'] as String? ?? '',
+          ),
     ];
     return list..sort((a, b) => a.name.compareTo(b.name));
   }

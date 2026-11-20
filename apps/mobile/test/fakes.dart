@@ -170,7 +170,12 @@ class FakeCareRepository implements CareRepository {
 
   @override
   Future<List<BookableService>> services(String clinicId) async => const [
-    BookableService(id: 'cleaning', name: 'Adult cleaning', minutes: 60),
+    BookableService(
+      id: 'cleaning',
+      name: 'Adult cleaning',
+      minutes: 60,
+      summary: 'A hygienist removes plaque and tartar and polishes your teeth.',
+    ),
     BookableService(id: 'exam', name: 'Comprehensive oral exam', minutes: 45),
   ];
 
