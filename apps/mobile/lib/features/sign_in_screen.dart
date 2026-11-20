@@ -22,6 +22,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
 
   Future<void> _submit() async {
     ref.read(signedOutNoticeProvider.notifier).clear();
+    ref.read(passwordChangedNoticeProvider.notifier).clear();
     setState(() {
       _busy = true;
       _error = null;
@@ -58,7 +59,13 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                   HeroStage(height: (box.maxHeight * 0.42).clamp(240, 380)),
                   BottomSheetPanel(
                     children: [
-                      if (ref.watch(signedOutNoticeProvider)) ...[const _SignedOutNote(), const SizedBox(height: 18)],
+                      if (ref.watch(passwordChangedNoticeProvider)) ...[
+                        const _SignedOutNote('Password saved. Sign in with your new password.'),
+                        const SizedBox(height: 18),
+                      ] else if (ref.watch(signedOutNoticeProvider)) ...[
+                        const _SignedOutNote('You have signed out. Your sign-in was removed from this phone.'),
+                        const SizedBox(height: 18),
+                      ],
                       Text('Welcome back', style: text.headlineMedium),
                       const SizedBox(height: 6),
                       Text('Visits, plans and bookings across Back Bay, Cambridge and Quincy.', style: text.bodyLarge),
@@ -117,7 +124,8 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
 }
 
 class _SignedOutNote extends StatelessWidget {
-  const _SignedOutNote();
+  const _SignedOutNote(this.message);
+  final String message;
 
   @override
   Widget build(BuildContext context) => Semantics(
@@ -125,14 +133,14 @@ class _SignedOutNote extends StatelessWidget {
     child: Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(color: Palette.enamel, borderRadius: BorderRadius.circular(14)),
-      child: const Row(
+      child: Row(
         children: [
-          Icon(Icons.check_circle_rounded, color: Palette.teal, size: 20),
-          SizedBox(width: 10),
+          const Icon(Icons.check_circle_rounded, color: Palette.teal, size: 20),
+          const SizedBox(width: 10),
           Expanded(
             child: Text(
-              'You have signed out. Your sign-in was removed from this phone.',
-              style: TextStyle(color: Palette.tealDark, fontSize: 14, fontWeight: FontWeight.w600),
+              message,
+              style: const TextStyle(color: Palette.tealDark, fontSize: 14, fontWeight: FontWeight.w600),
             ),
           ),
         ],
