@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// A patient record this sign-in may see: their own, or a child's through proxy access.
@@ -108,6 +109,9 @@ abstract final class PasswordRules {
 }
 
 const codeError = 'That code is not right or has expired. Check the latest email, or ask for a new code.';
+
+/// Supabase could not deliver the code email (on staging: any address other than the Resend account owner's).
+const emailSendError = 'We could not send a code to that email address. Check it is typed correctly, or try another address.';
 const tooManyError = 'Too many tries. Please wait a minute, then try again.';
 
 class SupabaseAccountRepository implements AccountRepository {
@@ -189,12 +193,18 @@ class SupabaseAccountRepository implements AccountRepository {
     ];
   }
 
+  @visibleForTesting
+  static AccountError authErrorForTest(AuthException e) => _authError(e);
+
   static AccountError _authError(AuthException e, {String fallback = 'That did not work. Please try again.'}) {
     if (e.statusCode == '429' || (e.code ?? '').contains('rate_limit')) return const AccountError(tooManyError);
     if (e.code == 'weak_password') {
       return const AccountError('Choose a stronger password: 10 or more characters with upper and lower case letters and a number.');
     }
     if (e.code == 'otp_expired' || e.code == 'otp_disabled') return const AccountError(codeError);
+    if (e.message.toLowerCase().contains('sending') && e.message.toLowerCase().contains('email')) {
+      return const AccountError(emailSendError);
+    }
     return AccountError(fallback);
   }
 
