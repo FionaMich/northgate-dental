@@ -6,6 +6,7 @@ import '../data/account_repository.dart';
 import '../design/tokens.dart';
 import '../state.dart';
 import 'care_widgets.dart';
+import 'aligner_screen.dart';
 import 'coverage_screen.dart';
 import 'details_screen.dart';
 
@@ -84,6 +85,34 @@ class ProfileScreen extends ConsumerWidget {
           ),
           if (self != null) ...[const SizedBox(height: 22), const SectionTitle('Clinic and address'), _DetailsPanel(patient: self)],
           if (self != null) ...[const SizedBox(height: 22), const SectionTitle('Insurance'), CoveragePanel(patient: self)],
+          if (self != null) ...[
+            const SizedBox(height: 22),
+            const SectionTitle('Tools'),
+            Panel(
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => AlignerScreen(patient: self))),
+              child: const Row(
+                key: Key('open-aligner'),
+                children: [
+                  IconTile(Icons.timer_outlined, size: 46),
+                  SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Aligner timer',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Palette.deepSea),
+                        ),
+                        SizedBox(height: 2),
+                        Text('Track wear against 22 hours a day', style: TextStyle(fontSize: 14, color: Palette.muted)),
+                      ],
+                    ),
+                  ),
+                  Icon(Icons.chevron_right_rounded, color: Palette.muted),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 22),
           const SectionTitle('Privacy'),
           const EmptyNote(

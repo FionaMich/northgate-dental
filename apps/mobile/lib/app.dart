@@ -6,6 +6,7 @@ import 'package:material_ui/material_ui.dart';
 import 'design/tokens.dart';
 import 'features/shell.dart';
 import 'features/intro_screen.dart';
+import 'features/aligner_screen.dart';
 import 'features/auth_screens.dart';
 import 'features/details_screen.dart';
 import 'features/link_code_screen.dart';
@@ -51,6 +52,10 @@ class Gate extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     const loading = Scaffold(body: Center(child: CircularProgressIndicator()));
+    // Signing out wipes what this phone keeps for the person (aligner wear logs).
+    ref.listen(signedInProvider, (_, next) {
+      if (next.value == false) ref.read(wearStoreProvider).clearAll();
+    });
     final signedIn = ref.watch(signedInProvider).value;
     if (signedIn == null) return loading;
     if (!signedIn) return const SignInScreen();

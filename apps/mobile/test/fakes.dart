@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:dental/data/account_repository.dart';
 import 'package:dental/data/care_repository.dart';
+import 'package:dental/data/wear_log.dart';
 
 /// In-memory stand-in for Supabase, so widget tests run without a network.
 class FakeAccountRepository implements AccountRepository {
@@ -251,4 +252,18 @@ class FakeCareRepository implements CareRepository {
       ),
     );
   }
+}
+
+/// Wear logs in memory instead of the phone's keystore.
+class MemoryWearStore implements WearStore {
+  final values = <String, String>{};
+
+  @override
+  Future<String?> read(String key) async => values[key];
+
+  @override
+  Future<void> write(String key, String value) async => values[key] = value;
+
+  @override
+  Future<void> clearAll() async => values.removeWhere((k, _) => k.startsWith('aligner:'));
 }
