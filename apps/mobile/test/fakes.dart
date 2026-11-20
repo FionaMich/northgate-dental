@@ -7,10 +7,9 @@ import 'package:dental/data/wear_log.dart';
 
 /// In-memory stand-in for Supabase, so widget tests run without a network.
 class FakeAccountRepository implements AccountRepository {
-  FakeAccountRepository({this.password = 'right', this.patients = const [], this.validCode = 'ABCD1234EFGH5678', this.role = 'patient'});
+  FakeAccountRepository({this.password = 'right', this.patients = const [], this.role = 'patient'});
 
   final String password;
-  final String validCode;
   final String role;
   List<LinkedPatient> patients;
   final List<LinkedPatient> patientsAfterLinking = const [
@@ -106,12 +105,15 @@ class FakeAccountRepository implements AccountRepository {
     newPassword = password;
   }
 
+  final registered = <String>[];
+
   @override
-  Future<void> redeemCode(String code) async {
-    if (code.trim().toUpperCase() != validCode) {
-      throw const AccountError('This code is not valid or has expired. Ask the front desk for a new one.');
+  Future<void> registerNewPatient({required String given, required String family, required DateTime birthDate, required String sex}) async {
+    if (DateTime(birthDate.year + 18, birthDate.month, birthDate.day).isAfter(DateTime.now())) {
+      throw const AccountError('Patients under 18 are registered by a parent or guardian at the practice.');
     }
-    patients = patientsAfterLinking;
+    registered.add('$given $family ${birthDate.year}-${birthDate.month}-${birthDate.day} $sex');
+    patients = [LinkedPatient(id: 'p-new', name: '$given $family', isSelf: true, detailsConfirmed: false)];
   }
 
   // Date-of-birth linking: Elena's record matches 04/12/1988; five misses lock it.
