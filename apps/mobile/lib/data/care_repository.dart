@@ -1,5 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'account_repository.dart' show clinicLabel;
+
 class Appointment {
   const Appointment({
     required this.id,
@@ -85,7 +87,7 @@ class SupabaseCareRepository implements CareRepository {
           .eq('patient_id', patientId)
           .inFilter('status', ['booked', 'arrived'])
           .gte('starts_at', now)
-          .order('starts_at'),
+          .order('starts_at', ascending: true), // soonest first (the client defaults to descending)
       _db
           .from('encounters')
           .select('id, occurred_at, kind, locations(name), dental_procedures(status, tooth, location_services(services(name)))')
@@ -99,7 +101,7 @@ class SupabaseCareRepository implements CareRepository {
           .eq('patient_id', patientId)
           .order('created_at', ascending: false),
     ]);
-    String loc(Map<String, dynamic> r) => (r['locations'] as Map?)?['name'] as String? ?? 'Northgate Dental';
+    String loc(Map<String, dynamic> r) => clinicLabel((r['locations'] as Map?)?['name'] as String? ?? 'Northgate Dental');
     return CareSummary(
       upcoming: [
         for (final r in results[0])
@@ -108,7 +110,7 @@ class SupabaseCareRepository implements CareRepository {
             startsAt: DateTime.parse(r['starts_at'] as String).toLocal(),
             endsAt: DateTime.parse(r['ends_at'] as String).toLocal(),
             service: _serviceName(r) ?? 'Appointment',
-            location: ((r['location_services'] as Map?)?['locations'] as Map?)?['name'] as String? ?? 'Northgate Dental',
+            location: clinicLabel(((r['location_services'] as Map?)?['locations'] as Map?)?['name'] as String? ?? 'Northgate Dental'),
             status: r['status'] as String,
           ),
       ],

@@ -2,11 +2,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../design/art.dart';
+import '../data/account_repository.dart';
 import '../design/tokens.dart';
 import '../state.dart';
 import 'care_widgets.dart';
+import 'details_screen.dart';
 
-/// The account: who is linked, privacy, and signing out.
+/// The account: who is linked, their clinic and address, privacy, and signing out.
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
@@ -79,6 +81,7 @@ class ProfileScreen extends ConsumerWidget {
               ],
             ),
           ),
+          if (self != null) ...[const SizedBox(height: 22), const SectionTitle('Clinic and address'), _DetailsPanel(patient: self)],
           const SizedBox(height: 22),
           const SectionTitle('Privacy'),
           const EmptyNote(
@@ -100,6 +103,46 @@ class ProfileScreen extends ConsumerWidget {
               textStyle: const TextStyle(fontFamily: uiFont, fontSize: 16, fontWeight: FontWeight.w700),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The preferred clinic and home address on file, with Edit.
+class _DetailsPanel extends ConsumerWidget {
+  const _DetailsPanel({required this.patient});
+  final LinkedPatient patient;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final details = ref.watch(patientDetailsProvider(patient.id)).value;
+    final clinics = ref.watch(clinicsProvider).value ?? const [];
+    final clinic = clinics.where((c) => c.id == details?.clinicId).firstOrNull;
+    final address = details == null || details.line1.isEmpty
+        ? 'No address yet'
+        : [details.line1, details.line2, details.city, '${details.state} ${details.zip}'].where((s) => s.trim().isNotEmpty).join(', ');
+    void edit() => Navigator.of(context).push(MaterialPageRoute(builder: (_) => DetailsScreen(patient: patient, editing: true)));
+    return Panel(
+      onTap: edit,
+      child: Row(
+        children: [
+          const IconTile(Icons.location_on_rounded, size: 46),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  clinic?.name ?? 'Choose a clinic',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Palette.deepSea),
+                ),
+                const SizedBox(height: 3),
+                Text(address, style: const TextStyle(fontSize: 14, height: 1.4, color: Palette.muted)),
+              ],
+            ),
+          ),
+          TextButton(key: const Key('edit-details'), onPressed: edit, child: const Text('Edit')),
         ],
       ),
     );

@@ -145,34 +145,48 @@ class AuthLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    body: DecoratedBox(
-      decoration: const BoxDecoration(gradient: heroGradient),
-      child: LayoutBuilder(
-        builder: (context, box) => SingleChildScrollView(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: box.maxHeight),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Stack(
-                  children: [
-                    HeroStage(height: (box.maxHeight * heroFraction).clamp(200, 380), quietCorner: showBack),
-                    if (showBack)
-                      Positioned(
-                        right: 12,
-                        top: 10 + MediaQuery.paddingOf(context).top,
-                        child: IconButton.filledTonal(
-                          tooltip: 'Back',
-                          style: IconButton.styleFrom(backgroundColor: Colors.white.withValues(alpha: 0.14), foregroundColor: Colors.white),
-                          onPressed: () => Navigator.of(context).maybePop(),
-                          icon: const Icon(Icons.close_rounded),
-                        ),
+    body: Stack(
+      children: [
+        Positioned.fill(child: _scroller(context)),
+        // A solid band behind the clock and battery icons, so scrolled content never runs under them.
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          height: MediaQuery.paddingOf(context).top,
+          child: const ColoredBox(color: Palette.heroMid),
+        ),
+      ],
+    ),
+  );
+
+  Widget _scroller(BuildContext context) => DecoratedBox(
+    decoration: const BoxDecoration(gradient: heroGradient),
+    child: LayoutBuilder(
+      builder: (context, box) => SingleChildScrollView(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: box.maxHeight),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Stack(
+                children: [
+                  HeroStage(height: (box.maxHeight * heroFraction).clamp(200, 380), quietCorner: showBack),
+                  if (showBack)
+                    Positioned(
+                      right: 12,
+                      top: 10 + MediaQuery.paddingOf(context).top,
+                      child: IconButton.filledTonal(
+                        tooltip: 'Back',
+                        style: IconButton.styleFrom(backgroundColor: Colors.white.withValues(alpha: 0.14), foregroundColor: Colors.white),
+                        onPressed: () => Navigator.of(context).maybePop(),
+                        icon: const Icon(Icons.close_rounded),
                       ),
-                  ],
-                ),
-                BottomSheetPanel(children: children),
-              ],
-            ),
+                    ),
+                ],
+              ),
+              BottomSheetPanel(children: children),
+            ],
           ),
         ),
       ),

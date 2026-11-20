@@ -28,7 +28,7 @@ void main() {
     expect(repo.sent, ['signup:jordan@northgate.synthetic']);
     expect(find.textContaining('jordan@northgate.synthetic'), findsOneWidget);
     await enterCode(tester, '123456');
-    expect(find.text('Link your record'), findsOneWidget);
+    expect(find.text('Find your record'), findsOneWidget);
   });
 
   testWidgets('a weak password keeps Create account switched off', (tester) async {
