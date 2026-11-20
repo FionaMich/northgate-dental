@@ -6,6 +6,7 @@ import '../data/account_repository.dart';
 import '../design/tokens.dart';
 import '../state.dart';
 import 'care_widgets.dart';
+import 'coverage_screen.dart';
 import 'details_screen.dart';
 
 /// The account: who is linked, their clinic and address, privacy, and signing out.
@@ -82,6 +83,7 @@ class ProfileScreen extends ConsumerWidget {
             ),
           ),
           if (self != null) ...[const SizedBox(height: 22), const SectionTitle('Clinic and address'), _DetailsPanel(patient: self)],
+          if (self != null) ...[const SizedBox(height: 22), const SectionTitle('Insurance'), CoveragePanel(patient: self)],
           const SizedBox(height: 22),
           const SectionTitle('Privacy'),
           const EmptyNote(

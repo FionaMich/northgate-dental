@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:dental/data/account_repository.dart';
 import 'package:dental/data/care_repository.dart';
@@ -212,6 +213,28 @@ class FakeCareRepository implements CareRepository {
       visits: before.visits,
       plans: before.plans,
     );
+  }
+
+  bool failUpload = false;
+  final _coverages = <String, List<Coverage>>{};
+
+  @override
+  Future<List<Coverage>> coverages(String patientId) async => _coverages[patientId] ?? const [];
+
+  @override
+  Future<void> addCoverage({
+    required String patientId,
+    required String payer,
+    required String memberId,
+    String? group,
+    required Uint8List front,
+    required Uint8List back,
+  }) async {
+    if (failUpload) throw const CoverageError(uploadError);
+    calls.add('coverage:$patientId:$payer:$memberId:front=${front.length}:back=${back.length}');
+    _coverages
+        .putIfAbsent(patientId, () => [])
+        .insert(0, Coverage(id: 'c-${calls.length}', payer: payer, memberId: memberId, status: 'pending_review'));
   }
 
   @override

@@ -8,7 +8,12 @@ import 'package:material_ui/material_ui.dart';
 
 import 'fakes.dart';
 
-Future<FakeAccountRepository> pumpApp(WidgetTester tester, FakeAccountRepository repo, {FakeCareRepository? care}) async {
+Future<FakeAccountRepository> pumpApp(
+  WidgetTester tester,
+  FakeAccountRepository repo, {
+  FakeCareRepository? care,
+  List<dynamic> extra = const [],
+}) async {
   // Tests run with the phone's reduce-motion setting on, as some patients will; the floating art then stays still.
   tester.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(disableAnimations: true);
   addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
@@ -18,6 +23,7 @@ Future<FakeAccountRepository> pumpApp(WidgetTester tester, FakeAccountRepository
         accountRepositoryProvider.overrideWithValue(repo),
         careRepositoryProvider.overrideWithValue(care ?? FakeCareRepository()),
         introDurationProvider.overrideWithValue(Duration.zero),
+        ...extra,
       ],
       child: const NorthgateApp(),
     ),
