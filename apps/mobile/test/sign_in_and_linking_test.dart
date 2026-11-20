@@ -28,6 +28,10 @@ Future<FakeAccountRepository> pumpApp(WidgetTester tester, FakeAccountRepository
 
 /// Scrolls the control into view first, as a person would, then taps it.
 Future<void> tapKey(WidgetTester tester, String key) async {
+  // Lists build lazily, so a control far down may not exist until the list scrolls towards it.
+  if (find.byKey(Key(key)).evaluate().isEmpty) {
+    await tester.scrollUntilVisible(find.byKey(Key(key)), 200, scrollable: find.byType(Scrollable).first);
+  }
   await tester.ensureVisible(find.byKey(Key(key)));
   await tester.pumpAndSettle();
   await tester.tap(find.byKey(Key(key)));
@@ -57,10 +61,33 @@ void main() {
     expect(find.byKey(const Key('sign-in')), findsOneWidget);
   });
 
-  testWidgets('an unlinked patient is asked for the front desk code, then sees their name', (tester) async {
+  testWidgets('an unlinked patient confirms their date of birth, with no front-desk code, then sees their name', (tester) async {
     await pumpApp(tester, FakeAccountRepository());
     await signIn(tester);
-    expect(find.text('Link your record'), findsOneWidget);
+    expect(find.text('Find your record'), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('dob')), '04121988');
+    expect(find.text('04/12/1988'), findsOneWidget, reason: 'the slashes are added while typing');
+    await tapKey(tester, 'link');
+    expect(find.textContaining('Elena'), findsWidgets);
+  });
+
+  testWidgets('a wrong date of birth is refused, and five misses lock the route', (tester) async {
+    final repo = await pumpApp(tester, FakeAccountRepository());
+    await signIn(tester);
+    await tester.enterText(find.byKey(const Key('dob')), '01011990');
+    await tapKey(tester, 'link');
+    expect(find.textContaining('could not find a record'), findsOneWidget);
+    repo.birthDateMisses = 5;
+    await tester.enterText(find.byKey(const Key('dob')), '04121988');
+    await tapKey(tester, 'link');
+    expect(find.textContaining('Too many tries'), findsOneWidget);
+    expect(repo.patients, isEmpty);
+  });
+
+  testWidgets('the front-desk code still works as a fallback', (tester) async {
+    await pumpApp(tester, FakeAccountRepository());
+    await signIn(tester);
+    await tapKey(tester, 'switch-link-method');
     await tester.enterText(find.byKey(const Key('code')), 'abcd1234efgh5678');
     await tapKey(tester, 'link');
     expect(find.textContaining('Elena'), findsWidgets);
@@ -69,6 +96,7 @@ void main() {
   testWidgets('a wrong code is refused with advice', (tester) async {
     await pumpApp(tester, FakeAccountRepository());
     await signIn(tester);
+    await tapKey(tester, 'switch-link-method');
     await tester.enterText(find.byKey(const Key('code')), 'NOPE');
     await tapKey(tester, 'link');
     expect(find.textContaining('Ask the front desk'), findsOneWidget);

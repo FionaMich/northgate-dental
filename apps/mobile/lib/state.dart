@@ -58,3 +58,12 @@ class SignedOutNotice extends Notifier<bool> {
 }
 
 final signedOutNoticeProvider = NotifierProvider<SignedOutNotice, bool>(SignedOutNotice.new);
+
+/// The group's open clinics, for the clinic picker.
+final clinicsProvider = FutureProvider<List<Clinic>>(retry: (_, _) => null, (ref) => ref.watch(accountRepositoryProvider).clinics());
+
+/// Preferred clinic and home address for one linked record.
+final patientDetailsProvider = FutureProvider.family<PatientDetails, String>(
+  retry: (_, _) => null,
+  (ref, patientId) => ref.watch(accountRepositoryProvider).details(patientId),
+);
