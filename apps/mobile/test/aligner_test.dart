@@ -35,10 +35,12 @@ void main() {
   testWidgets('a patient puts aligners in, takes them out later, and sees today against 22 hours', (tester) async {
     var now = DateTime(2026, 11, 20, 8);
     final store = MemoryWearStore();
+    final reminders = FakeAlignerReminders();
     await pumpApp(
       tester,
       FakeAccountRepository(patients: [elena]),
       wear: store,
+      reminders: reminders,
       extra: [clockProvider.overrideWithValue(() => now)],
     );
     await signIn(tester);
@@ -52,14 +54,25 @@ void main() {
     expect(find.text('2h 30m'), findsOneWidget);
     expect(find.text('of 22h today'), findsOneWidget);
     expect(store.values.keys, ['aligner:p-elena'], reason: 'kept on the phone, per person');
+    expect(reminders.calls.where((c) => c != 'clear'), [
+      'in',
+      'out:10:30',
+    ], reason: 'putting them in cancels reminders; taking them out schedules them');
   });
 
-  testWidgets('signing out removes the wear log from the phone', (tester) async {
+  testWidgets('signing out removes the wear log and its reminders from the phone', (tester) async {
     final store = MemoryWearStore()..values['aligner:p-elena'] = '[]';
-    final repo = await pumpApp(tester, FakeAccountRepository(patients: [elena]), wear: store);
+    final reminders = FakeAlignerReminders();
+    final repo = await pumpApp(
+      tester,
+      FakeAccountRepository(patients: [elena]),
+      wear: store,
+      reminders: reminders,
+    );
     await signIn(tester);
     await repo.signOut();
     await tester.pumpAndSettle();
     expect(store.values, isEmpty);
+    expect(reminders.calls, contains('clear'), reason: 'pending reminders are removed too');
   });
 }

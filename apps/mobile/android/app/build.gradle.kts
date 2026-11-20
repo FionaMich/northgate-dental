@@ -15,10 +15,11 @@ val keyProperties = Properties().apply {
 
 android {
     namespace = "com.northgate.dental"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 37 // flutter_local_notifications 23 and androidx.core 1.19 need it; targetSdk and minSdk unchanged
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
+        isCoreLibraryDesugaringEnabled = true // needed by flutter_local_notifications
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
@@ -64,4 +65,8 @@ kotlin {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }
