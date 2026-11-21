@@ -24,3 +24,11 @@ __pycache__/
 # Node
 node_modules/
 .next/
+
+# Terraform: state holds resource IDs and IPs, kept outside Git; provider plugins are downloaded per machine
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+terraform.tfvars

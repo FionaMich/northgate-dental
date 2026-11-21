@@ -9,7 +9,7 @@ declare -A AGE_SHA256=(
   [arm64]=6b8dc4333c53a5a57c9e5834e3a48f92605d7154014cd07269ff3327db5d37f4
 )
 case "$(uname -m)" in x86_64) arch=amd64 ;; aarch64) arch=arm64 ;; *) echo "unsupported CPU $(uname -m)"; exit 1 ;; esac
-admin="${SUDO_USER:-$(logname)}"
+admin="${SUDO_USER:-${ADMIN_USER:-$(logname)}}" # ADMIN_USER when cloud-init runs it as root
 
 if command -v apt-get >/dev/null; then
   export DEBIAN_FRONTEND=noninteractive
