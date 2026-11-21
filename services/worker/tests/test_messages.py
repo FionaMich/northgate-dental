@@ -84,3 +84,11 @@ def test_the_receipt_document_is_self_contained():
     html = receipt_document(replace(CTX, amount_cents=11000), "7247CDAB", "21 November 2026")
     assert "$110.00" in html and "7247CDAB" in html
     assert "http" not in html and "<script" not in html, "nothing for the renderer to fetch or run"
+
+
+def test_an_order_email_lists_the_products_and_how_it_arrives():
+    from worker.messages import render_order
+    message = render_order("Ana", ["1 × Sonic electric toothbrush", "2 × Replacement brush heads, 2 pack"], 10669,
+                           "collect", "Quincy", "(617) 555-0130", False)
+    assert message.subject == "Thank you for your order"
+    assert "Sonic electric toothbrush" in message.text and "$106.69" in message.text and "Quincy" in message.text

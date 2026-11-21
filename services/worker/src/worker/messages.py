@@ -122,6 +122,29 @@ Keep this receipt for your records or a claim to your dental plan or HSA.</div>
 </body></html>"""
 
 
+def render_order(first_name: str, lines: list[str], total_cents: int | None, fulfilment: str, clinic_name: str,
+                 clinic_phone: str | None, refill: bool) -> Message:
+    """Order confirmation from the shop: what was bought, the total and how it arrives. Product names only."""
+    clinic = f"Northgate Dental, {clinic_name}"
+    subject = "Your refill is on its way" if refill and fulfilment == "ship" else (
+        "Your refill is ready to collect" if refill else "Thank you for your order")
+    arrive = (f"We will set it aside at {clinic}: collect it at your next visit, or any time we are open."
+              if fulfilment == "collect" else "We will ship it within 2 working days; it arrives in 3 to 5 days.")
+    items = "\n".join(f"  {line}" for line in lines)
+    total = f"Total paid, including sales tax: {dollars(total_cents)}." if total_cents else ""
+    call = f"Questions? Call us on {clinic_phone}." if clinic_phone else "Questions? Call your clinic."
+    text = f"Hello {first_name},\n\nThank you for your order:\n{items}\n\n{total}\n\n{arrive}\n\n{call}\n\nNorthgate Dental\n"
+    rows = "".join(f'<li style="margin:4px 0">{escape(line)}</li>' for line in lines)
+    html = (
+        '<div style="font-family:system-ui,sans-serif;max-width:520px;margin:auto;color:#0b2b2a">'
+        '<p style="font-size:20px;font-weight:700;margin:0 0 4px">Northgate <span style="color:#137c6c">Dental</span></p>'
+        '<p style="font-size:12px;letter-spacing:.15em;color:#4c6361;margin:0 0 24px">BACK BAY · CAMBRIDGE · QUINCY</p>'
+        f"<p>Hello {escape(first_name)},</p><p>Thank you for your order:</p><ul>{rows}</ul>"
+        f"<p><strong>{escape(total)}</strong></p><p>{escape(arrive)}</p><p>{escape(call)}</p></div>"
+    )
+    return Message(subject, text, html)
+
+
 def render_alert(clinic_name: str, checkin_id: str) -> Message:
     """To the clinic, not the patient: a check-in needs a clinician. IDs only; the answer itself is in the portal."""
     body = (f"A patient's post-visit check-in at {clinic_name} needs a clinician today. Open the task list in the "

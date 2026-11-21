@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:dental/data/account_repository.dart';
 import 'package:dental/data/care_repository.dart';
+import 'package:dental/data/shop_repository.dart';
 import 'package:dental/data/aligner_reminders.dart';
 import 'package:dental/data/wear_log.dart';
 
@@ -353,4 +354,32 @@ class FakeAlignerReminders implements AlignerReminders {
 
   @override
   Future<void> visitsBooked(List<DateTime> starts) async => calls.add('visits:${starts.length}');
+}
+
+class FakeShopRepository implements ShopRepository {
+  FakeShopRepository({this.refuseWith});
+  final String? refuseWith;
+  final placed = <String>[];
+
+  static const catalogue = [
+    ShopProduct(id: 'brush', name: 'Sonic electric toothbrush', category: 'brush', summary: 'Two-minute timer.',
+        description: 'The brush our hygienists recommend most.', priceCents: 7900, imageKey: 'sonic-brush', tags: ['Everyday']),
+    ShopProduct(id: 'heads', name: 'Replacement brush heads, 2 pack', category: 'brush', summary: 'Change every three months.',
+        description: 'Soft bristles.', priceCents: 1400, imageKey: 'brush-heads', refillMonths: 3),
+    ShopProduct(id: 'fluoride', name: 'High-fluoride toothpaste', category: 'prescription', summary: 'Prescription strength.',
+        description: 'Your dentist approves it first.', priceCents: 1800, imageKey: 'high-fluoride', rule: 'prescription'),
+  ];
+
+  @override
+  Future<List<ShopProduct>> products() async => catalogue;
+
+  @override
+  Future<Uri> checkout(List<BagLine> lines, {required String fulfilment, required String clinicId}) async {
+    if (refuseWith != null) throw ShopError(refuseWith!);
+    placed.add('$fulfilment:$clinicId:${[for (final l in lines) '${l.product.id}x${l.quantity}${l.refill ? 'r' : ''}'].join(',')}');
+    return Uri.parse('https://pay.test/shop?t=token');
+  }
+
+  @override
+  Future<List<ShopOrder>> orders() async => const [];
 }

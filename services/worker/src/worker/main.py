@@ -19,7 +19,7 @@ from psycopg.rows import dict_row
 import base64
 from datetime import date
 
-from .messages import Context, decide, receipt_document, render, render_alert
+from .messages import Context, decide, receipt_document, render, render_alert, render_order
 from .pdf import PdfError, render_pdf
 from .senders import ResendSender, SendError
 
@@ -89,7 +89,24 @@ def receipt_pdf(pdf_url: str, ctx: Context, payment_id: str) -> list[dict] | Non
     return [{"filename": "Northgate-Dental-receipt.pdf", "content": base64.b64encode(pdf).decode()}]
 
 
+def handle_order(conn, msg: dict, sender) -> None:
+    """A paid shop order (or refill): one confirmation email. Orders have no visit, so mark_processed de-duplicates."""
+    order = msg["message"]["order_id"]
+    if conn.execute("select private.mark_processed('worker', %s) as first", (f"order:{order}",)).fetchone()["first"]:
+        o = conn.execute("select * from private.order_context(%s)", (order,)).fetchone()
+        if o is None or not o["email"]:
+            log(event="skipped", reason="no app sign-in email", kind="order", order_id=order)
+        else:
+            message = render_order(o["first_name"], o["lines"], o["total_cents"], o["fulfilment"], o["clinic_name"],
+                                   o["clinic_phone"], o["refill"])
+            sender.send(o["email"], message, idempotency_key=f"order:{order}:email")
+            log(event="sent", kind="order", channel="email", order_id=order)
+    archive(conn, "notifications", msg["msg_id"])
+
+
 def handle_notification(conn, msg: dict, sender, link_base: str = "", pdf_url: str = "") -> None:
+    if msg["message"].get("type") == "order":
+        return handle_order(conn, msg, sender)
     request = msg["message"]
     appointment, kind_type = request["appointment_id"], request["type"]
     kind = kind_type if "kind" not in request else f"{kind_type}:{request['kind']}"

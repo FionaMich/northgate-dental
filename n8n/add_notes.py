@@ -48,6 +48,16 @@ NOTES = {
         "- The note stays in Postgres under row level security; the alert email carries IDs only.\n"
         "- A red flag tells the patient to call now, or 911.\n- Failed runs keep no data.",
     ),
+    "w12-shop-checkout": (
+        "## W12 Shop checkout\n**Trigger:** the app's Pay button for a shop order opens `GET /webhook/shop?t=...`.\n\n"
+        "1. `shop_checkout_lines()` returns the order's lines: prices were set by the catalogue when the order was made.\n"
+        "2. The Code node builds the Stripe request: `subscription` mode if any line is a refill (Stripe Billing), else `payment`.\n"
+        "3. Stripe Tax on; US shipping address and our flat rate when shipping.\n4. Session stored, then a 303 redirect to Stripe.",
+        "## Security and data\n- Stripe receives product names (deliberately non-diagnostic), amounts and our order ID; never the patient's name.\n"
+        "- The patient types their own card, email and address on Stripe's page.\n"
+        "- W05 later checks the paid subtotal and shipping against the order and records the tax.\n"
+        "- Links are single-use hashes that expire in an hour.",
+    ),
 }
 WIDTH, HEIGHT, GAP = 460, 300, 60
 

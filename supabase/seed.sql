@@ -175,3 +175,8 @@ from (values
 join public.practitioners pr on pr.display_name = r.name
 join public.locations l on l.code = r.code
 join public.specialties s on s.code = r.specialty;
+
+-- Shop stock for collection (the shop migration seeds it on databases that already had clinics).
+insert into public.shop_stock (product_id, location_id, quantity)
+select p.id, l.id, 12 from public.shop_products p cross join public.locations l
+on conflict do nothing;
