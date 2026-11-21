@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../design/tokens.dart';
 import '../state.dart';
+import 'aligner_screen.dart';
 import 'home_screen.dart';
 import 'profile_screen.dart';
 import 'records_screen.dart';
@@ -33,6 +34,13 @@ class AppShell extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Keep the phone's visit reminders in step with the booked visits on screen.
+    ref.listen(careSummaryProvider, (_, next) {
+      final upcoming = next.value?.upcoming;
+      if (upcoming != null) {
+        ref.read(alignerRemindersProvider).visitsBooked([for (final a in upcoming) a.startsAt]).catchError((_) {});
+      }
+    });
     final tab = ref.watch(shellTabProvider);
     return Scaffold(
       extendBody: true,

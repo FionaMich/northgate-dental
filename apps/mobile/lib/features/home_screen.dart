@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../data/aftercare.dart';
 import '../data/care_repository.dart';
 import '../design/art.dart';
 import '../design/format.dart';
@@ -8,8 +9,10 @@ import '../design/motion.dart';
 import '../design/tokens.dart';
 import '../design/widgets.dart';
 import '../state.dart';
+import 'aftercare_screen.dart';
 import 'booking_screen.dart';
 import 'care_widgets.dart';
+import 'dentist_screen.dart';
 import 'plan_screen.dart';
 import 'shell.dart';
 
@@ -117,11 +120,20 @@ class _Body extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final next = care.upcoming.firstOrNull;
     final plan = care.activePlan;
+    final recall = next == null ? _recallDue(care) : null;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Reveal(child: next != null ? _NextVisit(next) : const _BookPrompt()),
         const SizedBox(height: 22),
+        if (_recentAftercare(care) case (final visit, final sheet)) ...[
+          Reveal(
+            child: _AftercareCard(visit: visit, sheet: sheet),
+          ),
+          const SizedBox(height: 22),
+        ],
+        if (recall != null) ...[Reveal(child: _RecallCard(due: recall)), const SizedBox(height: 22)],
+        const Reveal(order: 1, child: _Team()),
         Reveal(
           order: 1,
           child: Column(
@@ -333,15 +345,33 @@ class _NextVisit extends ConsumerWidget {
             ),
           ],
         ),
+        const SizedBox(height: 14),
+        const Divider(height: 1, color: Color(0xFFE8EFEE)),
         const SizedBox(height: 10),
-        Align(
-          alignment: Alignment.centerRight,
-          child: TextButton(
-            key: const Key('cancel-visit'),
-            onPressed: () => _confirmCancel(context, ref, appointment),
-            style: TextButton.styleFrom(foregroundColor: Palette.error),
-            child: const Text('Cancel visit'),
-          ),
+        Row(
+          children: [
+            if (appointment.dentist != null) ...[
+              DentistAvatar(
+                name: appointment.dentist!,
+                asset: appointment.dentistPhoto == null ? null : 'assets/images/team/${appointment.dentistPhoto}.jpg',
+                size: 38,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'With ${appointment.dentist}',
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Palette.deepSea),
+                ),
+              ),
+            ] else
+              const Spacer(),
+            TextButton(
+              key: const Key('cancel-visit'),
+              onPressed: () => _confirmCancel(context, ref, appointment),
+              style: TextButton.styleFrom(foregroundColor: Palette.error),
+              child: const Text('Cancel visit'),
+            ),
+          ],
         ),
       ],
     ),
@@ -434,4 +464,160 @@ class _PersonChip extends StatelessWidget {
       ),
     ),
   );
+}
+
+/// "Your dental team": faces to tap, each opening that person's profile.
+class _Team extends ConsumerWidget {
+  const _Team();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final team = ref.watch(dentistsProvider).value ?? const [];
+    if (team.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 22),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SectionTitle('Your dental team'),
+          SizedBox(
+            height: 112,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              clipBehavior: Clip.none,
+              itemCount: team.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 14),
+              itemBuilder: (_, i) {
+                final d = team[i];
+                return InkWell(
+                  key: Key('team-${d.id}'),
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => DentistScreen(dentist: d))),
+                  child: SizedBox(
+                    width: 78,
+                    child: Column(
+                      children: [
+                        DentistAvatar(name: d.name, asset: d.photoAsset, size: 64),
+                        const SizedBox(height: 8),
+                        Text(
+                          d.name.replaceAll('Dr ', '').split(',').first,
+                          maxLines: 2,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(fontSize: 12.5, height: 1.2, fontWeight: FontWeight.w700, color: Palette.deepSea),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A treatment visit in the last 7 days that has aftercare.
+(Visit, AftercareSheet)? _recentAftercare(CareSummary care) {
+  for (final v in care.visits) {
+    if (DateTime.now().difference(v.at) > const Duration(days: 7)) break; // visits are newest first
+    if (aftercareFor(v) case final sheet?) return (v, sheet);
+  }
+  return null;
+}
+
+/// When the next six-monthly check-up is due, if that is within 45 days or already past.
+DateTime? _recallDue(CareSummary care) {
+  final last = care.visits.where((v) => v.kind == 'exam' || v.kind == 'hygiene').firstOrNull;
+  if (last == null) return null;
+  final due = DateTime(last.at.year, last.at.month + 6, last.at.day);
+  return due.difference(DateTime.now()).inDays <= 45 ? due : null;
+}
+
+class _AftercareCard extends StatelessWidget {
+  const _AftercareCard({required this.visit, required this.sheet});
+  final Visit visit;
+  final AftercareSheet sheet;
+
+  @override
+  Widget build(BuildContext context) {
+    final done = aftercareDone(visit.at, DateTime.now());
+    final step = !done.rightNow ? 'Right now' : (!done.today ? 'Today' : 'This week');
+    return Panel(
+      key: const Key('aftercare-card'),
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => AftercareScreen(visit: visit, sheet: sheet),
+        ),
+      ),
+      child: Row(
+        children: [
+          const TintIcon(Icons.healing_rounded, Tint.rose, size: 48),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  sheet.title,
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Palette.deepSea),
+                ),
+                const SizedBox(height: 2),
+                Text('$step: what to do and what to avoid', style: const TextStyle(fontSize: 13.5, color: Palette.muted)),
+              ],
+            ),
+          ),
+          const Icon(Icons.chevron_right_rounded, color: Color(0xFF9DB3AF)),
+        ],
+      ),
+    );
+  }
+}
+
+class _RecallCard extends ConsumerWidget {
+  const _RecallCard({required this.due});
+  final DateTime due;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final days = due.difference(DateTime.now()).inDays;
+    final when = days < 0
+        ? 'was due ${-days < 14 ? '${-days} days' : '${(-days / 7).round()} weeks'} ago'
+        : (days < 14 ? 'is due in $days days' : 'is due in ${(days / 7).round()} weeks');
+    return Container(
+      key: const Key('recall-card'),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Tint.apricot.wash,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFF6D9BF)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              TintIcon(Icons.event_repeat_rounded, Tint.apricot, size: 44),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Time for a check-up',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Palette.deepSea),
+                    ),
+                    Text('Your six-monthly check-up $when.', style: const TextStyle(fontSize: 13.5, color: Palette.muted)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          PrimaryButton(key: const Key('book-checkup'), label: 'Book a check-up', onPressed: () => _openBooking(context, ref)),
+        ],
+      ),
+    );
+  }
 }

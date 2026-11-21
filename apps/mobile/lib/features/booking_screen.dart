@@ -11,6 +11,7 @@ import '../design/tokens.dart';
 import '../design/widgets.dart';
 import '../state.dart';
 import 'care_widgets.dart';
+import 'dentist_screen.dart';
 
 /// Services the patient may book at one clinic.
 final bookableServicesProvider = FutureProvider.autoDispose.family<List<BookableService>, String>(
@@ -26,15 +27,19 @@ final slotsProvider = FutureProvider.autoDispose.family<List<Slot>, (String, Str
 
 /// Book a visit: clinic, service, day, time, then a 10-minute hold to confirm.
 class BookingScreen extends ConsumerStatefulWidget {
-  const BookingScreen({super.key, required this.patient});
+  const BookingScreen({super.key, required this.patient, this.dentistId, this.clinicId});
   final LinkedPatient patient;
+
+  /// Start with this dentist and clinic chosen (from a dentist's profile).
+  final String? dentistId, clinicId;
 
   @override
   ConsumerState<BookingScreen> createState() => _BookingScreenState();
 }
 
 class _BookingScreenState extends ConsumerState<BookingScreen> {
-  String? _clinic;
+  late String? _clinic = widget.clinicId;
+  late String? _dentist = widget.dentistId; // null: any available dentist
   String? _service;
   DateTime? _day;
   Slot? _slot;
@@ -102,8 +107,20 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
     final slots = clinic == null || _service == null ? null : ref.watch(slotsProvider((clinic, _service!)));
     _clinic ??= clinic;
 
+    final allSlots = slots?.value ?? const <Slot>[];
+    final team = ref.watch(dentistsProvider).value ?? const <Dentist>[];
+    final offering = [
+      for (final d in team)
+        if (allSlots.any((s) => s.practitionerId == d.id)) d,
+    ];
+    // One time per start for "any dentist"; only the chosen dentist's times otherwise.
+    final seenStarts = <DateTime>{};
+    final shown = [
+      for (final s in allSlots)
+        if (_dentist == null ? seenStarts.add(s.startsAt) : s.practitionerId == _dentist) s,
+    ];
     final days = <DateTime, List<Slot>>{};
-    for (final s in slots?.value ?? const <Slot>[]) {
+    for (final s in shown) {
       days.putIfAbsent(DateTime(s.startsAt.year, s.startsAt.month, s.startsAt.day), () => []).add(s);
     }
     final day = _day ?? days.keys.firstOrNull;
@@ -146,6 +163,33 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                     ],
                   ),
                 },
+                if (_service != null && offering.isNotEmpty) ...[
+                  const SizedBox(height: 26),
+                  const SectionTitle('Choose your dentist'),
+                  _DentistChoice(
+                    key: const Key('dentist-any'),
+                    title: 'Any available dentist',
+                    detail: 'The earliest times at this clinic',
+                    selected: _dentist == null,
+                    onTap: () => setState(() {
+                      _dentist = null;
+                      _day = _slot = null;
+                    }),
+                  ),
+                  for (final d in offering)
+                    _DentistChoice(
+                      key: Key('dentist-${d.id}'),
+                      dentist: d,
+                      title: d.name,
+                      detail: d.title,
+                      selected: _dentist == d.id,
+                      onTap: () => setState(() {
+                        _dentist = d.id;
+                        _day = _slot = null;
+                      }),
+                      onInfo: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => DentistScreen(dentist: d))),
+                    ),
+                ],
                 if (_service != null) ...[
                   const SizedBox(height: 26),
                   const SectionTitle('Pick a day'),
@@ -189,10 +233,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                     SectionTitle('Pick a time · ${weekday(day!)} ${dayMonth(day)}'),
                     _TimeGrid(times: times, selected: _slot, onPick: (s) => setState(() => _slot = s)),
                     const SizedBox(height: 10),
-                    const Text(
-                      'With a Northgate dentist. Times are local to the clinic.',
-                      style: TextStyle(fontSize: 13, color: Palette.muted),
-                    ),
+                    const Text('Times are local to the clinic.', style: TextStyle(fontSize: 13, color: Palette.muted)),
                   ],
                 ],
                 if (_error != null) ...[const SizedBox(height: 18), ErrorNote(_error!)],
@@ -712,5 +753,73 @@ class _Loading extends StatelessWidget {
   Widget build(BuildContext context) => const Padding(
     padding: EdgeInsets.symmetric(vertical: 24),
     child: Center(child: CircularProgressIndicator(strokeWidth: 2.5)),
+  );
+}
+
+/// One choice in "Choose your dentist": a photo (or the team icon for "any"), name and role; the info button opens the profile.
+class _DentistChoice extends StatelessWidget {
+  const _DentistChoice({
+    super.key,
+    required this.title,
+    required this.detail,
+    required this.selected,
+    required this.onTap,
+    this.dentist,
+    this.onInfo,
+  });
+  final Dentist? dentist;
+  final String title, detail;
+  final bool selected;
+  final VoidCallback onTap;
+  final VoidCallback? onInfo;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 10),
+    child: Semantics(
+      button: true,
+      selected: selected,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.fromLTRB(12, 12, 8, 12),
+          decoration: BoxDecoration(
+            color: selected ? Palette.enamel : Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: selected ? Palette.teal : Palette.line, width: selected ? 2 : 1),
+          ),
+          child: Row(
+            children: [
+              dentist == null
+                  ? const TintIcon(Icons.groups_rounded, Tint.teal, size: 52)
+                  : DentistAvatar(name: dentist!.name, asset: dentist!.photoAsset),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Palette.deepSea),
+                    ),
+                    Text(detail, style: const TextStyle(fontSize: 13.5, color: Palette.muted)),
+                  ],
+                ),
+              ),
+              if (onInfo != null)
+                IconButton(
+                  tooltip: 'About $title',
+                  onPressed: onInfo,
+                  icon: const Icon(Icons.info_outline_rounded, color: Palette.teal),
+                ),
+              Icon(selected ? Icons.check_circle_rounded : Icons.circle_outlined, color: selected ? Palette.teal : Palette.line),
+              const SizedBox(width: 6),
+            ],
+          ),
+        ),
+      ),
+    ),
   );
 }

@@ -7,11 +7,13 @@ import 'package:material_ui/material_ui.dart';
 import 'package:pdfx/pdfx.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../data/aftercare.dart';
 import '../data/care_repository.dart';
 import '../design/format.dart';
 import '../design/motion.dart';
 import '../design/tokens.dart';
 import '../state.dart';
+import 'aftercare_screen.dart';
 import 'care_widgets.dart';
 
 /// Opens a short-lived document link outside the app (PDFs open in the phone's viewer). Replaced in tests.
@@ -224,6 +226,26 @@ class VisitScreen extends ConsumerWidget {
                           ),
                       ],
                     ),
+                  ),
+                ],
+                if (aftercareFor(v) case final sheet?) ...[
+                  const SizedBox(height: 22),
+                  RowGroup(
+                    title: 'Aftercare',
+                    rows: [
+                      GroupRow(
+                        key: const Key('visit-aftercare'),
+                        icon: Icons.healing_rounded,
+                        tint: Tint.rose,
+                        title: sheet.title,
+                        detail: 'Right now, today and this week',
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => AftercareScreen(visit: v, sheet: sheet),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
                 if (docs.isNotEmpty) ...[

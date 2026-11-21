@@ -93,4 +93,29 @@ void main() {
     expect(care.calls, ['cancel:a-9']);
     expect(find.text('No visit booked'), findsOneWidget);
   });
+
+  testWidgets('choosing a dentist shows only their times, and their profile is a tap away', (tester) async {
+    final care = await openBooking(tester);
+    await tapKey(tester, 'service-cleaning');
+    expect(find.text('Choose your dentist'), findsOneWidget);
+    expect(find.text('Any available dentist'), findsOneWidget);
+    await tapKey(tester, 'dentist-dr-2');
+    await tapKey(tester, 'day-0');
+    expect(find.byKey(const Key('slot-0')), findsOneWidget);
+    expect(find.byKey(const Key('slot-1')), findsNothing, reason: 'Dr Brooks has one free time in the test data');
+    await tapKey(tester, 'slot-0');
+    await tapTicking(tester, 'hold');
+    expect(care.calls, ['hold:back-bay:cleaning']);
+    expect(care.heldWith, 'dr-2');
+  });
+
+  testWidgets('a dentist profile shows who they are and offers booking with them', (tester) async {
+    await openBooking(tester);
+    await tapKey(tester, 'service-cleaning');
+    await tester.scrollUntilVisible(find.byTooltip('About Dr Hannah Brooks'), 200, scrollable: find.byType(Scrollable).first);
+    await tester.tap(find.byTooltip('About Dr Hannah Brooks'));
+    await tester.pumpAndSettle();
+    expect(find.text('Hannah looks after the whole family.'), findsOneWidget);
+    expect(find.byKey(const Key('book-with-dentist')), findsOneWidget);
+  });
 }

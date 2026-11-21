@@ -174,6 +174,7 @@ class FakeCareRepository implements CareRepository {
   final bool fail;
   final calls = <String>[];
   bool takeNextHold = false;
+  String? heldWith;
   ({String patient, String service, Slot slot})? _held;
 
   @override
@@ -203,9 +204,9 @@ class FakeCareRepository implements CareRepository {
   Future<List<Slot>> slots(String clinicId, String serviceId, DateTime fromDay, {int days = 14}) async {
     final day = DateTime(fromDay.year, fromDay.month, fromDay.day + 1);
     return [
-      for (final h in [9, 10, 14])
+      for (final (h, dr) in [(9, 'dr-1'), (10, 'dr-2'), (14, 'dr-1')])
         Slot(
-          practitionerId: 'dr-1',
+          practitionerId: dr,
           startsAt: day.add(Duration(hours: h)),
           endsAt: day.add(Duration(hours: h + 1)),
         ),
@@ -213,8 +214,31 @@ class FakeCareRepository implements CareRepository {
   }
 
   @override
+  Future<List<Dentist>> dentists() async => const [
+    Dentist(
+      id: 'dr-1',
+      name: 'Priya Raman, RDH',
+      title: 'Dental hygienist',
+      focus: 'Cleanings and gum health',
+      bio: 'Priya gives thorough, gentle cleanings.',
+      clinics: {'back-bay': 'Back Bay'},
+      photoKey: 'priya-raman',
+    ),
+    Dentist(
+      id: 'dr-2',
+      name: 'Dr Hannah Brooks',
+      title: 'General dentist',
+      focus: 'Check-ups, fillings and crowns',
+      bio: 'Hannah looks after the whole family.',
+      clinics: {'back-bay': 'Back Bay'},
+      photoKey: 'hannah-brooks',
+    ),
+  ];
+
+  @override
   Future<String> hold({required String clinicId, required String serviceId, required Slot slot, required String patientId}) async {
     calls.add('hold:$clinicId:$serviceId');
+    heldWith = slot.practitionerId;
     if (takeNextHold) throw const BookingError(slotTakenError);
     _held = (patient: patientId, service: serviceId, slot: slot);
     return 'a-1';
@@ -313,4 +337,7 @@ class FakeAlignerReminders implements AlignerReminders {
 
   @override
   Future<void> clearAll() async => calls.add('clear');
+
+  @override
+  Future<void> visitsBooked(List<DateTime> starts) async => calls.add('visits:${starts.length}');
 }
