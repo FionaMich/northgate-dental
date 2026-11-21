@@ -20,11 +20,12 @@ class ResendSender:
         self._sender = sender
         self._redirect_to = redirect_to
 
-    def send(self, to: str, message: Message, idempotency_key: str) -> str:
-        response = self._client.post("/emails", headers={"Idempotency-Key": idempotency_key}, json={
-            "from": self._sender, "to": [self._redirect_to or to],
-            "subject": message.subject, "text": message.text, "html": message.html,
-        })
+    def send(self, to: str, message: Message, idempotency_key: str, attachments: list[dict] | None = None) -> str:
+        body = {"from": self._sender, "to": [self._redirect_to or to],
+                "subject": message.subject, "text": message.text, "html": message.html}
+        if attachments:
+            body["attachments"] = attachments  # [{"filename": ..., "content": base64}]
+        response = self._client.post("/emails", headers={"Idempotency-Key": idempotency_key}, json=body)
         if response.status_code >= 300:
             raise SendError(f"resend returned {response.status_code}")  # status only, never the body: it may echo the address
         return response.json()["id"]
@@ -33,7 +34,9 @@ class ResendSender:
 class FakeSender:
     def __init__(self):
         self.sent: list[tuple[str, Message, str]] = []
+        self.attachments: list[list[dict]] = []
 
-    def send(self, to: str, message: Message, idempotency_key: str) -> str:
+    def send(self, to: str, message: Message, idempotency_key: str, attachments: list[dict] | None = None) -> str:
         self.sent.append((to, message, idempotency_key))
+        self.attachments.append(attachments or [])
         return f"fake-{len(self.sent)}"

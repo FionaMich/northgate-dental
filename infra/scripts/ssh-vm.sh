@@ -5,7 +5,12 @@
 set -euo pipefail
 user="${1:-deploy}"; shift || true
 key="$HOME/.ssh/northgate_oracle"
-tf() { terraform -chdir="$(dirname "$0")/../terraform/oci" output -raw "$1"; }
+tfdir="$(dirname "$0")/../terraform/oci"
+# Terraform's outputs; without terraform installed, read them from the state file it saved.
+tf() {
+  if command -v terraform >/dev/null; then terraform -chdir="$tfdir" output -raw "$1"
+  else python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["outputs"][sys.argv[2]]["value"],end="")' "$tfdir/terraform.tfstate" "$1"; fi
+}
 bastion="$(tf bastion_id)"; ip="$(tf vm_private_ip)"
 session="$(oci bastion session list --bastion-id "$bastion" --session-lifecycle-state ACTIVE --all \
   --query "data[?\"target-resource-details\".\"target-resource-private-ip-address\"=='$ip'] | [0].id" --raw-output 2>/dev/null || true)"

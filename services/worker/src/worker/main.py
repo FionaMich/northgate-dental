@@ -16,7 +16,11 @@ import time
 import psycopg
 from psycopg.rows import dict_row
 
-from .messages import Context, decide, render, render_alert
+import base64
+from datetime import date
+
+from .messages import Context, decide, receipt_document, render, render_alert
+from .pdf import PdfError, render_pdf
 from .senders import ResendSender, SendError
 
 BATCH = 10          # fixed batch: the worker never takes more than it can finish (Addendum D)
@@ -73,7 +77,19 @@ def link_for(conn, link_base: str, kind: str, appointment: str, request: dict) -
     return f"{link_base}/{LINKS[purpose]}?t={token}"
 
 
-def handle_notification(conn, msg: dict, sender, link_base: str = "") -> None:
+def receipt_pdf(pdf_url: str, ctx: Context, payment_id: str) -> list[dict] | None:
+    """The receipt as a PDF attachment; None if the renderer is unavailable (the email still goes, the log says so)."""
+    if not pdf_url:
+        return None
+    try:
+        pdf = render_pdf(pdf_url, receipt_document(ctx, payment_id[:8].upper(), f"{date.today():%d %B %Y}"))
+    except PdfError as error:
+        log(event="pdf_failed", detail=str(error)[:80])
+        return None
+    return [{"filename": "Northgate-Dental-receipt.pdf", "content": base64.b64encode(pdf).decode()}]
+
+
+def handle_notification(conn, msg: dict, sender, link_base: str = "", pdf_url: str = "") -> None:
     request = msg["message"]
     appointment, kind_type = request["appointment_id"], request["type"]
     kind = kind_type if "kind" not in request else f"{kind_type}:{request['kind']}"
@@ -95,9 +111,11 @@ def handle_notification(conn, msg: dict, sender, link_base: str = "") -> None:
             (appointment, ctx["patient_id"], kind, f"{kind}.v1")).fetchone()
         if claimed:
             link = link_for(conn, link_base, kind, appointment, request)
-            message = render(kind, Context(ctx["first_name"], ctx["starts_at"], ctx["time_zone"], ctx["clinic_name"],
-                                           ctx["clinic_phone"], ctx["service_name"], amount, link))
-            provider_id = sender.send(ctx["email"], message, idempotency_key=f"{appointment}:{kind}:email")
+            context = Context(ctx["first_name"], ctx["starts_at"], ctx["time_zone"], ctx["clinic_name"],
+                              ctx["clinic_phone"], ctx["service_name"], amount, link)
+            attachments = receipt_pdf(pdf_url, context, request["payment_id"]) if kind == "receipt" else None
+            provider_id = sender.send(ctx["email"], render(kind, context), idempotency_key=f"{appointment}:{kind}:email",
+                                      attachments=attachments)
             conn.execute("update private.notification_log set status = 'sent', provider_message_id = %s, updated_at = now() "
                          "where id = %s", (provider_id, claimed["id"]))
             log(event="sent", kind=kind, channel="email", appointment_id=appointment, log_id=claimed["id"])
@@ -122,12 +140,12 @@ def handle_urgent(conn, msg: dict, sender, alert_to: str | None) -> None:
     archive(conn, "urgent", msg["msg_id"])
 
 
-def run_once(conn, sender, link_base: str = "", alert_to: str | None = None) -> int:
+def run_once(conn, sender, link_base: str = "", alert_to: str | None = None, pdf_url: str = "") -> int:
     """One pass over the queues, urgent first; returns how many messages were handled. Each commits on its own."""
     handled = 0
     for queue, handler in (("urgent", lambda c, m: handle_urgent(c, m, sender, alert_to)),
                            ("events", lambda c, m: handle_event(c, m)),
-                           ("notifications", lambda c, m: handle_notification(c, m, sender, link_base))):
+                           ("notifications", lambda c, m: handle_notification(c, m, sender, link_base, pdf_url))):
         with conn.transaction():
             messages = read(conn, queue)
         for msg in messages:
@@ -156,10 +174,11 @@ def main() -> None:
     sender = ResendSender(os.environ["RESEND_API_KEY"], os.environ["EMAIL_FROM"], os.environ.get("EMAIL_REDIRECT_TO") or None)
     link_base = os.environ.get("LINK_BASE", "").rstrip("/")         # e.g. https://n8n.<domain>/webhook
     alert_to = os.environ.get("CLINIC_ALERT_EMAIL") or None         # the clinic inbox for urgent check-ins
+    pdf_url = os.environ.get("PDF_URL", "").rstrip("/")             # the internal PDF renderer
     with psycopg.connect(os.environ["WORKER_DB_URL"], row_factory=dict_row, autocommit=True) as conn:
         log(event="started")
         while not stop:
-            if run_once(conn, sender, link_base, alert_to) == 0:
+            if run_once(conn, sender, link_base, alert_to, pdf_url) == 0:
                 time.sleep(2)
     log(event="stopped")
     sys.exit(0)

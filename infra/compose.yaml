@@ -82,9 +82,27 @@ services:
       EMAIL_REDIRECT_TO: ${EMAIL_REDIRECT_TO:-}  # staging and the demo: every email to one inbox
       LINK_BASE: https://n8n.${DOMAIN}/webhook          # cancel, check-in and pay links point at n8n's pages
       CLINIC_ALERT_EMAIL: ${CLINIC_ALERT_EMAIL:-}       # where urgent check-in alerts go
-    networks: [app]                                # outbound only: Supabase and Resend; nothing connects to it
+      PDF_URL: http://pdf:3000                     # receipts as PDF (T7); emails still go if it is down
+    networks: [app, data]                          # outbound only: Supabase and Resend; data reaches the PDF renderer
     mem_limit: 128m
     profiles: [worker]                             # started once its login and key are in .env
+
+  # T7: HTML to PDF for receipts and statements. Gotenberg wraps headless Chromium (the job the blueprint gives
+  # Puppeteer) as a maintained service, so there is no browser code of our own to keep patched. Internal network only,
+  # JavaScript off, and it may load nothing but the HTML it is sent.
+  pdf:
+    <<: *defaults
+    image: gotenberg/gotenberg:9.8.0-chromium
+    profiles: [worker]
+    command: ["gotenberg", "--chromium-disable-javascript=true", "--chromium-allow-list=^file:///tmp/.*",
+              "--api-timeout=20s", "--log-level=warn"]
+    networks: [data]
+    mem_limit: 768m
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:3000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
 
   # n8n (blueprint section 41): automations triggered by time or events. Its editor is not on the internet: only
   # /webhook/ is routed by the WAF; the editor is reached through a Bastion SSH tunnel to 127.0.0.1:5678.
