@@ -16,8 +16,21 @@ class LinkedPatient {
 
 /// One of the group's open clinics, as patients see it.
 class Clinic {
-  const Clinic({required this.id, required this.name, required this.address});
+  const Clinic({
+    required this.id,
+    required this.name,
+    required this.address,
+    this.phone,
+    this.photoKey,
+    this.timeZone = 'America/New_York',
+    this.hours = const [],
+  });
   final String id, name, address;
+  final String? phone, photoKey;
+  final String timeZone;
+
+  /// Opening hours: ISO weekday (1 is Monday), opens and closes as "HH:MM" in the clinic's own time zone.
+  final List<(int, String, String)> hours;
 }
 
 /// The preferred clinic (the record's home location) and home address.
@@ -323,7 +336,7 @@ class SupabaseAccountRepository implements AccountRepository {
   Future<List<Clinic>> clinics() async {
     final rows = await _db
         .from('locations')
-        .select('id, name, address_line, city, state, postal_code')
+        .select('id, name, address_line, city, state, postal_code, phone, photo_key, time_zone, location_hours(weekday, opens, closes)')
         .eq('active', true)
         .order('name', ascending: true);
     return [
@@ -336,6 +349,13 @@ class SupabaseAccountRepository implements AccountRepository {
             r['city'],
             '${r['state'] ?? ''} ${r['postal_code'] ?? ''}'.trim(),
           ].where((s) => s != null && '$s'.isNotEmpty).join(', '),
+          phone: r['phone'] as String?,
+          photoKey: r['photo_key'] as String?,
+          timeZone: r['time_zone'] as String? ?? 'America/New_York',
+          hours: [
+            for (final h in (r['location_hours'] as List? ?? const []))
+              (h['weekday'] as int, (h['opens'] as String).substring(0, 5), (h['closes'] as String).substring(0, 5)),
+          ]..sort((a, b) => a.$1.compareTo(b.$1)),
         ),
     ];
   }

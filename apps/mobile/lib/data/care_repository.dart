@@ -12,8 +12,17 @@ class Appointment {
     required this.service,
     required this.location,
     required this.status,
+    this.dentist,
+    this.dentistPhoto,
+    this.clinicId,
+    this.serviceId,
+    this.dentistId,
   });
   final String id, service, location, status;
+  final String? dentist, dentistPhoto;
+
+  /// For rescheduling: book the same service with the same dentist at the same clinic.
+  final String? clinicId, serviceId, dentistId;
   final DateTime startsAt, endsAt;
 }
 
@@ -41,12 +50,13 @@ class Visit {
     required this.kind,
     required this.location,
     this.dentist,
+    this.dentistPhoto,
     this.reason,
     this.procedures = const [],
     this.findings = const [],
   });
   final String id, kind, location;
-  final String? dentist, reason;
+  final String? dentist, dentistPhoto, reason;
   final DateTime at;
   final List<Procedure> procedures;
   final List<Finding> findings;
@@ -105,11 +115,37 @@ class CareSummary {
   }
 }
 
+/// The picture for a patient-facing service group (bundled, graded to the app's teal).
+String categoryPhoto(String category) => switch (category) {
+  'Check-ups' => 'assets/images/services/checkups.jpg',
+  'Cosmetic' => 'assets/images/services/cosmetic.jpg',
+  'Orthodontics' => 'assets/images/services/orthodontics.jpg',
+  'Surgery and implants' => 'assets/images/services/surgery.jpg',
+  _ => 'assets/images/services/fillings.jpg',
+};
+
 /// A service patients may book themselves at a clinic.
 class BookableService {
-  const BookableService({required this.id, required this.name, required this.minutes, this.summary = ''});
+  const BookableService({required this.id, required this.name, required this.minutes, this.summary = '', this.specialty = 'general'});
   final String id, name;
   final int minutes;
+
+  /// The specialty code (general, hygiene, orthodontics, ...), used to group services for patients.
+  final String specialty;
+
+  /// The patient-facing group for browsing.
+  String get category => switch (specialty) {
+    'hygiene' || 'paediatric' => 'Check-ups',
+    'orthodontics' => 'Orthodontics',
+    'oral-surgery' => 'Surgery and implants',
+    'endodontics' => 'Fillings and crowns',
+    _ when name.toLowerCase().contains('whiten') => 'Cosmetic',
+    _ when name.toLowerCase().contains('exam') => 'Check-ups',
+    _ when name.toLowerCase().contains('extraction') => 'Surgery and implants',
+    _ => 'Fillings and crowns',
+  };
+
+  String get photoAsset => categoryPhoto(category);
 
   /// One plain sentence about what happens, shown before booking.
   final String summary;
@@ -120,6 +156,26 @@ class Slot {
   const Slot({required this.practitionerId, required this.startsAt, required this.endsAt});
   final String practitionerId;
   final DateTime startsAt, endsAt;
+}
+
+/// A dentist or hygienist as patients see them: name, role, a short bio and a photo bundled in the app.
+class Dentist {
+  const Dentist({
+    required this.id,
+    required this.name,
+    required this.title,
+    required this.focus,
+    required this.bio,
+    required this.clinics,
+    this.photoKey,
+  });
+  final String id, name, title, focus, bio;
+  final String? photoKey;
+
+  /// Clinic ID to clinic name, where this person works.
+  final Map<String, String> clinics;
+
+  String? get photoAsset => photoKey == null ? null : 'assets/images/team/$photoKey.jpg';
 }
 
 /// A booking problem safe to show as it is.
@@ -162,7 +218,10 @@ abstract class CareRepository {
   Future<String> documentLink(String path);
   Future<List<BookableService>> services(String clinicId);
 
-  /// Free times over [days] days from [fromDay], one per start time, soonest first.
+  /// The active team, for choosing a dentist.
+  Future<List<Dentist>> dentists();
+
+  /// Free times over [days] days from [fromDay], one per dentist and start time, soonest first.
   Future<List<Slot>> slots(String clinicId, String serviceId, DateTime fromDay, {int days = 14});
 
   /// Holds the time for 10 minutes and returns the held appointment's ID. Nothing is booked yet.
@@ -208,7 +267,10 @@ class SupabaseCareRepository implements CareRepository {
     final results = await Future.wait([
       _db
           .from('appointments')
-          .select('id, starts_at, ends_at, status, location_services(services(name), locations(name))')
+          .select(
+            'id, starts_at, ends_at, status, location_id, service_id, practitioner_id, '
+            'location_services(services(name), locations(name)), practitioners(public_name, photo_key)',
+          )
           .eq('patient_id', patientId)
           .inFilter('status', ['booked', 'arrived'])
           .gte('starts_at', now)
@@ -216,7 +278,7 @@ class SupabaseCareRepository implements CareRepository {
       _db
           .from('encounters')
           .select(
-            'id, occurred_at, kind, reason, locations(name), practitioners(display_name), '
+            'id, occurred_at, kind, reason, locations(name), practitioners(public_name, photo_key), '
             'dental_procedures(status, tooth, surface, fee_cents, location_services(services(name))), tooth_conditions(tooth, surface, condition)',
           )
           .eq('patient_id', patientId)
@@ -245,6 +307,11 @@ class SupabaseCareRepository implements CareRepository {
             service: _serviceName(r) ?? 'Appointment',
             location: clinicLabel(((r['location_services'] as Map?)?['locations'] as Map?)?['name'] as String? ?? 'Northgate Dental'),
             status: r['status'] as String,
+            dentist: (r['practitioners'] as Map?)?['public_name'] as String?,
+            dentistPhoto: (r['practitioners'] as Map?)?['photo_key'] as String?,
+            clinicId: r['location_id'] as String?,
+            serviceId: r['service_id'] as String?,
+            dentistId: r['practitioner_id'] as String?,
           ),
       ],
       visits: [
@@ -254,7 +321,8 @@ class SupabaseCareRepository implements CareRepository {
             at: DateTime.parse(r['occurred_at'] as String).toLocal(),
             kind: r['kind'] as String,
             location: loc(r),
-            dentist: (r['practitioners'] as Map?)?['display_name'] as String?,
+            dentist: (r['practitioners'] as Map?)?['public_name'] as String?,
+            dentistPhoto: (r['practitioners'] as Map?)?['photo_key'] as String?,
             reason: r['reason'] as String?,
             procedures: [for (final p in (r['dental_procedures'] as List? ?? const [])) _procedure(p as Map<String, dynamic>)],
             findings: [
@@ -315,7 +383,7 @@ class SupabaseCareRepository implements CareRepository {
   Future<List<BookableService>> services(String clinicId) async {
     final rows = await _db
         .from('location_services')
-        .select('services(id, name, summary, duration_minutes, self_bookable, active)')
+        .select('services(id, name, summary, duration_minutes, self_bookable, active, specialties(code))')
         .eq('location_id', clinicId)
         .eq('active', true);
     final list = [
@@ -326,6 +394,7 @@ class SupabaseCareRepository implements CareRepository {
             name: s['name'] as String,
             minutes: s['duration_minutes'] as int,
             summary: s['summary'] as String? ?? '',
+            specialty: (s['specialties'] as Map?)?['code'] as String? ?? 'general',
           ),
     ];
     return list..sort((a, b) => a.name.compareTo(b.name));
@@ -335,16 +404,41 @@ class SupabaseCareRepository implements CareRepository {
   Future<List<Slot>> slots(String clinicId, String serviceId, DateTime fromDay, {int days = 14}) async {
     final rows =
         await _db.rpc('available_slots', params: {'loc': clinicId, 'service': serviceId, 'from_day': _day(fromDay), 'days': days}) as List;
-    final byStart = <DateTime, Slot>{};
-    for (final r in rows) {
-      final start = DateTime.parse(r['starts_at'] as String).toLocal();
-      byStart.putIfAbsent(
-        start,
-        () =>
-            Slot(practitionerId: r['practitioner_id'] as String, startsAt: start, endsAt: DateTime.parse(r['ends_at'] as String).toLocal()),
-      );
-    }
-    return byStart.values.toList()..sort((a, b) => a.startsAt.compareTo(b.startsAt));
+    final seen = <(String, DateTime)>{};
+    return [
+      for (final r in rows)
+        if (seen.add((r['practitioner_id'] as String, DateTime.parse(r['starts_at'] as String))))
+          Slot(
+            practitionerId: r['practitioner_id'] as String,
+            startsAt: DateTime.parse(r['starts_at'] as String).toLocal(),
+            endsAt: DateTime.parse(r['ends_at'] as String).toLocal(),
+          ),
+    ]..sort((a, b) => a.startsAt.compareTo(b.startsAt));
+  }
+
+  @override
+  Future<List<Dentist>> dentists() async {
+    final rows = await _db
+        .from('practitioners')
+        .select('id, public_name, title, focus, bio, photo_key, practitioner_roles(locations(id, name))')
+        .eq('active', true)
+        .order('public_name', ascending: true);
+    return [
+      for (final r in rows)
+        if (r['public_name'] != null)
+          Dentist(
+            id: r['id'] as String,
+            name: r['public_name'] as String,
+            title: r['title'] as String? ?? '',
+            focus: r['focus'] as String? ?? '',
+            bio: r['bio'] as String? ?? '',
+            photoKey: r['photo_key'] as String?,
+            clinics: {
+              for (final role in (r['practitioner_roles'] as List? ?? const []))
+                if ((role as Map)['locations'] case {'id': final String id, 'name': final String name}) id: clinicLabel(name),
+            },
+          ),
+    ];
   }
 
   @override

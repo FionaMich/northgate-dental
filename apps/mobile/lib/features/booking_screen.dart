@@ -11,6 +11,8 @@ import '../design/tokens.dart';
 import '../design/widgets.dart';
 import '../state.dart';
 import 'care_widgets.dart';
+import 'clinic_screen.dart';
+import 'dentist_screen.dart';
 
 /// Services the patient may book at one clinic.
 final bookableServicesProvider = FutureProvider.autoDispose.family<List<BookableService>, String>(
@@ -26,16 +28,28 @@ final slotsProvider = FutureProvider.autoDispose.family<List<Slot>, (String, Str
 
 /// Book a visit: clinic, service, day, time, then a 10-minute hold to confirm.
 class BookingScreen extends ConsumerStatefulWidget {
-  const BookingScreen({super.key, required this.patient});
+  const BookingScreen({super.key, required this.patient, this.dentistId, this.clinicId, this.serviceId, this.replaces, this.category});
+
+  /// Start with the service list filtered to this group (from "Our services" on Home).
+  final String? category;
   final LinkedPatient patient;
+
+  /// Start with this dentist, clinic and service chosen (from a dentist's profile, or when rescheduling).
+  final String? dentistId, clinicId, serviceId;
+
+  /// Rescheduling: the visit to cancel once the new time is confirmed (never before, so nobody is left unbooked).
+  final Appointment? replaces;
 
   @override
   ConsumerState<BookingScreen> createState() => _BookingScreenState();
 }
 
 class _BookingScreenState extends ConsumerState<BookingScreen> {
-  String? _clinic;
-  String? _service;
+  late String? _clinic = widget.clinicId;
+  late String? _dentist = widget.dentistId; // null: any available dentist
+  late String? _service = widget.serviceId;
+  late String? _category = widget.category;
+  String _search = '';
   DateTime? _day;
   Slot? _slot;
   bool _busy = false;
@@ -75,8 +89,15 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
       );
       if (!mounted) return;
       if (booked == true) {
+        if (widget.replaces case final old?) {
+          try {
+            await ref.read(careRepositoryProvider).cancel(old.id);
+          } on BookingError {
+            // The new visit stands; the old one stays visible so the patient can cancel it by hand.
+          }
+        }
         ref.invalidate(careSummaryProvider);
-        Navigator.of(context).pop();
+        if (mounted) Navigator.of(context).pop();
       } else {
         setState(() => _slot = null);
         ref.invalidate(slotsProvider((_clinic!, _service!)));
@@ -102,8 +123,20 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
     final slots = clinic == null || _service == null ? null : ref.watch(slotsProvider((clinic, _service!)));
     _clinic ??= clinic;
 
+    final allSlots = slots?.value ?? const <Slot>[];
+    final team = ref.watch(dentistsProvider).value ?? const <Dentist>[];
+    final offering = [
+      for (final d in team)
+        if (allSlots.any((s) => s.practitionerId == d.id)) d,
+    ];
+    // One time per start for "any dentist"; only the chosen dentist's times otherwise.
+    final seenStarts = <DateTime>{};
+    final shown = [
+      for (final s in allSlots)
+        if (_dentist == null ? seenStarts.add(s.startsAt) : s.practitionerId == _dentist) s,
+    ];
     final days = <DateTime, List<Slot>>{};
-    for (final s in slots?.value ?? const <Slot>[]) {
+    for (final s in shown) {
       days.putIfAbsent(DateTime(s.startsAt.year, s.startsAt.month, s.startsAt.day), () => []).add(s);
     }
     final day = _day ?? days.keys.firstOrNull;
@@ -130,13 +163,46 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                   ),
                   AsyncData(:final value) => Column(
                     children: [
-                      for (final s in value)
+                      TextField(
+                        key: const Key('service-search'),
+                        onChanged: (v) => setState(() => _search = v.trim().toLowerCase()),
+                        decoration: const InputDecoration(labelText: 'Search services', prefixIcon: Icon(Icons.search_rounded)),
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        height: 40,
+                        child: ListView(
+                          scrollDirection: Axis.horizontal,
+                          children: [
+                            for (final cat in [
+                              null,
+                              ...{for (final s in value) s.category},
+                            ])
+                              Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: ChoiceChip(
+                                  key: Key('category-${cat ?? 'all'}'),
+                                  label: Text(cat ?? 'All'),
+                                  selected: _category == cat,
+                                  onSelected: (_) => setState(() => _category = cat),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      for (final s in value.where(
+                        (s) =>
+                            (_category == null || s.category == _category) &&
+                            (_search.isEmpty || '${s.name} ${s.summary}'.toLowerCase().contains(_search)),
+                      ))
                         _Choice(
                           key: Key('service-${s.id}'),
                           selected: s.id == _service,
                           title: s.name,
                           minutes: s.minutes,
                           summary: s.summary,
+                          photo: s.photoAsset,
                           onTap: () => setState(() {
                             _service = s.id;
                             _day = _slot = null;
@@ -146,9 +212,36 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                     ],
                   ),
                 },
+                if (_service != null && offering.isNotEmpty) ...[
+                  const SizedBox(height: 26),
+                  const SectionTitle('Choose your dentist'),
+                  _DentistChoice(
+                    key: const Key('dentist-any'),
+                    title: 'Any available dentist',
+                    detail: 'The earliest times at this clinic',
+                    selected: _dentist == null,
+                    onTap: () => setState(() {
+                      _dentist = null;
+                      _day = _slot = null;
+                    }),
+                  ),
+                  for (final d in offering)
+                    _DentistChoice(
+                      key: Key('dentist-${d.id}'),
+                      dentist: d,
+                      title: d.name,
+                      detail: d.title,
+                      selected: _dentist == d.id,
+                      onTap: () => setState(() {
+                        _dentist = d.id;
+                        _day = _slot = null;
+                      }),
+                      onInfo: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => DentistScreen(dentist: d))),
+                    ),
+                ],
                 if (_service != null) ...[
                   const SizedBox(height: 26),
-                  const SectionTitle('Pick a day'),
+                  SectionTitle(days.isEmpty ? 'Pick a day' : 'Pick a day · ${monthYear(days.keys.first)}'),
                   if (slots == null || slots.isLoading)
                     const _Loading()
                   else if (slots.hasError)
@@ -165,7 +258,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                     )
                   else ...[
                     SizedBox(
-                      height: 92,
+                      height: 104,
                       child: ListView.separated(
                         scrollDirection: Axis.horizontal,
                         itemCount: days.length,
@@ -189,10 +282,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                     SectionTitle('Pick a time · ${weekday(day!)} ${dayMonth(day)}'),
                     _TimeGrid(times: times, selected: _slot, onPick: (s) => setState(() => _slot = s)),
                     const SizedBox(height: 10),
-                    const Text(
-                      'With a Northgate dentist. Times are local to the clinic.',
-                      style: TextStyle(fontSize: 13, color: Palette.muted),
-                    ),
+                    const Text('Times are local to the clinic.', style: TextStyle(fontSize: 13, color: Palette.muted)),
                   ],
                 ],
                 if (_error != null) ...[const SizedBox(height: 18), ErrorNote(_error!)],
@@ -269,11 +359,25 @@ class _Header extends StatelessWidget {
               onPressed: () => Navigator.of(context).maybePop(),
               icon: const Icon(Icons.arrow_back_rounded),
             ),
-            const Padding(
-              padding: EdgeInsets.fromLTRB(12, 4, 12, 14),
-              child: Text(
-                'Book a visit',
-                style: TextStyle(fontSize: 30, fontWeight: FontWeight.w700, letterSpacing: -0.8, color: Colors.white),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 4, 4, 14),
+              child: Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Book a visit',
+                      style: TextStyle(fontSize: 30, fontWeight: FontWeight.w700, letterSpacing: -0.8, color: Colors.white),
+                    ),
+                  ),
+                  if (clinics.where((c) => c.id == selected).firstOrNull case final c?)
+                    TextButton.icon(
+                      key: const Key('about-clinic'),
+                      style: TextButton.styleFrom(foregroundColor: const Color(0xFF8FE3C8)),
+                      onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ClinicScreen(clinic: c))),
+                      icon: const Icon(Icons.info_outline_rounded, size: 18),
+                      label: const Text('Clinic info'),
+                    ),
+                ],
               ),
             ),
             SingleChildScrollView(
@@ -329,10 +433,11 @@ class _Choice extends StatelessWidget {
     required this.title,
     required this.minutes,
     required this.summary,
+    required this.photo,
     required this.onTap,
   });
   final bool selected;
-  final String title, summary;
+  final String title, summary, photo;
   final int minutes;
   final VoidCallback onTap;
 
@@ -358,6 +463,11 @@ class _Choice extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
+                  child: Image.asset(photo, width: 56, height: 56, fit: BoxFit.cover, excludeFromSemantics: true),
+                ),
+                const SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -442,7 +552,10 @@ class _DayTile extends StatelessWidget {
                   '${day.day}',
                   style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: selected ? Colors.white : Palette.deepSea),
                 ),
-                Text(shortMonth(day), style: TextStyle(fontSize: 11, color: selected ? const Color(0xFFCDEFE7) : Palette.muted)),
+                Text(
+                  count == 1 ? '1 time' : '$count times',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: selected ? const Color(0xFFCDEFE7) : Palette.teal),
+                ),
               ],
             ),
           ),
@@ -712,5 +825,73 @@ class _Loading extends StatelessWidget {
   Widget build(BuildContext context) => const Padding(
     padding: EdgeInsets.symmetric(vertical: 24),
     child: Center(child: CircularProgressIndicator(strokeWidth: 2.5)),
+  );
+}
+
+/// One choice in "Choose your dentist": a photo (or the team icon for "any"), name and role; the info button opens the profile.
+class _DentistChoice extends StatelessWidget {
+  const _DentistChoice({
+    super.key,
+    required this.title,
+    required this.detail,
+    required this.selected,
+    required this.onTap,
+    this.dentist,
+    this.onInfo,
+  });
+  final Dentist? dentist;
+  final String title, detail;
+  final bool selected;
+  final VoidCallback onTap;
+  final VoidCallback? onInfo;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 10),
+    child: Semantics(
+      button: true,
+      selected: selected,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.fromLTRB(12, 12, 8, 12),
+          decoration: BoxDecoration(
+            color: selected ? Palette.enamel : Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: selected ? Palette.teal : Palette.line, width: selected ? 2 : 1),
+          ),
+          child: Row(
+            children: [
+              dentist == null
+                  ? const TintIcon(Icons.groups_rounded, Tint.teal, size: 52)
+                  : DentistAvatar(name: dentist!.name, asset: dentist!.photoAsset),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Palette.deepSea),
+                    ),
+                    Text(detail, style: const TextStyle(fontSize: 13.5, color: Palette.muted)),
+                  ],
+                ),
+              ),
+              if (onInfo != null)
+                IconButton(
+                  tooltip: 'About $title',
+                  onPressed: onInfo,
+                  icon: const Icon(Icons.info_outline_rounded, color: Palette.teal),
+                ),
+              Icon(selected ? Icons.check_circle_rounded : Icons.circle_outlined, color: selected ? Palette.teal : Palette.line),
+              const SizedBox(width: 6),
+            ],
+          ),
+        ),
+      ),
+    ),
   );
 }

@@ -119,6 +119,13 @@ const michelle = LinkedPatient(id: 'p-m', name: 'Michelle Fiona', isSelf: true);
 
 Future<void> shot(WidgetTester tester, String name) async {
   await tester.pumpAndSettle();
+  // Photos decode on real time, which the fake test clock never gives them: wait for each one before capturing.
+  await tester.runAsync(() async {
+    for (final e in find.byType(Image).evaluate()) {
+      await precacheImage((e.widget as Image).image, e);
+    }
+  });
+  await tester.pumpAndSettle();
   await expectLater(find.byType(MaterialApp), matchesGoldenFile('../../../docs/screenshots/app/$name.png'));
 }
 

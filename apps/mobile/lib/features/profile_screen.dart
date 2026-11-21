@@ -6,6 +6,7 @@ import '../design/tokens.dart';
 import '../state.dart';
 import 'care_widgets.dart';
 import 'aligner_screen.dart';
+import 'clinic_screen.dart';
 import 'coverage_screen.dart';
 import 'details_screen.dart';
 
@@ -144,7 +145,7 @@ class _DetailsRow extends ConsumerWidget {
       tint: Tint.teal,
       title: clinic?.name ?? 'Choose a clinic',
       detail: address,
-      onTap: edit,
+      onTap: clinic == null ? edit : () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ClinicScreen(clinic: clinic))),
       trailing: TextButton(key: const Key('edit-details'), onPressed: edit, child: const Text('Edit')),
     );
   }
