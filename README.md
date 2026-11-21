@@ -2,7 +2,7 @@
 
 A dental practice system and patient app for a fictional US dental group with three clinics in the Boston area: Back Bay, Cambridge and Quincy.
 
-**All data in this project is synthetic.** Patients, staff, visits and documents are generated test data. X-rays and images are licensed or generated and credited. No real patient data is used anywhere.
+**Every patient, staff member, visit and document here is fictional, generated test data.** X-rays and images are licensed or generated and credited. No real patient data is used anywhere.
 
 | Home | Booking | Visit record |
 | --- | --- | --- |
@@ -35,9 +35,12 @@ flowchart LR
     waf[Nginx + ModSecurity<br/>OWASP Core Rule Set]
     presidio[Presidio<br/>internal network only]
     backup[Nightly backup<br/>pg_dump + age]
+    worker[Notification worker<br/>Python]
+    n8n[n8n automations<br/>only /webhook/ public]
   end
   census[US Census geocoder]
   resend[Resend email]
+  stripe[Stripe Checkout<br/>test mode]
   s3[(Amazon S3<br/>encrypted backups)]
 
   app -->|HTTPS, publishable key + user token| auth
@@ -49,6 +52,12 @@ flowchart LR
   bastion -.->|22| waf
   backup -->|read| db
   backup -->|upload-only key| s3
+  waf -->|/webhook/ only| n8n
+  stripe -->|signed webhook| nlb
+  n8n -->|payments role: 3 functions| db
+  n8n -->|create Checkout Session| stripe
+  worker -->|worker role: queues + 1 view| db
+  worker -->|receipts, confirmations| resend
 ```
 
 <details>
@@ -76,7 +85,7 @@ flowchart LR
 | Web access logs | Oracle VM | af-johannesburg-1 | Operators; path and status only, never query strings or bodies |
 | Backups | Amazon S3, encrypted twice | eu-north-1 | Nobody on the server: the VM can add files but not read or delete them |
 
-The Oracle VM and the S3 bucket sit outside the US. That is a recorded exception for synthetic data, caused by account regions that cannot be changed. A deployment with real patient data would move both into US regions before going live.
+The Oracle VM and the S3 bucket sit outside the US. That is a recorded exception, allowed only because no real patient data exists here, and caused by account regions that cannot be changed. A deployment with real patient data would move both into US regions before going live.
 
 </details>
 
@@ -151,6 +160,84 @@ sequenceDiagram
 </details>
 
 <details>
+<summary><b>Payments with Stripe Checkout (test mode), relayed by n8n, decided in Postgres</b></summary>
+
+A receptionist (or, from section 09, the assistant) asks for a payment link for a visit; the patient pays on Stripe's hosted Checkout page; Stripe tells us it was paid; the patient gets a receipt. Stripe Checkout was chosen over building a card form because **card numbers never touch Northgate's systems at all**, which keeps the product out of PCI DSS scope beyond the simplest self-assessment (SAQ A).
+
+![Stripe Checkout for a Northgate visit, test card](.github/readme/stripe-checkout.png)
+
+```mermaid
+sequenceDiagram
+  participant Staff as Receptionist / assistant
+  participant W04 as n8n W04 Payment link
+  participant DB as Postgres
+  participant S as Stripe
+  participant P as Patient
+  participant W05 as n8n W05 Payment received
+  participant Q as Supabase Queues
+  participant Wk as Worker
+  Staff->>W04: appointment_id
+  W04->>DB: open_payment(appointment): price from the price list
+  W04->>S: create Checkout Session (Idempotency-Key = payment ID)
+  W04->>DB: attach_checkout(payment, session)
+  W04-->>Staff: checkout URL
+  P->>S: pays with a card on Stripe's page
+  S->>W05: POST /webhook/stripe, Stripe-Signature header
+  W05->>DB: record_stripe_event(raw body, signature)
+  DB->>DB: HMAC check against Vault secret, 5-minute window
+  DB->>DB: mark_processed('stripe', event id), amount check, status paid
+  DB->>Q: notifications: {type: receipt, appointment_id, payment_id}
+  W05-->>S: 200 {received: recorded}
+  Wk->>Q: read
+  Wk->>P: receipt email: amount, service, date, clinic
+```
+
+**The key decision: n8n relays, Postgres decides.** All money rules live in three database functions with 17 pgTAP tests. n8n holds no logic and no secret it could leak: the webhook signing secret is in **Supabase Vault**, loaded there by the deploy workflow from a GitHub environment secret, and was piped from Stripe's API into GitHub without ever being printed.
+
+| Design choice | What it prevents |
+| --- | --- |
+| **The amount comes from `location_services.price_cents`** inside `open_payment()`, never from the caller | A tampered or mistaken request charging the wrong amount |
+| **One live payment per visit** (partial unique index on `appointment_id` where status is pending or paid) | Two payment links, and a visit paid twice |
+| **Stripe idempotency key = our payment ID** | A retried request creating a second Checkout Session |
+| **HMAC-SHA256 signature check over the exact raw body**, in Postgres with `pgcrypto` | Anyone who finds the webhook URL marking a payment as paid |
+| **Five-minute timestamp window** | A captured, genuine event being replayed later |
+| **`mark_processed('stripe', event.id)`** | Stripe's at-least-once delivery recording a payment (and sending a receipt) twice |
+| **Amount and currency must match** what we asked for | A session paid at a different price being accepted |
+| **Adaptive Pricing switched off** | A US clinic being paid in the payer's local currency (it showed Kenyan shillings in testing until disabled) |
+| **Unknown sessions are ignored, not errors** | The shared test account's other products' events filling the error log |
+| **Money in whole cents** (integers) | Floating-point rounding errors |
+| **A dedicated `northgate_payments` role** with execute on three functions and nothing else | A leaked n8n credential reading patient records (tested: it cannot) |
+| **n8n trusts Supabase's root CA** (fingerprint checked against Supabase's published copy) instead of skipping certificate checks | A man-in-the-middle on the database connection |
+| **W05 keeps no data from failed runs**, and successful runs keep none either | The email a payer types at Checkout lingering in n8n's database |
+
+**What Stripe receives:** an amount in cents, the item name "Northgate Dental visit" and our payment ID. Never the patient's name, email, date of birth or the service (a service name is health information). Stripe does not sign a BAA, but HIPAA exempts payment processing (Social Security Act section 1179), so the rule here is simple: nothing clinical goes to Stripe.
+
+**Products considered:** Payments (Checkout and webhooks) is used now. Billing (invoices) fits patient statements and arrives with W06. Connect was rejected: it is for platforms paying out to *other* businesses, and Northgate is one dental group with one bank account, so it would add onboarding, compliance and fees for nothing.
+
+**Proof:**
+- `22_payments.test.sql`: tampered body, wrong secret, a replay older than five minutes, a wrong amount, a duplicate event, and writes by a signed-in user are all refused; a correct event is recorded once and queues one receipt carrying IDs only.
+- The worker test signs an event in Python, so it proves Python's HMAC and Postgres's agree byte for byte.
+- On staging, a real test-mode payment went from link to receipt email (see Deployments).
+
+</details>
+
+<details>
+<summary><b>n8n for event and time based automations</b></summary>
+
+n8n runs the automations a clinic changes most often: payment links, payment webhooks and, next, statements and post-visit check-ins. It is self-hosted on the VM, not n8n Cloud, so patient-adjacent events never leave infrastructure we control.
+
+- **Built through n8n's MCP server.** Each workflow is written as n8n Workflow SDK code (`n8n/sdk/*.ts`), validated by the MCP server's `validate_workflow`, created with `create_workflow_from_code`, tested, then exported as JSON to `n8n/workflows/`. The JSON holds credential *references* only (an ID and a name), never a secret.
+- **Same version everywhere:** n8n 2.43.7 on the laptop and on the VM.
+- **Only webhooks are public.** Nginx proxies `https://n8n.84-12-126-31.sslip.io/webhook/*` through the WAF and answers 404 for everything else, including the editor and the REST API (tested in CI).
+- **The editor is reached through an SSH tunnel** over Oracle Bastion and bound to `127.0.0.1` on the VM, so it has no internet-facing login page to attack.
+- **Its own Postgres** (`n8n-db`, on the internal `data` network) for workflows and encrypted credentials; it joins the nightly encrypted backup.
+- **Hardening:** `N8N_BLOCK_ENV_ACCESS_IN_NODE` stops Code nodes reading server secrets; successful runs save no data; failed runs are pruned after 7 days; telemetry is off.
+- **Credentials** are imported with `n8n import:credentials` from stdin inside the container, so passwords never sit on the VM's disk or in shell history. The Stripe key is read from the VM's own `.env` and never travels again.
+- **n8n never does AI.** The project rule is one assistant, built in LangGraph; n8n only runs triggered automations and, from section 09, publishes a few workflows as MCP tools for it.
+
+</details>
+
+<details>
 <summary><b>Flutter for the patient app</b></summary>
 
 One codebase for Android now and iOS later, with full control over every pixel. That matters for an app that has to feel trustworthy, not generic.
@@ -215,6 +302,30 @@ IAM Access Analyzer would normally be part of this baseline. AWS blocks it on fr
 </details>
 
 <details>
+<summary><b>Two clouds, two jobs: how the Oracle and AWS designs map onto each other</b></summary>
+
+Northgate deliberately uses two providers for two different jobs, so a failure or a mistake in one cannot take the other with it: **Oracle Cloud runs the services** (always-on compute at low cost) and **AWS keeps the backups and the audit trail** (S3's durability and CloudTrail). The backups are encrypted with `age` *before* they leave Oracle, so AWS only ever stores ciphertext, and the key that decrypts them lives on neither cloud.
+
+Both are built with Terraform, so the same habits apply in each: a plan reviewed before every apply, every resource tagged with product, environment and `managed_by=terraform`, and no console clicking that the code does not know about.
+
+| Concern | Oracle Cloud (compute) | AWS (backups and audit) | Why it is done this way |
+| --- | --- | --- | --- |
+| Isolation boundary | Compartment `northgate` | The account itself, guarded by account-wide S3 Block Public Access | Blast radius: a mistake elsewhere cannot touch these resources |
+| Private network | VCN `10.20.0.0/16`, public and private subnets | Not needed: no compute runs on AWS | Build only what a job needs |
+| Way in from the internet | Network Load Balancer, TCP 80 and 443, client IP preserved | None: S3 is reached with signed API calls | The WAF must see real visitor IPs for its rate limits |
+| Firewall rules | Security lists per subnet, plus the host firewall | Bucket policies that refuse plain HTTP | Defence in depth: two layers, each enough on its own |
+| Admin access | Oracle Bastion: time-limited sessions, one source IP, no port 22 open | IAM users per job: upload-only for the VM, read-only for restores | Least privilege; the VM can add backups but never read or delete them |
+| Way out | NAT gateway, plus a service gateway for Oracle services | Not applicable | The VM needs updates and images without a public IP |
+| Audit | Oracle's audit log (default, 365 days) | CloudTrail in every region, with log file validation | Evidence that cannot be quietly edited |
+| Cost guardrails | Always Free limits; `retry-a1.sh` moves to the free Ampere A1 | A US$1 budget and Cost Anomaly Detection | Cost alerts exist before the resources they watch |
+| Storage insight | Boot volume metrics | S3 Storage Lens dashboard | Know what is stored where, by region and bucket |
+| Region | Johannesburg (Oracle's accepted home region, ADR 0004) | Stockholm (fixed for this account, ADR 0003) | Test data only; a real US client would move both to US regions |
+
+**The same idea in AWS terms:** if the VM moved to AWS, the design would be an EC2 instance in a private subnet behind a Network Load Balancer, Systems Manager Session Manager instead of Oracle Bastion (no SSH port at all), security groups instead of security lists, and an instance role instead of a stored access key for backups. The warm standby planned for section 16 is exactly that.
+
+</details>
+
+<details>
 <summary><b>Nginx with ModSecurity and the OWASP Core Rule Set</b></summary>
 
 The WAF is the single public entrance to the server. The OWASP Core Rule Set is the standard open-source rule set against the common web attacks, and OWASP's official image runs it inside Nginx.
@@ -234,7 +345,7 @@ Before any text leaves our infrastructure (into a log, an error report, or a mod
 
 Two findings from testing with the canary record:
 
-- Presidio's email recognizer accepts only real top-level domains, so a `.synthetic` address slipped through. An extra pattern now catches any address.
+- Presidio's email recognizer accepts only real top-level domains, so a test address on a made-up domain slipped through. An extra pattern now catches any address.
 - With every recognizer switched on, a US phone number was read as a UK NHS number and an email was split into fragments. Callers now ask only for the entity types a US practice handles.
 
 </details>
@@ -253,7 +364,7 @@ Losing the VM, or even the Oracle account, must never mean losing data.
 </details>
 
 <details>
-<summary><b>Synthetic data generator (Python, uv)</b></summary>
+<summary><b>Test data generator (Python, uv)</b></summary>
 
 About 3,000 dental patients with visits, tooth charts, findings and treatment plans, plus named test personas. It also plants **canary records**: unmistakable fake values that must never appear in a log, trace or message. `scripts/canary-scan.sh` fails if one does.
 
@@ -274,6 +385,34 @@ Every pull request runs:
 - shellcheck on the server scripts.
 
 Merges into `develop` apply database migrations to staging automatically.
+
+</details>
+
+## Engineering principles, and where they show in the code
+
+Each principle below comes from a well-known software engineering book, and each is tied to something in this repository you can open and check.
+
+<details>
+<summary><b>From the books to this repository</b></summary>
+
+| Principle | Book | Where it is applied here |
+| --- | --- | --- |
+| **The transactional outbox**: publish events in the same transaction as the change | *Designing Data-Intensive Applications*, Martin Kleppmann; *Microservices Patterns*, Chris Richardson | `private.publish_appointment_event()` writes to the queue inside the booking's own transaction, so an event can never be lost or describe a change that rolled back |
+| **Idempotent consumers**: at-least-once delivery plus de-duplication gives an exactly-once *effect* | *Designing Data-Intensive Applications* | `private.mark_processed()` for appointment events and Stripe events; `notification_log` claimed before every email; Stripe and Resend idempotency keys |
+| **Ordering with version numbers** | *Designing Data-Intensive Applications* | Every appointment event carries a version; the worker re-reads the current status before sending, so a late "booked" never confirms a cancelled visit |
+| **Stability patterns: timeouts, bulkheads, steady state, fail fast** | *Release It!*, Michael Nygard | HTTP timeouts in the worker; a separate `urgent` queue and separate Docker networks (bulkheads); fixed batches of 10 and pruned n8n executions (steady state); bad signatures refused before any work is done (fail fast) |
+| **Dead-letter queue for poison messages** | *Enterprise Integration Patterns*, Gregor Hohpe and Bobby Woolf | After five failed tries a message moves to `dead_letter` instead of blocking the queue |
+| **Deep modules: a narrow interface over a lot of behaviour** | *A Philosophy of Software Design*, John Ousterhout | `record_stripe_event(raw_body, signature)` is one call that hides signature checks, replay protection, de-duplication, amount checks, state changes and the receipt; `notification_context()` hides every join the worker would otherwise need |
+| **Make illegal states unrepresentable** | *Domain Modeling Made Functional*, Scott Wlaschin | Check constraints: a payment is `paid` if and only if `paid_at` is set; money is whole cents; one live payment per visit is a unique index, not a hope |
+| **Ubiquitous language** | *Domain-Driven Design*, Eric Evans | Tables, functions and files use the clinic's own words (appointment, hold, proxy, recall), kept in a glossary |
+| **Test first, and test the thing that must be refused** | *Test-Driven Development: By Example*, Kent Beck | 382 database tests, each security rule with an allowed and a denied case; every edge case has a test before the code |
+| **Don't live with broken windows; automate everything** | *The Pragmatic Programmer*, Andrew Hunt and David Thomas | Pre-commit hooks, gitleaks, shellcheck and a commit-message guard; CI blocks merges on any failure; deployments run from GitHub Actions, not by hand |
+| **Small batches, trunk-based flow, deployment automation** | *Accelerate*, Nicole Forsgren, Jez Humble and Gene Kim | One small pull request per ticket into `develop`; every merge deploys migrations to staging; production waits for a required reviewer |
+| **Infrastructure as code, immutable servers** | *Infrastructure as Code*, Kief Morris | Terraform for both clouds; the VM is replaced, not patched by hand (`create_before_destroy`); cloud-init hardens it on first boot |
+| **Service level objectives and error budgets** | *Site Reliability Engineering*, Google | Reminders within 5 minutes of their due time and queue age under 60 seconds are written targets, alerted on in section 12 |
+| **Least privilege and defence in depth** | *Security Engineering*, Ross Anderson | Separate database roles for the app, the worker and payments; WAF, network rules and row level security, each sufficient alone |
+| **Refactor in small, safe steps** | *Refactoring*, Martin Fowler | Changes such as the receipt type were added behind the existing worker loop with tests around them, not as a rewrite |
+| **The simplest thing that could possibly work** | *Extreme Programming Explained*, Kent Beck | One database (no separate broker, cache or vector store) until a measured need says otherwise |
 
 </details>
 
@@ -302,6 +441,72 @@ Merges into `develop` apply database migrations to staging automatically.
 </details>
 
 ## Deployments
+
+<details>
+<summary><b>21 November 2026 (night): payments live in Stripe test mode, and n8n on the VM</b></summary>
+
+**What went live:**
+- the payments table and functions on staging (#83);
+- n8n workflows W04 (payment link) and W05 (payment received) on the VM's n8n;
+- the worker's receipt email;
+- n8n verifying Supabase's certificate (#84).
+
+**How it was proved, on staging, end to end:**
+1. W04 created a real Checkout Session for a booked visit: $110.00, the price list's amount for that service at Quincy.
+2. A headless browser paid it with Stripe's test card 4242 4242 4242 4242.
+3. Stripe sent a signed webhook to `https://n8n.84-12-126-31.sslip.io/webhook/stripe`, through the Network Load Balancer and the WAF.
+4. Postgres checked the signature, recorded the payment as paid and queued a receipt; the worker sent it.
+5. A forged event signed with a guessed secret was refused with HTTP 400, and the n8n editor still answers 404 from the internet.
+
+| Stripe Checkout | Forged webhook refused | Tests |
+| --- | --- | --- |
+| ![Checkout](.github/readme/stripe-checkout.png) | ![Forged event refused](.github/readme/forged-webhook.png) | ![Database tests](.github/readme/payments-tests.png) |
+
+**Two problems caught along the way:**
+- Stripe's Adaptive Pricing showed the price in Kenyan shillings, because the test browser was in Kenya. W04 now turns it off, so a US clinic always charges USD.
+- n8n's Postgres connection rejected Supabase's certificate, because Supabase signs with its own root CA. Rather than switch verification off, the root CA was checked against Supabase's published copy and added to n8n's trust store.
+
+**Commands (secrets replaced with placeholders):**
+
+```bash
+# n8n workflows built through the n8n MCP server: validate, then create, then export to Git
+#   validate_workflow(code) -> create_workflow_from_code(code) -> publish_workflow(id)
+docker exec n8n-n8n-1 n8n export:workflow --id=<id> --output=/tmp/w04-payment-link.json
+
+# Stripe webhook endpoint created by API; the signing secret goes straight into GitHub, never printed
+curl -s -u "$STRIPE_SECRET_KEY:" https://api.stripe.com/v1/webhook_endpoints -d url=https://n8n.84-12-126-31.sslip.io/webhook/stripe -d "enabled_events[]=checkout.session.completed" -d "enabled_events[]=checkout.session.expired" | jq -r .secret | gh secret set STRIPE_WEBHOOK_SECRET --env staging  # gitleaks:allow (the key comes from infra/.env)
+
+# merge to develop: GitHub Actions applies the migration to staging and loads the secret into Vault
+gh pr merge 83 --squash
+
+# payments login on staging: only a SCRAM hash of the password reaches the database
+create role northgate_payments_app login password '<SCRAM-SHA-256 hash>' in role northgate_payments;
+
+# on the VM: pull, rebuild the worker, import credentials from stdin and the workflows
+git pull --ff-only origin develop
+docker compose --profile worker up -d --build worker
+<credentials json> | docker exec -i <n8n container> sh -c 'cat > /tmp/c.json; n8n import:credentials --input=/tmp/c.json; rm /tmp/c.json'
+docker exec -i <n8n container> n8n import:workflow --input=/tmp/w05-stripe-payment-received.json
+docker exec <n8n container> n8n update:workflow --id=<id> --active=true
+docker compose --profile n8n up -d n8n
+```
+
+**Screenshots still to take:**
+- [ ] Stripe Dashboard → Payments, showing the $110.00 test payment: https://dashboard.stripe.com/test/payments
+- [ ] Stripe Dashboard → Workbench → Webhooks, the endpoint and its successful delivery: https://dashboard.stripe.com/test/workbench/webhooks
+- [ ] The receipt email in your inbox (subject "Payment received")
+- [ ] Supabase staging → Table editor → `payments`, the paid row: https://supabase.com/dashboard/project/dxkfsslymzqbgtoijuut/editor
+- [ ] Supabase staging → Integrations → Vault, showing `stripe_webhook_secret` exists (value hidden)
+- [ ] The n8n editor through the tunnel, with W04 and W05 active (see below). The first visit asks you to create the owner account; it can only be reached through the tunnel, so nobody else can claim it first.
+- [ ] GitHub → Settings → Environments → staging, showing `STRIPE_WEBHOOK_SECRET`
+
+**Opening the n8n editor on the VM:** it has no public address on purpose. Open a tunnel through Oracle Bastion, then browse to `http://localhost:15678` (15678, because the laptop's own n8n uses 5678):
+
+```bash
+TUNNEL=15678 infra/scripts/ssh-vm.sh deploy   # leave it running, then open http://localhost:15678
+```
+
+</details>
 
 <details>
 <summary><b>21 November 2026 (evening): notification worker live, sending booking confirmations</b></summary>
@@ -477,7 +682,7 @@ infra/scripts/restore-test.sh s3://<bucket>/nightly/<file>.dump.age ~/.config/no
 | `infra/` | The server: Compose stack, Nginx configuration, certificate, backup, restore and hardening scripts, and their tests |
 | `services/worker/` | Notification worker: reads Supabase Queues, sends confirmations and reminders (Python, psycopg, Resend) |
 | `infra/terraform/oci/`, `infra/terraform/aws/` | Oracle network, load balancer, bastion and VM; AWS audit trail and account baseline |
-| `services/synthdata/` | Synthetic data generator |
+| `services/synthdata/` | Test data generator |
 | `scripts/` | Local helpers: database tests, canary scan, guards, mobile toolchain setup |
 | `.github/workflows/` | CI, staging deploy and staging data load |
 

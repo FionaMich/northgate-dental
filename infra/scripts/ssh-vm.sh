@@ -16,5 +16,7 @@ if [ -z "$session" ] || [ "$session" = null ]; then
   sleep 10 # a new session takes a few seconds before it accepts keys
 fi
 host="host.bastion.$(grep '^region=' ~/.oci/config | cut -d= -f2).oci.oraclecloud.com"
-exec ssh -i "$key" -o IdentitiesOnly=yes -o ServerAliveInterval=30 \
+# TUNNEL=<local port> forwards it to the n8n editor on the VM (127.0.0.1:5678) instead of opening a shell.
+tunnel=(); [ -n "${TUNNEL:-}" ] && tunnel=(-N -L "$TUNNEL:127.0.0.1:5678")
+exec ssh -i "$key" -o IdentitiesOnly=yes -o ServerAliveInterval=30 "${tunnel[@]}" \
   -o ProxyCommand="ssh -i $key -o IdentitiesOnly=yes -W %h:%p -p 22 $session@$host" "$user@$ip" "$@"
