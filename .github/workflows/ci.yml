@@ -69,6 +69,18 @@ jobs:
       - run: uv sync --locked
       - run: uv run pytest -q
 
+  worker:
+    name: worker (pytest)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/worker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --locked
+      - run: uv run pytest -q # the database test skips here; it runs against the local stack and the database job's data
+
   mobile:
     name: mobile (flutter test)
     runs-on: ubuntu-latest

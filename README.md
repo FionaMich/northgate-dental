@@ -96,6 +96,61 @@ A dental group's data is relational: patients, appointments, clinicians, rooms, 
 </details>
 
 <details>
+<summary><b>Supabase Queues, the transactional outbox and the notification worker</b></summary>
+
+Everything that happens *after* a change (confirmations, reminders, cancellations, later payments and check-ins) runs through queues inside the same Postgres database. Northgate uses **Supabase Queues** (the `pgmq` extension) instead of a separate broker such as RabbitMQ. With one database there is one store to secure, back up and explain, and a queue message can be written in the same transaction as the data change that caused it.
+
+```mermaid
+sequenceDiagram
+  participant App as Patient app
+  participant DB as Postgres (appointments)
+  participant Q as Supabase Queues
+  participant Cron as pg_cron, every 10 min
+  participant W as Notification worker
+  participant R as Resend (email)
+  App->>DB: book a visit (one transaction)
+  DB->>DB: appointment_events row, version 1
+  DB->>Q: events: {appointment_id, version, from_status, to_status}
+  Note over DB,Q: same transaction: if the booking rolls back, so does the event
+  W->>Q: read events (batch of 10)
+  W->>DB: mark_processed(appointment, version) first time?
+  W->>Q: notifications: {type: confirmation, appointment_id}
+  Cron->>DB: claim_due_reminders(): 72h, 24h, 6h, once each
+  DB->>Q: notifications: {type: reminder, kind, appointment_id}
+  W->>Q: read notifications
+  W->>DB: notification_context(appointment): first name, email, time, clinic
+  W->>DB: claim the send in notification_log (one per appointment, kind, channel)
+  W->>R: send email (idempotency key)
+  W->>DB: status sent, provider message ID
+```
+
+**Why it is built this way:**
+
+| Design choice | What it prevents |
+| --- | --- |
+| **Transactional outbox:** a trigger on `appointment_events` sends the event in the same transaction as the change | An event lost because the app crashed between saving and publishing, or a published event for a change that rolled back |
+| **Events carry IDs, a version and statuses only** | Names, contact details or clinical text sitting in queue tables (tested) |
+| **Version numbers per appointment** | Changes applied out of order; the worker checks the appointment's current status before sending, so a late "booked" never confirms a cancelled visit |
+| **`mark_processed(consumer, key)`**, true only the first time | A redelivered message running twice |
+| **`notification_log`, unique per appointment, kind and channel**, claimed *before* sending | Two confirmation emails, even if the worker crashes after sending and the message is retried |
+| **Resend idempotency key** on every email | A second guard behind the log, for 24 hours |
+| **Reminders claimed in `reminder_log`** (unique per appointment and kind), each with a two-hour window | Duplicate reminders, and very late reminders after an outage |
+| **Quiet hours** 21:00 to 08:00 in the clinic's time zone; a reminder that would fall inside them moves to 20:00 the evening before | Messages at night |
+| **A separate `urgent` queue** for clinical messages | A red-flag message waiting behind a campaign |
+| **Fixed batches of 10, one message per transaction, dead-letter after 5 failures** | A worker taking more than it can finish, and a poison message blocking the queue |
+| **pg_cron inside the database** runs the reminder scanner | A separate scheduler that can stop without anyone noticing |
+
+**What a patient message contains:** first name, the service, the date and time in the clinic's own time zone, the clinic and its phone number. It never contains a surname, date of birth, record number, address, insurance or anything clinical, because email providers and WhatsApp sign no BAA. The worker reads a visit only through `private.notification_context()`, a database function that returns exactly those fields to the worker's role and nothing to anyone else.
+
+**Who can touch the queues:** neither patients nor staff. The schema is closed to `anon` and `authenticated`, and a dedicated `northgate_worker` role gets the queues, the send log and the idempotency check only. Its login is created by hand on each project, so no password lives in Git.
+
+**Proof:**
+- 24 database tests (`20_queues`, `21_worker_context`).
+- The worker's tests, including one against a real database. It books a visit for the canary patient, checks that exactly one email is sent and that a repeat sends nothing, and scans the logs for every canary value.
+
+</details>
+
+<details>
 <summary><b>Flutter for the patient app</b></summary>
 
 One codebase for Android now and iOS later, with full control over every pixel. That matters for an app that has to feel trustworthy, not generic.
@@ -387,6 +442,8 @@ infra/scripts/restore-test.sh s3://<bucket>/nightly/<file>.dump.age ~/.config/no
 | `supabase/functions/` | Edge Functions |
 | `apps/mobile/` | The Flutter patient app and its tests |
 | `infra/` | The server: Compose stack, Nginx configuration, certificate, backup, restore and hardening scripts, and their tests |
+| `services/worker/` | Notification worker: reads Supabase Queues, sends confirmations and reminders (Python, psycopg, Resend) |
+| `infra/terraform/oci/`, `infra/terraform/aws/` | Oracle network, load balancer, bastion and VM; AWS audit trail and account baseline |
 | `services/synthdata/` | Synthetic data generator |
 | `scripts/` | Local helpers: database tests, canary scan, guards, mobile toolchain setup |
 | `.github/workflows/` | CI, staging deploy and staging data load |
