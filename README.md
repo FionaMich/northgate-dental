@@ -241,6 +241,21 @@ n8n runs the automations a clinic changes most often: payment links, payment web
 | A public demo (option) | Route the editor through the WAF with n8n's own login, two-factor required and an IP allow-list | https://n8n.84-12-126-31.sslip.io |
 
 The first visit to a new n8n asks for the owner account; only someone who can already reach the editor can create it.
+
+**Step by step: opening the VM's n8n through the tunnel**
+
+1. Prerequisites, once per laptop: the OCI CLI signed in (`~/.oci/config`), the SSH key `~/.ssh/northgate_oracle` loaded (`ssh-add ~/.ssh/northgate_oracle`), and your current public IP in the Bastion's allowed range (`client_cidr` in `infra/terraform/oci/terraform.tfvars`).
+2. In a terminal, from the repository folder, open the tunnel and leave it running:
+   ```bash
+   cd ~/practice-projects/Northgate-Dental
+   TUNNEL=15678 infra/scripts/ssh-vm.sh deploy
+   ```
+   The script finds or creates an Oracle Bastion session (up to three hours), then forwards `localhost:15678` on the laptop to `127.0.0.1:5678` on the private VM. It prints nothing while the tunnel is open.
+3. In a browser, open **http://localhost:15678**. Local port 15678 avoids the laptop's own n8n on 5678.
+4. The first time, create the owner account; after that, sign in. W03, W04, W05, W06 and W11 are listed and active.
+5. To close the tunnel, press Ctrl+C in that terminal.
+
+If the page does not load: the Bastion refuses sessions from an IP outside `client_cidr` (update it and run `terraform apply`), and a brand-new session takes about ten seconds before it accepts the key.
 - **Its own Postgres** (`n8n-db`, on the internal `data` network) for workflows and encrypted credentials; it joins the nightly encrypted backup.
 - **Hardening:** `N8N_BLOCK_ENV_ACCESS_IN_NODE` stops Code nodes reading server secrets; successful runs save no data; failed runs are pruned after 7 days; telemetry is off.
 - **Credentials** are imported with `n8n import:credentials` from stdin inside the container, so passwords never sit on the VM's disk or in shell history. The Stripe key is read from the VM's own `.env` and never travels again.
