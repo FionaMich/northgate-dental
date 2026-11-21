@@ -24,6 +24,8 @@ jobs:
       DB_URL: ${{ secrets.STAGING_DB_URL || secrets.PRODUCTION_DB_URL }}
       # Project refs: a staging URL can never reach production, or the other way round.
       EXPECTED_REF: ${{ github.ref_name == 'main' && 'orrmekwuuicmofemmitu' || 'dxkfsslymzqbgtoijuut' }}
+      # Stripe's webhook signing secret for this environment (set once with gh secret set, piped from Stripe's API).
+      STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
     steps:
       - uses: actions/checkout@v4
       - uses: supabase/setup-cli@v3
@@ -44,3 +46,13 @@ jobs:
           exit $fail
       # Migrations only, never the seed: Supabase's guidance is never to push seed data to production.
       - run: supabase db push --remote "$DB_URL" --yes
+      # The signing secret lives in Supabase Vault, where private.record_stripe_event() reads it: never in Git or n8n.
+      - name: load the Stripe webhook signing secret into Vault
+        if: env.STRIPE_WEBHOOK_SECRET != ''
+        run: |
+          psql "$DB_URL" -q -v ON_ERROR_STOP=1 -v s="$STRIPE_WEBHOOK_SECRET" <<'SQL'
+          select vault.update_secret(id, :'s') from vault.secrets where name = 'stripe_webhook_secret';
+          select vault.create_secret(:'s', 'stripe_webhook_secret')
+           where not exists (select 1 from vault.secrets where name = 'stripe_webhook_secret');
+          SQL
+          echo "ok: webhook secret loaded"

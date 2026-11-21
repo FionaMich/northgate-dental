@@ -15,6 +15,7 @@ class Context:
     clinic_name: str
     clinic_phone: str | None
     service_name: str
+    amount_cents: int | None = None  # receipts only
 
 
 @dataclass(frozen=True)
@@ -49,8 +50,12 @@ def render(kind: str, ctx: Context) -> Message:
         "reminder:24h": ("Your visit is tomorrow", f"A reminder: your {ctx.service_name} is tomorrow, {when(ctx)}, at {clinic}."),
         "reminder:6h": ("Your visit is today", f"A reminder: your {ctx.service_name} is today, {when(ctx)}, at {clinic}."),
     }
+    if ctx.amount_cents is not None:
+        dollars = f"${ctx.amount_cents // 100:,}.{ctx.amount_cents % 100:02d}"
+        lead["receipt"] = ("Payment received", f"We received your payment of {dollars} for your {ctx.service_name} on "
+                                               f"{when(ctx)} at {clinic}. Thank you.")
     subject, body = lead[kind]
-    after = "To change or cancel, open the Northgate Dental app. " + call
+    after = call if kind == "receipt" else "To change or cancel, open the Northgate Dental app. " + call
     text = f"Hello {ctx.first_name},\n\n{body}\n\n{after}\n\nNorthgate Dental\n"
     html = (
         '<div style="font-family:system-ui,sans-serif;max-width:520px;margin:auto;color:#0b2b2a">'
