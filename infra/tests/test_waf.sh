@@ -32,6 +32,9 @@ headers="$(curl -sk -D - -o /dev/null "$base/health" | tr -d '\r' | tr '[:upper:
 for h in strict-transport-security x-content-type-options x-frame-options referrer-policy content-security-policy; do
   check "header $h is set" yes "$(grep -q "^$h:" <<<"$headers" && echo yes || echo no)"
 done
+for path in /nothing-here "/health?q=<script>alert(1)</script>"; do
+  check "error page for $path names no software" no "$(curl -sk "$base$path" | grep -qi nginx && echo yes || echo no)"
+done
 check "server header is hidden" no "$(grep -q '^server:' <<<"$headers" && echo yes || echo no)"
 
 check "TLS 1.1 is refused" fail "$(curl -sk --tls-max 1.1 -o /dev/null "$base/health" 2>/dev/null && echo pass || echo fail)"

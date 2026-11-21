@@ -67,4 +67,11 @@ server {
     location / {
         try_files /nonexistent =404;
     }
+
+    # One branded page for every error, so no response names the server software.
+    error_page 400 403 404 405 413 429 500 502 503 504 /error.html;
+    location = /error.html {
+        internal;
+        try_files /error.html =404;
+    }
 }
