@@ -100,6 +100,38 @@
             "responseCode": 200
           }
         }
+      },
+      {
+        "id": "335a5998-8ddd-55f7-ba38-b833cb799d28",
+        "name": "Note 1",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          -40,
+          -500
+        ],
+        "parameters": {
+          "content": "## W05 Stripe payment received\n**Trigger:** Stripe's webhook `POST /webhook/stripe`.\n\nn8n only relays: the raw body and `Stripe-Signature` header go to `record_stripe_event()`, which checks the HMAC, refuses events older than 5 minutes, ignores repeats, checks the amount, marks the payment paid and queues the receipt.\n\n**Answers:** 200 `recorded`, `duplicate` or `ignored`; 400 for anything refused.",
+          "width": 460,
+          "height": 300,
+          "color": 4
+        }
+      },
+      {
+        "id": "bf34cbbe-3fb6-55ff-9a19-09f86f955428",
+        "name": "Note 2",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          460,
+          -500
+        ],
+        "parameters": {
+          "content": "## Security and data\n- The signing secret is in Supabase Vault, loaded by GitHub Actions; never in n8n or Git.\n- The raw body is passed byte for byte; reformatting it would break the signature.\n- Failed runs keep no data: a Stripe event can carry the payer's email.",
+          "width": 460,
+          "height": 300,
+          "color": 3
+        }
       }
     ],
     "connections": {

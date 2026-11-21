@@ -189,6 +189,38 @@
             }
           }
         }
+      },
+      {
+        "id": "e803ff2a-f4d5-52b4-92c9-31ba67d06d81",
+        "name": "Note 1",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          -40,
+          -400
+        ],
+        "parameters": {
+          "content": "## W11 Post-visit check-in\n**Trigger:** the check-in link sent at 10:00 clinic time on days 1 and 3 after a visit.\n\n**Top row (GET):** the question, with the emergency path on the page itself.\n\n**Bottom row (POST):** `record_checkin()` screens the note for red flags with fixed rules. A concern or a flag opens a staff task and goes on the `urgent` queue; the worker alerts the clinic at once.",
+          "width": 460,
+          "height": 300,
+          "color": 4
+        }
+      },
+      {
+        "id": "b19b28d5-ad11-5d27-84b6-2b1ffb0e43f9",
+        "name": "Note 2",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          460,
+          -400
+        ],
+        "parameters": {
+          "content": "## Security and data\n- No AI model reads the note: red flags skip the model (project rule).\n- The note stays in Postgres under row level security; the alert email carries IDs only.\n- A red flag tells the patient to call now, or 911.\n- Failed runs keep no data.",
+          "width": 460,
+          "height": 300,
+          "color": 3
+        }
       }
     ],
     "connections": {
