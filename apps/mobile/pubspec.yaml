@@ -1,5 +1,5 @@
 name: dental
-description: "Northgate Dental patient app (synthetic data only)."
+description: "Northgate Dental patient app."
 publish_to: 'none'
 version: 0.2.0+2002
 
