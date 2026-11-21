@@ -58,8 +58,11 @@ def handle_notification(conn, msg: dict, sender) -> None:
     appointment = request["appointment_id"]
     kind = request["type"] if request["type"] != "reminder" else f"reminder:{request['kind']}"
     ctx = conn.execute("select * from private.notification_context(%s)", (appointment,)).fetchone()
-    wanted = "cancelled" if kind == "cancellation" else "booked"
-    if ctx is None or ctx["status"] != wanted:
+    wanted = {"cancellation": ("cancelled",), "receipt": ("booked", "arrived", "completed")}.get(kind, ("booked",))
+    amount = None
+    if kind == "receipt":
+        amount = conn.execute("select private.receipt_amount(%s) as cents", (request["payment_id"],)).fetchone()["cents"]
+    if ctx is None or ctx["status"] not in wanted or (kind == "receipt" and amount is None):
         log(event="skipped", reason="status changed", kind=kind, appointment_id=appointment)
     elif not ctx["email"]:
         log(event="skipped", reason="no app sign-in email", kind=kind, appointment_id=appointment)
@@ -70,7 +73,7 @@ def handle_notification(conn, msg: dict, sender) -> None:
             (appointment, ctx["patient_id"], kind, f"{kind}.v1")).fetchone()
         if claimed:
             message = render(kind, Context(ctx["first_name"], ctx["starts_at"], ctx["time_zone"], ctx["clinic_name"],
-                                           ctx["clinic_phone"], ctx["service_name"]))
+                                           ctx["clinic_phone"], ctx["service_name"], amount))
             provider_id = sender.send(ctx["email"], message, idempotency_key=f"{appointment}:{kind}:email")
             conn.execute("update private.notification_log set status = 'sent', provider_message_id = %s, updated_at = now() "
                          "where id = %s", (provider_id, claimed["id"]))

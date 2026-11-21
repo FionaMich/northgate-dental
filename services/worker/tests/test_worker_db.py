@@ -53,3 +53,33 @@ def test_one_booking_sends_one_confirmation_and_logs_no_canary(conn, capsys):
     assert '"event": "sent"' in logs and '"event": "duplicate"' in logs
     for value in CANARY.read_text().split():
         assert value not in logs, "no canary value may reach the logs"
+
+
+def test_a_paid_visit_sends_one_receipt_with_the_amount(conn):
+    import hashlib, hmac, json, time
+    conn.execute("insert into auth.users (id, email, aud, role, email_confirmed_at) values (%s, 'fiona.test@example.com',"
+                 " 'authenticated', 'authenticated', now())", (USER,))
+    conn.execute("insert into patient_links (profile_id, patient_id) values (%s, '30000000-0000-4000-8000-000000000099')", (USER,))
+    appointment = conn.execute("""insert into appointments (patient_id, location_id, practitioner_id, service_id, starts_at, ends_at, status)
+        select '30000000-0000-4000-8000-000000000099', l.id, pr.id, s.id, '2027-04-08 14:00+00', '2027-04-08 15:00+00', 'booked'
+        from locations l, practitioners pr, services s
+        where l.code = 'quincy' and pr.profile_id = '10000000-0000-4000-8000-000000000013' and s.code = 'D1110'
+        returning id""").fetchone()["id"]
+    payment = conn.execute("select * from private.open_payment(%s)", (appointment,)).fetchone()
+    conn.execute("select private.attach_checkout(%s, 'cs_test_worker')", (payment["payment_id"],))
+    conn.execute("delete from vault.secrets where name = 'stripe_webhook_secret'")  # rolled back with the test
+    conn.execute("select vault.create_secret('whsec_pytest_only', 'stripe_webhook_secret')")
+    body = json.dumps({"id": "evt_worker", "type": "checkout.session.completed", "data": {"object": {
+        "id": "cs_test_worker", "payment_status": "paid", "amount_total": payment["amount_cents"], "currency": "usd",
+        "payment_intent": "pi_worker"}}})
+    t = int(time.time())
+    signature = f"t={t},v1=" + hmac.new(b"whsec_pytest_only", f"{t}.{body}".encode(), hashlib.sha256).hexdigest()
+    assert conn.execute("select private.record_stripe_event(%s, %s) as r", (body, signature)).fetchone()["r"] == "recorded"
+
+    sender = FakeSender()
+    for _ in range(3):
+        run_once(conn, sender)
+    receipts = [m for _, m, _ in sender.sent if m.subject == "Payment received"]
+    cents = payment["amount_cents"]
+    assert len(receipts) == 1
+    assert f"${cents // 100:,}.{cents % 100:02d}" in receipts[0].text

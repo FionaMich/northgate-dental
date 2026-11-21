@@ -36,3 +36,10 @@ def test_messages_carry_the_minimum():
 def test_names_are_escaped_in_html():
     message = render("confirmation", Context("<b>x</b>", CTX.starts_at, CTX.time_zone, "Quincy", None, "Exam"))
     assert "<b>x</b>" not in message.html and "&lt;b&gt;" in message.html
+
+
+def test_a_receipt_shows_the_amount_in_dollars_and_nothing_about_cancelling():
+    from dataclasses import replace
+    message = render("receipt", replace(CTX, amount_cents=123456))
+    assert message.subject == "Payment received"
+    assert "$1,234.56" in message.text and "cancel" not in message.text
