@@ -44,7 +44,7 @@ server {
     add_header X-Content-Type-Options nosniff always;
     add_header X-Frame-Options DENY always;
     add_header Referrer-Policy strict-origin-when-cross-origin always;
-    add_header Content-Security-Policy "default-src 'none'; frame-ancestors 'none'" always;
+    add_header Content-Security-Policy "default-src 'none'; style-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'" always;
 
     client_max_body_size 5m;
     limit_req zone=general burst=40 nodelay;
@@ -57,7 +57,13 @@ server {
         try_files /health =404;
     }
 
-    # Services join here in later sections (n8n in 07, the agent in 10), each on its own subdomain.
+    # The root page says what this address is; services join on their own subdomains (n8n in 07, the agent in 10).
+    location = / {
+        try_files /index.html =404;
+    }
+    location = /style.css {
+        try_files /style.css =404;
+    }
     location / {
         try_files /nonexistent =404;
     }
