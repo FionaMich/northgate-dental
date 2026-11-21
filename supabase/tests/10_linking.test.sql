@@ -8,7 +8,10 @@ select has_table('public', 'link_invitations', 'link_invitations exists');
 
 create function pg_temp.act_as(uid uuid, aal text default 'aal2') returns void language plpgsql as $$
 begin
-  perform set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated', 'aal', aal)::text, true);
+  -- A fully signed-in session: password and emailed code (section 05).
+  insert into auth.sessions (id, user_id) select uid, uid where exists (select 1 from auth.users where id = uid) on conflict do nothing;
+  insert into private.verified_sessions (session_id, user_id) select uid, uid where exists (select 1 from auth.sessions where id = uid) on conflict do nothing;
+  perform set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated', 'aal', aal, 'session_id', uid)::text, true);
   set local role authenticated;
 end;
 $$;
@@ -19,7 +22,8 @@ insert into auth.users (id, email, aud, role) values
   ('10000000-0000-4000-8000-000000000092', 'other@tests.synthetic',  'authenticated', 'authenticated');
 insert into profiles (id, role, display_name) values
   ('10000000-0000-4000-8000-000000000091', 'patient', 'Synthetic Test Parent'),
-  ('10000000-0000-4000-8000-000000000092', 'patient', 'Synthetic Test Other');
+  ('10000000-0000-4000-8000-000000000092', 'patient', 'Synthetic Test Other')
+on conflict (id) do update set role = excluded.role, display_name = excluded.display_name;
 
 -- Elena (Cambridge persona) gets an appointment so we can check what she sees after linking.
 insert into appointments (patient_id, location_id, practitioner_id, service_id, starts_at, ends_at, status)

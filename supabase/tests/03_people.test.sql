@@ -24,7 +24,8 @@ insert into auth.users (id, email) values
 insert into profiles (id, role, display_name) values
   ('00000000-0000-0000-0000-00000000a001', 'org_admin', 'Synthetic Admin'),
   ('00000000-0000-0000-0000-00000000a002', 'receptionist', 'Synthetic Receptionist'),
-  ('00000000-0000-0000-0000-00000000a003', 'clinician', 'Synthetic Orthodontist');
+  ('00000000-0000-0000-0000-00000000a003', 'clinician', 'Synthetic Orthodontist')
+on conflict (id) do update set role = excluded.role, display_name = excluded.display_name;
 insert into practitioners (id, profile_id, display_name, npi) values
   ('00000000-0000-0000-0000-0000000000d1', '00000000-0000-0000-0000-00000000a003', 'Synthetic Orthodontist', '1234567893');
 

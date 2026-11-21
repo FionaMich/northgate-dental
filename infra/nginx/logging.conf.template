@@ -1,0 +1,8 @@
+# JSON access log by allow-list: no query strings, bodies, cookies or auth headers (blueprint section 55).
+# $uri is the path without the query string, so tokens or IDs passed as parameters never reach the log.
+log_format json escape=json '{"time":"$time_iso8601","client":"$remote_addr","host":"$host",'
+    '"method":"$request_method","path":"$uri","status":$status,"bytes":$body_bytes_sent,'
+    '"duration":$request_time,"upstream":"$upstream_addr","request_id":"$request_id"}';
+
+access_log ${ACCESSLOG} json;
+error_log ${ERRORLOG} ${LOGLEVEL};

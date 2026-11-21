@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The blueprint's tooth mark (Figure 1), for the launcher icon and launch screen. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <group android:scaleX="0.252" android:scaleY="0.252" android:translateX="28.8" android:translateY="25.5">
+        <path android:fillColor="#F4FBF9" android:pathData="M100,32C82,16 44,12 31,40C20,64 27,95 37,120C45,140 47,170 55,196C61,214 77,212 81,194C86,171 90,152 100,152C110,152 114,171 119,194C123,212 139,214 145,196C153,170 155,140 163,120C173,95 180,64 169,40C156,12 118,16 100,32Z" />
+        <path android:strokeColor="#1FBFA2" android:strokeWidth="11" android:strokeLineCap="round" android:pathData="M64,58C74,49 88,48 98,54" />
+    </group>
+</vector>

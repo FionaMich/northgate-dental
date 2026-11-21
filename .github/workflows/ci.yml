@@ -69,6 +69,62 @@ jobs:
       - run: uv sync --locked
       - run: uv run pytest -q
 
+  mobile:
+    name: mobile (flutter test)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.50.0
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test
+
+  infra:
+    name: infra (waf and presidio)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra
+    steps:
+      - uses: actions/checkout@v4
+      - name: shellcheck the server scripts
+        run: shellcheck -x scripts/*.sh tests/*.sh aws/*.sh
+      - name: local settings (no secrets needed)
+        run: sed -e 's/^DOMAIN=.*/DOMAIN=localhost/' -e 's/^HTTP_PORT=.*/HTTP_PORT=18080/' -e 's/^HTTPS_PORT=.*/HTTPS_PORT=18443/' .env.example > .env
+      - name: start the front door with a placeholder certificate
+        run: scripts/issue-certs.sh
+      - name: attacks are refused, normal requests pass
+        run: tests/test_waf.sh
+      - name: Presidio removes every canary value
+        run: tests/test_presidio.sh
+      - name: logs on failure
+        if: failure()
+        run: docker compose logs --tail 100
+
+  attribution:
+    name: attribution (no AI co-authors)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: commits, title and description credit no AI tool
+        env: # passed through the environment, never pasted into the script, so a crafted PR body cannot run code
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          TITLE: ${{ github.event.pull_request.title }}
+          BODY: ${{ github.event.pull_request.body }}
+        run: |
+          range="$BASE..HEAD"
+          git cat-file -e "$BASE" 2>/dev/null || range="HEAD~1..HEAD"
+          { git log "$range" --format='%B'; printf '%s\n%s\n' "$TITLE" "$BODY"; } | scripts/check-no-ai-attribution.sh
+
   pr-title:
     name: pr-title (Conventional Commits)
     if: github.event_name == 'pull_request'

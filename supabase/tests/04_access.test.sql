@@ -38,9 +38,11 @@ insert into profiles (id, role, display_name) values
   ('00000000-0000-0000-0000-00000000a004', 'location_manager', 'Synthetic Manager'),
   ('00000000-0000-0000-0000-00000000a005', 'patient', 'Synthetic Patient'),
   ('00000000-0000-0000-0000-00000000a006', 'location_manager', 'Synthetic Cambridge Manager'),
-  ('00000000-0000-0000-0000-00000000a008', 'receptionist', 'Synthetic New Receptionist');
+  ('00000000-0000-0000-0000-00000000a008', 'receptionist', 'Synthetic New Receptionist')
+on conflict (id) do update set role = excluded.role, display_name = excluded.display_name;
 insert into profiles (id, role, display_name, active) values
-  ('00000000-0000-0000-0000-00000000a007', 'clinician', 'Synthetic Former Clinician', false);
+  ('00000000-0000-0000-0000-00000000a007', 'clinician', 'Synthetic Former Clinician', false)
+on conflict (id) do update set role = excluded.role, display_name = excluded.display_name, active = excluded.active;
 insert into staff_locations (profile_id, location_id) values
   ('00000000-0000-0000-0000-00000000a002', '00000000-0000-0000-0000-0000000000c1'),
   ('00000000-0000-0000-0000-00000000a003', '00000000-0000-0000-0000-0000000000c1'),
@@ -63,7 +65,10 @@ insert into location_services (location_id, service_id, price_cents) values
 -- Act as a signed-in user. aal2 means the second factor has been verified.
 create function pg_temp.act_as(uid uuid, aal text default 'aal2') returns void language plpgsql as $$
 begin
-  perform set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated', 'aal', aal)::text, true);
+  -- A fully signed-in session: password and emailed code (section 05).
+  insert into auth.sessions (id, user_id) select uid, uid where exists (select 1 from auth.users where id = uid) on conflict do nothing;
+  insert into private.verified_sessions (session_id, user_id) select uid, uid where exists (select 1 from auth.sessions where id = uid) on conflict do nothing;
+  perform set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated', 'aal', aal, 'session_id', uid)::text, true);
   set local role authenticated;
 end;
 $$;

@@ -1,0 +1,21 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Northgate (local Supabase)",
+      "request": "launch",
+      "type": "dart",
+      "cwd": "apps/mobile",
+      "program": "lib/main.dart",
+      "toolArgs": ["--dart-define-from-file=local.env"]
+    },
+    {
+      "name": "Northgate (staging)",
+      "request": "launch",
+      "type": "dart",
+      "cwd": "apps/mobile",
+      "program": "lib/main.dart",
+      "toolArgs": ["--dart-define-from-file=staging.env"]
+    }
+  ]
+}
