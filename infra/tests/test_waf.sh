@@ -25,6 +25,8 @@ check "SQL injection in a query is refused" 403 "$(status "$base/health?id=1'%20
 check "SQL injection in a form body is refused" 403 "$(status -X POST -d "user=admin' UNION SELECT password FROM users--" "$base/health")"
 check "path traversal is refused" 403 "$(status "$base/health?file=../../../../etc/passwd")"
 check "shell command injection is refused" 403 "$(status "$base/health?cmd=;cat%20/etc/passwd")"
+check "the n8n editor is not on the internet" 404 "$(status -H "Host: n8n.$DOMAIN" "$base/")"
+check "the n8n API is not on the internet" 404 "$(status -H "Host: n8n.$DOMAIN" "$base/rest/login")"
 check "plain HTTP redirects to HTTPS" 301 "$(status "$plain/health")"
 check "Let's Encrypt challenge path is served over HTTP" 404 "$(status "$plain/.well-known/acme-challenge/missing")"
 
