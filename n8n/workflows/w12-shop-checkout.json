@@ -1,0 +1,392 @@
+[
+  {
+    "updatedAt": "2026-11-21T17:42:36.405Z",
+    "createdAt": "2026-11-21T17:42:36.405Z",
+    "id": "lJglKAMYAMcRs3bF",
+    "name": "W12 Shop checkout",
+    "description": null,
+    "active": true,
+    "isArchived": false,
+    "nodes": [
+      {
+        "id": "1e7469be-33f6-4e4d-a553-12bf12e9901c",
+        "name": "Open shop checkout",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2.1,
+        "position": [
+          0,
+          0
+        ],
+        "parameters": {
+          "httpMethod": "GET",
+          "path": "shop",
+          "responseMode": "responseNode",
+          "options": {}
+        },
+        "webhookId": "8fb8911f-6923-4185-9a09-3d64d9173e5b"
+      },
+      {
+        "id": "c1cca174-e27d-4b66-99cc-8434ed48c8cb",
+        "name": "Order lines",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.6,
+        "position": [
+          220,
+          0
+        ],
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "select * from private.shop_checkout_lines($1)",
+          "options": {
+            "queryReplacement": "={{ [ /^[A-Za-z0-9_-]{32}$/.test($json.query.t || '') ? $json.query.t : 'invalid' ] }}"
+          }
+        },
+        "credentials": {
+          "postgres": {
+            "id": "ngActionsDb00001",
+            "name": "Northgate patient actions database"
+          }
+        },
+        "alwaysOutputData": true
+      },
+      {
+        "id": "4d583b1f-4d56-458c-b368-9d1c30f37d7a",
+        "name": "Build Checkout request",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          440,
+          0
+        ],
+        "parameters": {
+          "mode": "runOnceForAllItems",
+          "jsCode": "const rows = $input.all().map(i => i.json).filter(r => r.order_id);\nif (!rows.length) return [{ json: { ok: false } }];\nconst o = rows[0], refills = o.has_refills, enc = encodeURIComponent;\nconst p = [['mode', refills ? 'subscription' : 'payment'], ['client_reference_id', o.order_id], ['metadata[order_id]', o.order_id],\n  ['automatic_tax[enabled]', 'true'], ['success_url', 'https://84-12-126-31.sslip.io/'], ['cancel_url', 'https://84-12-126-31.sslip.io/']];\nif (!refills) p.push(['adaptive_pricing[enabled]', 'false']);\nrows.forEach((r, i) => {\n  const k = `line_items[${i}]`;\n  p.push([`${k}[quantity]`, String(r.quantity)], [`${k}[price_data][currency]`, 'usd'], [`${k}[price_data][unit_amount]`, String(r.unit_cents)],\n         [`${k}[price_data][tax_behavior]`, 'exclusive'], [`${k}[price_data][product_data][name]`, r.name],\n         [`${k}[price_data][product_data][tax_code]`, 'txcd_99999999']);\n  if (r.refill_months) p.push([`${k}[price_data][recurring][interval]`, 'month'], [`${k}[price_data][recurring][interval_count]`, String(r.refill_months)]);\n});\nif (o.fulfilment === 'ship') {\n  p.push(['shipping_address_collection[allowed_countries][0]', 'US'],\n         ['shipping_options[0][shipping_rate_data][type]', 'fixed_amount'],\n         ['shipping_options[0][shipping_rate_data][fixed_amount][amount]', String(o.shipping_cents)],\n         ['shipping_options[0][shipping_rate_data][fixed_amount][currency]', 'usd'],\n         ['shipping_options[0][shipping_rate_data][tax_behavior]', 'exclusive'],\n         ['shipping_options[0][shipping_rate_data][display_name]', o.shipping_cents ? 'Standard delivery (3 to 5 days)' : 'Free delivery (3 to 5 days)']);\n} else {\n  p.push(['billing_address_collection', 'required']);\n}\nreturn [{ json: { ok: true, order_id: o.order_id, body: p.map(([a, b]) => `${enc(a)}=${enc(b)}`).join('&') } }];\n"
+        }
+      },
+      {
+        "id": "ff9a0e67-2a1a-4af4-b725-f0e628d15211",
+        "name": "Order still open?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          660,
+          0
+        ],
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "typeValidation": "loose"
+            },
+            "combinator": "and",
+            "conditions": [
+              {
+                "leftValue": "={{ $json.ok }}",
+                "rightValue": true,
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                }
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "cfa135ab-a2fa-4f8c-9656-08e1f2f4b8e1",
+        "name": "Create Checkout Session",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          880,
+          -100
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "https://api.stripe.com/v1/checkout/sessions",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "stripeApi",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Idempotency-Key",
+                "value": "={{ \"shop-\" + $json.order_id }}"
+              }
+            ]
+          },
+          "sendBody": true,
+          "contentType": "form-urlencoded",
+          "specifyBody": "string",
+          "body": "={{ $json.body }}",
+          "options": {}
+        },
+        "credentials": {
+          "stripeApi": {
+            "id": "ngStripeTest0001",
+            "name": "Stripe test mode"
+          }
+        }
+      },
+      {
+        "id": "c360e210-a8b6-4e02-87bb-a162930c0ed5",
+        "name": "Remember session",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.6,
+        "position": [
+          1100,
+          -100
+        ],
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "select private.attach_shop_checkout($1::uuid, $2), $3 as url",
+          "options": {
+            "queryReplacement": "={{ [ $('Build Checkout request').item.json.order_id, $json.id, $json.url ] }}"
+          }
+        },
+        "credentials": {
+          "postgres": {
+            "id": "ngActionsDb00001",
+            "name": "Northgate patient actions database"
+          }
+        }
+      },
+      {
+        "id": "aad7b13a-403f-4ca6-8ae2-1fb48fc9e49d",
+        "name": "Redirect to Stripe",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.5,
+        "position": [
+          1320,
+          -100
+        ],
+        "parameters": {
+          "respondWith": "redirect",
+          "redirectURL": "={{ $json.url }}",
+          "options": {
+            "responseCode": 303
+          }
+        }
+      },
+      {
+        "id": "a585d9d7-5361-44b7-93a5-f0821e03c970",
+        "name": "Expired page",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          880,
+          120
+        ],
+        "parameters": {
+          "mode": "runOnceForAllItems",
+          "jsCode": "const page = `<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Order link expired</title><style>body{margin:0;font-family:system-ui,sans-serif;background:#f3f7f6;color:#0b2b2a}main{max-width:440px;margin:0 auto;padding:40px 20px}.card{background:#fff;border-radius:20px;padding:28px 24px;margin-top:24px}b span{color:#137c6c}</style></head><body><main><b>Northgate <span>Dental</span></b><div class=\"card\"><h1>This checkout link has expired</h1><p>Go back to the Northgate Dental app and tap Pay again; your bag is still there.</p></div></main></body></html>`;\nreturn [{ json: { html: page } }];\n"
+        }
+      },
+      {
+        "id": "0e6f6572-4f91-48e1-a7f8-36a3619ded2d",
+        "name": "Send expired page",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.5,
+        "position": [
+          1100,
+          120
+        ],
+        "parameters": {
+          "respondWith": "text",
+          "responseBody": "={{ $json.html }}",
+          "options": {
+            "responseHeaders": {
+              "entries": [
+                {
+                  "name": "Content-Type",
+                  "value": "text/html; charset=utf-8"
+                },
+                {
+                  "name": "Cache-Control",
+                  "value": "no-store"
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": "c7a06260-735f-53a3-8acd-89087bb686a8",
+        "name": "Note 1",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          -40,
+          -500
+        ],
+        "parameters": {
+          "content": "## W12 Shop checkout\n**Trigger:** the app's Pay button for a shop order opens `GET /webhook/shop?t=...`.\n\n1. `shop_checkout_lines()` returns the order's lines: prices were set by the catalogue when the order was made.\n2. The Code node builds the Stripe request: `subscription` mode if any line is a refill (Stripe Billing), else `payment`.\n3. Stripe Tax on; US shipping address and our flat rate when shipping.\n4. Session stored, then a 303 redirect to Stripe.",
+          "width": 460,
+          "height": 300,
+          "color": 4
+        }
+      },
+      {
+        "id": "d33377bf-91fe-5811-9849-91ac728e93d3",
+        "name": "Note 2",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          460,
+          -500
+        ],
+        "parameters": {
+          "content": "## Security and data\n- Stripe receives product names (deliberately non-diagnostic), amounts and our order ID; never the patient's name.\n- The patient types their own card, email and address on Stripe's page.\n- W05 later checks the paid subtotal and shipping against the order and records the tax.\n- Links are single-use hashes that expire in an hour.",
+          "width": 460,
+          "height": 300,
+          "color": 3
+        }
+      }
+    ],
+    "connections": {
+      "Open shop checkout": {
+        "main": [
+          [
+            {
+              "node": "Order lines",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Order lines": {
+        "main": [
+          [
+            {
+              "node": "Build Checkout request",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Build Checkout request": {
+        "main": [
+          [
+            {
+              "node": "Order still open?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Order still open?": {
+        "main": [
+          [
+            {
+              "node": "Create Checkout Session",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Expired page",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Create Checkout Session": {
+        "main": [
+          [
+            {
+              "node": "Remember session",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Remember session": {
+        "main": [
+          [
+            {
+              "node": "Redirect to Stripe",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Expired page": {
+        "main": [
+          [
+            {
+              "node": "Send expired page",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "settings": {
+      "executionOrder": "v1",
+      "availableInMCP": true,
+      "saveDataErrorExecution": "none"
+    },
+    "staticData": null,
+    "meta": {
+      "aiBuilderAssisted": true,
+      "builderVariant": "mcp"
+    },
+    "nodeGroups": [
+      {
+        "id": "f475597f-d7ca-43f1-a45f-0d151455a1de",
+        "name": "Checkout",
+        "nodeIds": [
+          "c1cca174-e27d-4b66-99cc-8434ed48c8cb",
+          "4d583b1f-4d56-458c-b368-9d1c30f37d7a",
+          "ff9a0e67-2a1a-4af4-b725-f0e628d15211",
+          "cfa135ab-a2fa-4f8c-9656-08e1f2f4b8e1",
+          "c360e210-a8b6-4e02-87bb-a162930c0ed5",
+          "aad7b13a-403f-4ca6-8ae2-1fb48fc9e49d",
+          "a585d9d7-5361-44b7-93a5-f0821e03c970",
+          "0e6f6572-4f91-48e1-a7f8-36a3619ded2d"
+        ],
+        "description": "Order lines from Postgres become a Stripe Checkout Session (Stripe Tax on); refills make it a subscription."
+      }
+    ],
+    "pinData": null,
+    "versionId": "384bb4f7-f697-4a5d-9bb0-0ee47c81937d",
+    "activeVersionId": "384bb4f7-f697-4a5d-9bb0-0ee47c81937d",
+    "versionCounter": 1,
+    "triggerCount": 1,
+    "sourceWorkflowId": null,
+    "tags": [],
+    "shared": [
+      {
+        "updatedAt": "2026-11-21T17:42:36.411Z",
+        "createdAt": "2026-11-21T17:42:36.411Z",
+        "role": "workflow:owner",
+        "workflowId": "lJglKAMYAMcRs3bF",
+        "projectId": "yTfeI8wdsDslZW1u",
+        "project": {
+          "updatedAt": "2026-10-17T09:38:27.766Z",
+          "createdAt": "2026-10-17T00:55:03.185Z",
+          "id": "yTfeI8wdsDslZW1u",
+          "name": "Michelle Fiona <michelle.fiona.opiyo.ke@gmail.com>",
+          "type": "personal",
+          "icon": null,
+          "description": null,
+          "customTelemetryTags": [],
+          "creatorId": "17fb91b0-e8cf-459c-9b6e-ac07c51658e4"
+        }
+      }
+    ],
+    "versionMetadata": {
+      "name": "Initial version",
+      "description": "Created with 9 nodes: Open shop checkout, Order lines, Build Checkout request, Order still open?, Create Checkout Session and 4 more"
+    }
+  }
+]
