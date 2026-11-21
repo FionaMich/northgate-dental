@@ -145,6 +145,21 @@ The always-on services run on one Oracle Cloud VM with Docker Compose. Everythin
 </details>
 
 <details>
+<summary><b>AWS account baseline, built with Terraform</b></summary>
+
+The AWS account holds backups only, so it is locked down to match. `infra/terraform/aws/` manages:
+
+- **CloudTrail `northgate-audit`:** records every action in every region, including IAM and sign-ins. Log file validation proves no log was changed or deleted. The logs go to a private, versioned, encrypted bucket that refuses plain HTTP.
+- **Account-wide S3 Block Public Access:** no bucket can be made public, whatever its own settings say.
+- **Password policy:** at least 14 characters with every character class, and the last 24 passwords blocked. There is no forced expiry, following NIST SP 800-63B; MFA protects instead.
+- **Cost alerts:** Cost Anomaly Detection sends a daily email if unusual spend reaches US$1, alongside a US$1 budget.
+- **Storage Lens dashboard** for storage use by region and bucket.
+
+IAM Access Analyzer would normally be part of this baseline. AWS blocks it on free plan accounts with a service control policy, so it waits until the account is upgraded.
+
+</details>
+
+<details>
 <summary><b>Nginx with ModSecurity and the OWASP Core Rule Set</b></summary>
 
 The WAF is the single public entrance to the server. The OWASP Core Rule Set is the standard open-source rule set against the common web attacks, and OWASP's official image runs it inside Nginx.
