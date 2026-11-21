@@ -5,6 +5,7 @@
 # Renewal (weekly cron on the VM): docker compose --profile tools run --rm certbot renew && docker compose exec waf nginx -s reload
 set -euo pipefail
 cd "$(dirname "$0")/.."
+# shellcheck source=/dev/null
 set -a; source .env; set +a
 
 live=/etc/letsencrypt/live/northgate
