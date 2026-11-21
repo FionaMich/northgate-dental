@@ -1,0 +1,46 @@
+# Applies database migrations after a merge: develop goes to staging, main goes to production.
+# Each GitHub environment holds only its own connection string, and production waits for Fiona's approval.
+name: deploy-database
+
+on:
+  push:
+    branches: [develop, main]
+    paths: ['supabase/migrations/**', 'supabase/seed.sql']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  migrate:
+    name: migrate ${{ github.ref_name == 'main' && 'production' || 'staging' }} database
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
+    concurrency:
+      group: database-${{ github.ref_name }}
+      cancel-in-progress: false # never cut a migration off half way
+    env:
+      # Environment secrets: the staging job sees only STAGING_DB_URL, the production job only PRODUCTION_DB_URL.
+      DB_URL: ${{ secrets.STAGING_DB_URL || secrets.PRODUCTION_DB_URL }}
+      # Project refs: a staging URL can never reach production, or the other way round.
+      EXPECTED_REF: ${{ github.ref_name == 'main' && 'orrmekwuuicmofemmitu' || 'dxkfsslymzqbgtoijuut' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v3
+        with:
+          version: 3.2.0
+      - name: check the connection string is well formed and for this environment (prints only ok or the problem)
+        run: |
+          u="$DB_URL"; pw="${u#*://}"; pw="${pw%@*}"; pw="${pw#*:}"; fail=0
+          check() { if eval "$2"; then echo "ok: $1"; else echo "::error::$1"; fail=1; fi; }
+          check "the secret is set" '[[ -n "$u" ]]'
+          check "starts with postgresql://" '[[ "$u" == postgresql://* || "$u" == postgres://* ]]'
+          check "no spaces or line breaks" '[[ "$u" != *[[:space:]]* ]]'
+          check "no square brackets or [YOUR-PASSWORD] placeholder left" '[[ "$u" != *"["* && "$u" != *"]"* ]]'
+          check "exactly one @ (an @ in the password must be written %40)" '[[ "$(tr -cd @ <<<"$u" | wc -c)" -eq 1 ]]'
+          check "password has no # ? or / (write them as %23 %3F %2F)" '[[ "$pw" != *[#?/]* ]]'
+          check "user is postgres.$EXPECTED_REF (this environment's project, session pooler)" '[[ "$u" == *://postgres."$EXPECTED_REF":* ]]'
+          check "host is the session pooler on port 5432" '[[ "$u" == *pooler.supabase.com:5432/* ]]'
+          exit $fail
+      # Migrations only, never the seed: Supabase's guidance is never to push seed data to production.
+      - run: supabase db push --remote "$DB_URL" --yes

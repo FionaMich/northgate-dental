@@ -1,0 +1,36 @@
+# One-time load of the organisation's reference data (organisation, clinics, hours, rooms, services, prices,
+# synthetic staff without passwords) into production, after the first migration. Run by hand from the Actions tab.
+# Never generated patients: the synthetic patient loader refuses production (edge case E28).
+name: bootstrap-production
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: database-main
+  cancel-in-progress: false
+
+jobs:
+  bootstrap:
+    name: load reference data into production
+    runs-on: ubuntu-latest
+    environment: production # waits for Fiona's approval
+    env:
+      DB_URL: ${{ secrets.PRODUCTION_DB_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: production only
+        run: '[[ "$DB_URL" == *://postgres.orrmekwuuicmofemmitu:* ]] || { echo "::error::PRODUCTION_DB_URL is not the production project"; exit 1; }'
+      - name: refuse if already loaded (runs once)
+        run: |
+          n="$(psql -At "$DB_URL" -c 'select count(*) from public.organisation')"
+          [ "$n" = 0 ] || { echo "::error::production already has its organisation ($n row); nothing to do"; exit 1; }
+      - name: load in one transaction (all or nothing)
+        run: psql -v ON_ERROR_STOP=1 -q --single-transaction "$DB_URL" -f supabase/seed.sql
+      - name: counts (reference data only)
+        run: |
+          psql -At "$DB_URL" -c "select 'locations', count(*) from locations union all select 'services', count(*) from services
+            union all select 'practitioners', count(*) from practitioners union all select 'patients', count(*) from patients"
