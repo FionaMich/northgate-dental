@@ -86,6 +86,28 @@ jobs:
       - run: flutter analyze
       - run: flutter test
 
+  infra:
+    name: infra (waf and presidio)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra
+    steps:
+      - uses: actions/checkout@v4
+      - name: shellcheck the server scripts
+        run: shellcheck -x scripts/*.sh tests/*.sh aws/*.sh
+      - name: local settings (no secrets needed)
+        run: sed -e 's/^DOMAIN=.*/DOMAIN=localhost/' -e 's/^HTTP_PORT=.*/HTTP_PORT=18080/' -e 's/^HTTPS_PORT=.*/HTTPS_PORT=18443/' .env.example > .env
+      - name: start the front door with a placeholder certificate
+        run: scripts/issue-certs.sh
+      - name: attacks are refused, normal requests pass
+        run: tests/test_waf.sh
+      - name: Presidio removes every canary value
+        run: tests/test_presidio.sh
+      - name: logs on failure
+        if: failure()
+        run: docker compose logs --tail 100
+
   pr-title:
     name: pr-title (Conventional Commits)
     if: github.event_name == 'pull_request'
