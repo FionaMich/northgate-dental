@@ -202,6 +202,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                           title: s.name,
                           minutes: s.minutes,
                           summary: s.summary,
+                          photo: s.photoAsset,
                           onTap: () => setState(() {
                             _service = s.id;
                             _day = _slot = null;
@@ -432,10 +433,11 @@ class _Choice extends StatelessWidget {
     required this.title,
     required this.minutes,
     required this.summary,
+    required this.photo,
     required this.onTap,
   });
   final bool selected;
-  final String title, summary;
+  final String title, summary, photo;
   final int minutes;
   final VoidCallback onTap;
 
@@ -461,6 +463,11 @@ class _Choice extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
+                  child: Image.asset(photo, width: 56, height: 56, fit: BoxFit.cover, excludeFromSemantics: true),
+                ),
+                const SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

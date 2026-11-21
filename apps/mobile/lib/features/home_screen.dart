@@ -628,13 +628,7 @@ class _RecallCard extends ConsumerWidget {
 class _OurServices extends ConsumerWidget {
   const _OurServices();
 
-  static const _groups = [
-    ('Check-ups', Icons.health_and_safety_outlined, Tint.teal),
-    ('Fillings and crowns', Icons.build_circle_outlined, Tint.sky),
-    ('Cosmetic', Icons.auto_awesome_rounded, Tint.violet),
-    ('Orthodontics', Icons.grid_view_rounded, Tint.apricot),
-    ('Surgery and implants', Icons.healing_rounded, Tint.rose),
-  ];
+  static const _groups = ['Check-ups', 'Fillings and crowns', 'Cosmetic', 'Orthodontics', 'Surgery and implants'];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) => Padding(
@@ -644,30 +638,57 @@ class _OurServices extends ConsumerWidget {
       children: [
         const SectionTitle('Our services'),
         SizedBox(
-          height: 48,
+          height: 176,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             clipBehavior: Clip.none,
             itemCount: _groups.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 10),
+            separatorBuilder: (_, _) => const SizedBox(width: 12),
             itemBuilder: (_, i) {
-              final (label, icon, tint) = _groups[i];
-              return ActionChip(
-                key: Key('our-services-$i'),
-                avatar: Icon(icon, size: 18, color: tint.ink),
-                label: Text(label),
-                backgroundColor: Colors.white,
-                side: const BorderSide(color: Color(0xFFE3ECEA)),
-                shape: const StadiumBorder(),
-                onPressed: () {
-                  final person = ref.read(currentPatientProvider);
-                  if (person == null) return;
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => BookingScreen(patient: person, category: label),
+              final label = _groups[i];
+              void open() {
+                final person = ref.read(currentPatientProvider);
+                if (person == null) return;
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => BookingScreen(patient: person, category: label),
+                  ),
+                );
+              }
+
+              return Semantics(
+                button: true,
+                label: label,
+                excludeSemantics: true,
+                child: Pressable(
+                  onTap: open,
+                  child: GestureDetector(
+                    key: Key('our-services-$i'),
+                    onTap: open,
+                    child: Container(
+                      width: 140,
+                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: lift(0.8)),
+                      clipBehavior: Clip.antiAlias,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(child: Image.asset(categoryPhoto(label), fit: BoxFit.cover, excludeFromSemantics: true)),
+                          Container(
+                            height: 54,
+                            alignment: Alignment.centerLeft,
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            child: Text(
+                              label,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 14, height: 1.25, fontWeight: FontWeight.w700, color: Palette.deepSea),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  );
-                },
+                  ),
+                ),
               );
             },
           ),

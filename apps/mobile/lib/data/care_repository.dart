@@ -115,6 +115,15 @@ class CareSummary {
   }
 }
 
+/// The picture for a patient-facing service group (bundled, graded to the app's teal).
+String categoryPhoto(String category) => switch (category) {
+  'Check-ups' => 'assets/images/services/checkups.jpg',
+  'Cosmetic' => 'assets/images/services/cosmetic.jpg',
+  'Orthodontics' => 'assets/images/services/orthodontics.jpg',
+  'Surgery and implants' => 'assets/images/services/surgery.jpg',
+  _ => 'assets/images/services/fillings.jpg',
+};
+
 /// A service patients may book themselves at a clinic.
 class BookableService {
   const BookableService({required this.id, required this.name, required this.minutes, this.summary = '', this.specialty = 'general'});
@@ -135,6 +144,8 @@ class BookableService {
     _ when name.toLowerCase().contains('extraction') => 'Surgery and implants',
     _ => 'Fillings and crowns',
   };
+
+  String get photoAsset => categoryPhoto(category);
 
   /// One plain sentence about what happens, shown before booking.
   final String summary;
