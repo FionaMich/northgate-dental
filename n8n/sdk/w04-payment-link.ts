@@ -3,7 +3,8 @@ import { workflow, node, trigger, expr } from '@n8n/workflow-sdk';
 // W04: a payment link for a visit. Called by other workflows and, from section 09, by the assistant as an MCP tool.
 // The amount comes from the price list inside open_payment(), never from the caller. Stripe sees only an amount, a
 // generic item name and our payment ID: no name, email or service (no BAA with Stripe; payments are covered by the
-// HIPAA payment-processing exemption, so nothing clinical goes there).
+// HIPAA payment-processing exemption, so nothing clinical goes there). Adaptive Pricing is off: a US clinic charges in USD,
+// whatever country the payer's browser is in.
 const start = trigger({
   type: 'n8n-nodes-base.executeWorkflowTrigger',
   version: 1.1,
@@ -40,11 +41,11 @@ const checkout = node({
       authentication: 'predefinedCredentialType',
       nodeCredentialType: 'stripeApi',
       sendHeaders: true,
-      headerParameters: { parameters: [{ name: 'Idempotency-Key', value: expr('{{ "checkout-" + $json.payment_id }}') }] },
+      headerParameters: { parameters: [{ name: 'Idempotency-Key', value: expr('{{ "checkout-usd-" + $json.payment_id }}') }] },
       sendBody: true,
       contentType: 'form-urlencoded',
       specifyBody: 'string',
-      body: expr('{{ [ "mode=payment", "line_items[0][quantity]=1", "line_items[0][price_data][currency]=usd", "line_items[0][price_data][unit_amount]=" + $json.amount_cents, "line_items[0][price_data][product_data][name]=" + encodeURIComponent("Northgate Dental visit"), "client_reference_id=" + $json.payment_id, "metadata[payment_id]=" + $json.payment_id, "success_url=" + encodeURIComponent("https://84-12-126-31.sslip.io/"), "cancel_url=" + encodeURIComponent("https://84-12-126-31.sslip.io/") ].join("&") }}'),
+      body: expr('{{ [ "mode=payment", "adaptive_pricing[enabled]=false", "line_items[0][quantity]=1", "line_items[0][price_data][currency]=usd", "line_items[0][price_data][unit_amount]=" + $json.amount_cents, "line_items[0][price_data][product_data][name]=" + encodeURIComponent("Northgate Dental visit"), "client_reference_id=" + $json.payment_id, "metadata[payment_id]=" + $json.payment_id, "success_url=" + encodeURIComponent("https://84-12-126-31.sslip.io/"), "cancel_url=" + encodeURIComponent("https://84-12-126-31.sslip.io/") ].join("&") }}'),
       options: {},
     },
     credentials: { stripeApi: { id: 'ngStripeTest0001', name: 'Stripe test mode' } },
