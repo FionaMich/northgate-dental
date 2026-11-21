@@ -335,7 +335,7 @@ class _ClinicCard extends StatelessWidget {
                       children: [
                         Text(
                           clinic.name,
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Palette.deepSea),
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Palette.deepSea),
                         ),
                         const SizedBox(height: 2),
                         Text(clinic.address, style: const TextStyle(fontSize: 13, height: 1.35, color: Palette.muted)),
