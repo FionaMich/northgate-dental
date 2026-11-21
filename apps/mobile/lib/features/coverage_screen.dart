@@ -383,50 +383,27 @@ class CoveragePanel extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cards = ref.watch(coveragesProvider(patient.id)).value ?? const [];
-    return Panel(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          for (final c in cards) ...[
-            Row(
-              children: [
-                const IconTile(Icons.credit_card_rounded, size: 44),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        c.payer,
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Palette.deepSea),
-                      ),
-                      Text(coverageStatus(c.status), style: const TextStyle(fontSize: 13, color: Palette.muted)),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-          ],
-          if (cards.isEmpty) ...[
-            const Text(
-              'Add your dental insurance card so the front desk can check your cover before your visit.',
-              style: TextStyle(fontSize: 14, height: 1.45, color: Palette.muted),
-            ),
-            const SizedBox(height: 14),
-          ],
-          OutlinedButton.icon(
-            key: const Key('add-coverage'),
-            onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => CoverageScreen(patient: patient))),
-            icon: const Icon(Icons.add_card_rounded),
-            label: Text(cards.isEmpty ? 'Add insurance card' : 'Add another card'),
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size.fromHeight(50),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            ),
+    void add() => Navigator.of(context).push(MaterialPageRoute(builder: (_) => CoverageScreen(patient: patient)));
+    return RowGroup(
+      title: 'Insurance',
+      rows: [
+        for (final c in cards)
+          GroupRow(
+            icon: Icons.shield_outlined,
+            tint: c.status == 'rejected' ? Tint.rose : Tint.apricot,
+            title: c.payer,
+            detail: coverageStatus(c.status),
+            trailing: c.status == 'verified' ? Icon(Icons.verified_rounded, color: Tint.teal.ink) : null,
           ),
-        ],
-      ),
+        GroupRow(
+          key: const Key('add-coverage'),
+          icon: Icons.add_card_rounded,
+          tint: Tint.apricot,
+          title: cards.isEmpty ? 'Add insurance card' : 'Add another card',
+          detail: cards.isEmpty ? 'So the front desk can check your cover before your visit' : null,
+          onTap: add,
+        ),
+      ],
     );
   }
 }

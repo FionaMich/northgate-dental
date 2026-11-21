@@ -33,14 +33,32 @@ const buttonGradient = LinearGradient(
   colors: [Color(0xFF179683), Palette.tealDark],
 );
 
+/// Soft, wide shadow plus a faint contact shadow: cards float without a hard grey band underneath.
 List<BoxShadow> lift([double strength = 1]) => [
   BoxShadow(
-    color: Palette.deepSea.withValues(alpha: 0.18 * strength),
-    blurRadius: 32,
-    offset: const Offset(0, 16),
-    spreadRadius: -12,
+    color: Palette.deepSea.withValues(alpha: 0.07 * strength),
+    blurRadius: 28,
+    offset: const Offset(0, 10),
+    spreadRadius: -6,
+  ),
+  BoxShadow(
+    color: Palette.deepSea.withValues(alpha: 0.05 * strength),
+    blurRadius: 3,
+    offset: const Offset(0, 1),
   ),
 ];
+
+/// Accent tints for icon tiles, so sections are told apart by colour as well as by words.
+enum Tint {
+  teal(Color(0xFF137C6C), Color(0xFFE2F4EF)),
+  apricot(Color(0xFFC2702F), Color(0xFFFFF0E2)),
+  sky(Color(0xFF2F6FB0), Color(0xFFE5EFFA)),
+  violet(Color(0xFF6A4FB8), Color(0xFFEFEAFB)),
+  rose(Color(0xFFB3261E), Color(0xFFFCE8E6));
+
+  const Tint(this.ink, this.wash);
+  final Color ink, wash;
+}
 
 ThemeData northgateTheme() {
   final scheme = ColorScheme.fromSeed(seedColor: Palette.teal)

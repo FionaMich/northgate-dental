@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:dental/data/account_repository.dart';
 import 'package:dental/data/care_repository.dart';
 import 'package:dental/features/visit_screen.dart';
@@ -56,7 +58,12 @@ Future<(FakeCareRepository, List<String>)> openRecords(WidgetTester tester) asyn
     tester,
     FakeAccountRepository(patients: [elena]),
     care: care,
-    extra: [documentOpenerProvider.overrideWithValue((url) async => opened.add(url))],
+    extra: [
+      documentOpenerProvider.overrideWithValue((url) async => opened.add(url)),
+      // The real viewer needs the PDF engine; tests show a stand-in with the size of the loaded file.
+      pdfBytesLoaderProvider.overrideWithValue((url) async => Uint8List.fromList(List.filled(42, 1))),
+      pdfViewProvider.overrideWithValue((bytes) => Text('PDF of ${bytes.length} bytes')),
+    ],
   );
   await signIn(tester);
   await tapKey(tester, 'tab-records');
@@ -77,12 +84,16 @@ void main() {
     expect(find.text('\$350.00'), findsOneWidget, reason: 'the total of the visit');
   });
 
-  testWidgets('documents from the practice are listed and open through a short-lived link', (tester) async {
+  testWidgets('a visit summary opens in the app\'s own PDF viewer; downloading is optional', (tester) async {
     final (care, opened) = await openRecords(tester);
-    expect(find.text('Documents'), findsOneWidget);
+    expect(find.text('DOCUMENTS'), findsOneWidget);
     expect(find.text('Visit summary, 2026-08-22'), findsOneWidget);
     await tapKey(tester, 'doc-d-2');
     expect(care.calls, ['link:p-elena/v-1-summary.pdf']);
+    expect(find.text('PDF of 42 bytes'), findsOneWidget, reason: 'shown inside the app');
+    expect(opened, isEmpty, reason: 'nothing leaves the app unless the patient asks');
+    await tester.tap(find.byTooltip('Download'));
+    await tester.pumpAndSettle();
     expect(opened, ['https://files.test/p-elena/v-1-summary.pdf?token=short']);
   });
 
