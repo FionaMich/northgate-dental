@@ -70,3 +70,17 @@ def test_the_clinic_alert_names_no_patient():
     from worker.messages import render_alert
     message = render_alert("Quincy", "4a000000-0000-4000-8000-000000000003")
     assert "Quincy" in message.text and "4a000000" in message.text
+
+
+def test_a_receipt_still_goes_when_the_pdf_renderer_is_down():
+    from dataclasses import replace
+    from worker.main import receipt_pdf
+    assert receipt_pdf("http://127.0.0.1:9", replace(CTX, amount_cents=11000), "7247cdab-0000") is None
+
+
+def test_the_receipt_document_is_self_contained():
+    from dataclasses import replace
+    from worker.messages import receipt_document
+    html = receipt_document(replace(CTX, amount_cents=11000), "7247CDAB", "21 November 2026")
+    assert "$110.00" in html and "7247CDAB" in html
+    assert "http" not in html and "<script" not in html, "nothing for the renderer to fetch or run"

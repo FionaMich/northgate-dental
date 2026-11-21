@@ -95,6 +95,33 @@ def _linked(text: str, link: str | None) -> str:
     return f'{escape(before)}<a href="{escape(link)}" style="color:#137c6c">{escape(link)}</a>{escape(after)}'
 
 
+def receipt_document(ctx: Context, receipt_number: str, paid_on: str) -> str:
+    """A printable receipt (letter size) for the PDF renderer: the same minimum as the email, laid out as a document.
+    Self-contained: no fonts, images or scripts to fetch."""
+    e = escape
+    return f"""<!doctype html><html><head><meta charset="utf-8"><style>
+body{{font-family:Helvetica,Arial,sans-serif;color:#0b2b2a;margin:0}}
+.top{{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #137c6c;padding-bottom:18px}}
+.brand{{font-size:26px;font-weight:700}}.brand span{{color:#137c6c}}.sub{{font-size:10px;letter-spacing:.18em;color:#4c6361;margin-top:4px}}
+h1{{font-size:14px;letter-spacing:.2em;color:#4c6361;margin:0;text-align:right}}.num{{text-align:right;font-size:12px;margin-top:6px}}
+table{{width:100%;border-collapse:collapse;margin-top:36px;font-size:13px}}th{{text-align:left;color:#4c6361;font-weight:600;
+border-bottom:1px solid #d6e3e0;padding:8px 0}}td{{padding:12px 0;border-bottom:1px solid #eef3f2}}.r{{text-align:right}}
+.total td{{font-size:16px;font-weight:700;border-bottom:0;padding-top:18px}}.paid{{display:inline-block;margin-top:28px;padding:6px 12px;
+border-radius:999px;background:#e6f6f2;color:#137c6c;font-weight:700;font-size:12px}}.foot{{margin-top:60px;font-size:11px;color:#4c6361;line-height:1.6}}
+</style></head><body>
+<div class="top"><div><div class="brand">Northgate <span>Dental</span></div><div class="sub">BACK BAY · CAMBRIDGE · QUINCY</div></div>
+<div><h1>RECEIPT</h1><div class="num">No. {e(receipt_number)}<br>Paid {e(paid_on)}</div></div></div>
+<p style="margin-top:28px;font-size:13px">Received from {e(ctx.first_name)}, with thanks.</p>
+<table><tr><th>Description</th><th>Visit</th><th class="r">Amount</th></tr>
+<tr><td>{e(ctx.service_name)}</td><td>{e(when(ctx))}, {e(ctx.clinic_name)}</td><td class="r">{e(dollars(ctx.amount_cents))}</td></tr>
+<tr class="total"><td colspan="2">Total paid (USD)</td><td class="r">{e(dollars(ctx.amount_cents))}</td></tr></table>
+<span class="paid">PAID BY CARD</span>
+<div class="foot">Northgate Dental, {e(ctx.clinic_name)}{" · " + e(ctx.clinic_phone) if ctx.clinic_phone else ""}<br>
+Card payments are processed by Stripe; Northgate Dental never sees your card number.<br>
+Keep this receipt for your records or a claim to your dental plan or HSA.</div>
+</body></html>"""
+
+
 def render_alert(clinic_name: str, checkin_id: str) -> Message:
     """To the clinic, not the patient: a check-in needs a clinician. IDs only; the answer itself is in the portal."""
     body = (f"A patient's post-visit check-in at {clinic_name} needs a clinician today. Open the task list in the "
