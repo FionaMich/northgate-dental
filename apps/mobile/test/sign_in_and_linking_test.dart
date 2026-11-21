@@ -14,6 +14,7 @@ Future<FakeAccountRepository> pumpApp(
   FakeAccountRepository repo, {
   FakeCareRepository? care,
   FakeShopRepository? shop,
+  FakeAssistantRepository? assistant,
   MemoryWearStore? wear,
   FakeAlignerReminders? reminders,
   List<dynamic> extra = const [],
@@ -27,6 +28,7 @@ Future<FakeAccountRepository> pumpApp(
         accountRepositoryProvider.overrideWithValue(repo),
         careRepositoryProvider.overrideWithValue(care ?? FakeCareRepository()),
         shopRepositoryProvider.overrideWithValue(shop ?? FakeShopRepository()),
+        assistantRepositoryProvider.overrideWithValue(assistant ?? FakeAssistantRepository()),
         introDurationProvider.overrideWithValue(Duration.zero),
         wearStoreProvider.overrideWithValue(wear ?? MemoryWearStore()),
         alignerRemindersProvider.overrideWithValue(reminders ?? FakeAlignerReminders()),

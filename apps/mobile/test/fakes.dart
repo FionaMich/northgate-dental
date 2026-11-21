@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:dental/data/account_repository.dart';
 import 'package:dental/data/care_repository.dart';
 import 'package:dental/data/shop_repository.dart';
+import 'package:dental/data/assistant_repository.dart';
 import 'package:dental/data/aligner_reminders.dart';
 import 'package:dental/data/wear_log.dart';
 
@@ -383,4 +384,27 @@ class FakeShopRepository implements ShopRepository {
 
   @override
   Future<List<ShopOrder>> orders() async => const [];
+}
+
+class FakeAssistantRepository implements AssistantRepository {
+  final sent = <String>[];
+  final answers = <bool>[];
+  bool proposeBooking = false;
+
+  @override
+  Future<String> hello(String language) async => language == 'es' ? 'Hola, soy la recepcionista virtual (IA).' : 'Hi, I am an AI assistant.';
+
+  @override
+  Future<AssistantTurn> send(String thread, String message, String language) async {
+    sent.add('$language:$message');
+    return proposeBooking
+        ? const AssistantTurn(confirm: {'action': 'book', 'when': 'Friday 27 November at 10:00', 'clinic': 'quincy', 'service': 'D1110'})
+        : const AssistantTurn(reply: 'Quincy opens at 07:00 on Mondays.');
+  }
+
+  @override
+  Future<AssistantTurn> confirm(String thread, bool accept, String language) async {
+    answers.add(accept);
+    return AssistantTurn(reply: accept ? 'Booked.' : 'No problem.');
+  }
 }

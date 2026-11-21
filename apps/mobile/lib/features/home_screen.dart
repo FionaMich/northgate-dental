@@ -9,6 +9,7 @@ import '../design/motion.dart';
 import '../design/tokens.dart';
 import '../design/widgets.dart';
 import '../state.dart';
+import 'assistant_screen.dart';
 import 'aftercare_screen.dart';
 import 'booking_screen.dart';
 import 'care_widgets.dart';
@@ -125,6 +126,8 @@ class _Body extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Reveal(child: next != null ? _NextVisit(next) : const _BookPrompt()),
+        const SizedBox(height: 22),
+        const Reveal(child: _AskReceptionist()),
         const SizedBox(height: 22),
         if (_recentAftercare(care) case (final visit, final sheet)) ...[
           Reveal(
@@ -694,6 +697,42 @@ class _OurServices extends ConsumerWidget {
           ),
         ),
       ],
+    ),
+  );
+}
+
+/// Opens the receptionist chat: an AI assistant that answers in 12 languages and hands over to the team.
+class _AskReceptionist extends StatelessWidget {
+  const _AskReceptionist();
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: Palette.deepSea,
+    borderRadius: BorderRadius.circular(22),
+    child: InkWell(
+      key: const Key('open-assistant'),
+      borderRadius: BorderRadius.circular(22),
+      onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AssistantScreen())),
+      child: const Padding(
+        padding: EdgeInsets.all(18),
+        child: Row(
+          children: [
+            Icon(Icons.forum_rounded, color: Palette.shine, size: 30),
+            SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Ask our receptionist', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white)),
+                  SizedBox(height: 2),
+                  Text('Book, change or pay, any time, in 12 languages', style: TextStyle(fontSize: 13, color: Color(0xFFA9DCD1))),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded, color: Colors.white),
+          ],
+        ),
+      ),
     ),
   );
 }

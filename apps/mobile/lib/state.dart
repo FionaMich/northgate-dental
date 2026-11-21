@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'data/account_repository.dart';
+import 'data/assistant_repository.dart';
 import 'data/care_repository.dart';
 import 'data/shop_repository.dart';
 
@@ -114,3 +115,6 @@ class Bag extends Notifier<Map<String, BagLine>> {
 }
 
 final bagProvider = NotifierProvider<Bag, Map<String, BagLine>>(Bag.new);
+
+/// The receptionist assistant's service (main.dart: HTTP with the patient's token; tests: a fake).
+final assistantRepositoryProvider = Provider<AssistantRepository>((ref) => throw UnimplementedError('override in main or tests'));
