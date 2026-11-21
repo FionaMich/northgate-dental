@@ -34,6 +34,7 @@ flutter:
     - assets/images/team/
     - assets/images/clinics/
     - assets/images/services/
+    - assets/images/shop/
 
   # Fonts ship inside the app; never fetched from a font URL at runtime (privacy: no user IP to Google).
   fonts:

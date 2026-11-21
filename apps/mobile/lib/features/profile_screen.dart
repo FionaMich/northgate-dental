@@ -9,6 +9,7 @@ import 'aligner_screen.dart';
 import 'clinic_screen.dart';
 import 'coverage_screen.dart';
 import 'details_screen.dart';
+import 'bag_screen.dart' show OrdersScreen;
 import 'payments_screen.dart';
 
 /// The account: who is linked, their clinic and address, privacy, and signing out.
@@ -87,6 +88,14 @@ class ProfileScreen extends ConsumerWidget {
                         title: 'Payments',
                         detail: 'Pay for visits and see your receipts',
                         onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PaymentsScreen())),
+                      ),
+                      GroupRow(
+                        key: const Key('open-orders'),
+                        icon: Icons.shopping_bag_rounded,
+                        tint: Tint.teal,
+                        title: 'Orders',
+                        detail: 'What you bought in the shop and where it is',
+                        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const OrdersScreen())),
                       ),
                       GroupRow(
                         key: const Key('open-aligner'),

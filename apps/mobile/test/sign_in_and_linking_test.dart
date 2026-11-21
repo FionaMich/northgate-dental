@@ -13,6 +13,7 @@ Future<FakeAccountRepository> pumpApp(
   WidgetTester tester,
   FakeAccountRepository repo, {
   FakeCareRepository? care,
+  FakeShopRepository? shop,
   MemoryWearStore? wear,
   FakeAlignerReminders? reminders,
   List<dynamic> extra = const [],
@@ -25,6 +26,7 @@ Future<FakeAccountRepository> pumpApp(
       overrides: [
         accountRepositoryProvider.overrideWithValue(repo),
         careRepositoryProvider.overrideWithValue(care ?? FakeCareRepository()),
+        shopRepositoryProvider.overrideWithValue(shop ?? FakeShopRepository()),
         introDurationProvider.overrideWithValue(Duration.zero),
         wearStoreProvider.overrideWithValue(wear ?? MemoryWearStore()),
         alignerRemindersProvider.overrideWithValue(reminders ?? FakeAlignerReminders()),

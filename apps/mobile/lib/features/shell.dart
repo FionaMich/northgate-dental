@@ -8,8 +8,9 @@ import 'appointments_screen.dart';
 import 'home_screen.dart';
 import 'profile_screen.dart';
 import 'records_screen.dart';
+import 'shop_screen.dart';
 
-enum ShellTab { home, appointments, records, profile }
+enum ShellTab { home, appointments, records, shop, profile }
 
 class ShellTabNotifier extends Notifier<ShellTab> {
   @override
@@ -31,6 +32,7 @@ class AppShell extends ConsumerWidget {
     (ShellTab.home, Icons.home_rounded, 'Home'),
     (ShellTab.appointments, Icons.event_rounded, 'Visits'),
     (ShellTab.records, Icons.receipt_long_rounded, 'Records'),
+    (ShellTab.shop, Icons.shopping_bag_rounded, 'Shop'),
     (ShellTab.profile, Icons.person_rounded, 'Profile'),
   ];
 
@@ -46,7 +48,7 @@ class AppShell extends ConsumerWidget {
     final tab = ref.watch(shellTabProvider);
     return Scaffold(
       extendBody: true,
-      body: IndexedStack(index: tab.index, children: const [HomeScreen(), AppointmentsScreen(), RecordsScreen(), ProfileScreen()]),
+      body: IndexedStack(index: tab.index, children: const [HomeScreen(), AppointmentsScreen(), RecordsScreen(), ShopScreen(), ProfileScreen()]),
       bottomNavigationBar: SafeArea(
         minimum: const EdgeInsets.fromLTRB(16, 0, 16, 14),
         child: Container(
