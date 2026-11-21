@@ -60,14 +60,13 @@ class _Header extends ConsumerWidget {
     return Container(
       decoration: const BoxDecoration(
         gradient: heroGradient,
+        image: heroPhoto,
         borderRadius: BorderRadius.vertical(bottom: Radius.circular(36)),
       ),
       padding: EdgeInsets.fromLTRB(20, 16 + MediaQuery.paddingOf(context).top, 20, 60),
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          const Positioned(right: -6, top: 92, child: Orb(size: 54, tone: OrbTone.teal)),
-          const Positioned(right: 112, top: 60, child: Orb(size: 14)),
           const Positioned(right: 14, top: 40, child: Float(child: Tooth3D(height: 120))),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -309,7 +308,7 @@ class _NextVisit extends ConsumerWidget {
                   ),
                   Text(
                     '${appointment.startsAt.day}',
-                    style: const TextStyle(fontSize: 26, height: 1.05, fontWeight: FontWeight.w800, color: Colors.white),
+                    style: const TextStyle(fontSize: 26, height: 1.05, fontWeight: FontWeight.w700, color: Colors.white),
                   ),
                 ],
               ),
@@ -379,7 +378,7 @@ class _PlanCard extends StatelessWidget {
                 Center(
                   child: Text(
                     '${(progress * 100).round()}%',
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Palette.deepSea),
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Palette.deepSea),
                   ),
                 ),
               ],

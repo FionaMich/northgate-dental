@@ -35,8 +35,6 @@ class PlanScreen extends StatelessWidget {
             ),
             child: Stack(
               children: [
-                const Positioned(right: 26, top: 22, child: Orb(size: 34)),
-                const Positioned(left: 30, bottom: 22, child: Orb(size: 22, tone: OrbTone.teal)),
                 Positioned(right: 40, bottom: 14, child: Tooth3D(height: 150, crown: current != null)),
                 Padding(
                   padding: const EdgeInsets.all(22),
@@ -55,7 +53,7 @@ class PlanScreen extends StatelessWidget {
                           style: const TextStyle(
                             fontSize: 24,
                             height: 1.1,
-                            fontWeight: FontWeight.w800,
+                            fontWeight: FontWeight.w700,
                             letterSpacing: -0.5,
                             color: Palette.deepSea,
                           ),

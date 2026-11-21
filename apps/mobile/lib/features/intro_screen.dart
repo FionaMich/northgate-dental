@@ -77,7 +77,7 @@ class _IntroScreenState extends ConsumerState<IntroScreen> with SingleTickerProv
                     const Text(
                       'Healthy smiles across Boston',
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.white, fontSize: 26, height: 1.15, fontWeight: FontWeight.w800, letterSpacing: -0.6),
+                      style: TextStyle(color: Colors.white, fontSize: 26, height: 1.15, fontWeight: FontWeight.w700, letterSpacing: -0.6),
                     ),
                     const SizedBox(height: 10),
                     const Text(

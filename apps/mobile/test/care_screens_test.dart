@@ -80,7 +80,7 @@ void main() {
     final older = tester.getTopLeft(find.text('Exam').first).dy;
     expect(newer, lessThan(older));
     await tapKey(tester, 'tab-records');
-    expect(find.text('Composite filling · tooth 3'), findsOneWidget);
+    expect(find.text('Composite filling'), findsOneWidget, reason: 'each visit lists what was done as short chips');
   });
 
   testWidgets('the plan card shows progress and opens the phase list', (tester) async {

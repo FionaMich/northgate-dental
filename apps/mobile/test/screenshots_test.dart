@@ -1,0 +1,195 @@
+// Screenshots of every page at phone size, for design reviews. Skipped in normal runs and CI.
+// Run: flutter test test/screenshots_test.dart --dart-define=SCREENSHOTS=true --update-goldens
+// Output: docs/screenshots/app/*.png (private docs folder).
+import 'dart:io';
+
+import 'package:dental/data/account_repository.dart';
+import 'package:dental/data/care_repository.dart';
+import 'package:dental/features/visit_screen.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
+
+import 'fakes.dart';
+import 'sign_in_and_linking_test.dart' show pumpApp, signIn, tapKey;
+
+const shots = bool.fromEnvironment('SCREENSHOTS');
+
+Future<void> loadFonts() async {
+  Future<void> family(String name, List<String> files) async {
+    final loader = FontLoader(name);
+    for (final f in files) {
+      loader.addFont(rootBundle.load(f));
+    }
+    await loader.load();
+  }
+
+  final fonts = Directory('assets/fonts').listSync().map((e) => e.path).where((p) => p.endsWith('.ttf')).toList();
+  await family('PlusJakartaSans', fonts.where((f) => f.contains('PlusJakarta')).toList());
+  await family('Lato', fonts.where((f) => f.contains('Lato')).toList());
+  final sdk = Platform.environment['FLUTTER_ROOT'] ?? '${Platform.environment['HOME']}/development/flutter';
+  final icons = FontLoader('MaterialIcons')
+    ..addFont(
+      Future.value(ByteData.sublistView(File('$sdk/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf').readAsBytesSync())),
+    );
+  await icons.load();
+}
+
+final now = DateTime.now();
+final visit = Visit(
+  id: 'v-1',
+  at: DateTime(now.year, now.month - 3, 22, 10),
+  kind: 'exam',
+  location: 'Cambridge',
+  dentist: 'Dr Amara Okafor',
+  reason: 'Six-monthly check-up',
+  procedures: const [
+    Procedure(service: 'Comprehensive oral exam', status: 'completed', feeCents: 14000),
+    Procedure(service: 'Adult cleaning', status: 'completed', feeCents: 12000),
+    Procedure(service: 'Composite filling, one surface', status: 'planned', tooth: '14', surface: 'O', feeCents: 21000),
+  ],
+  findings: const [
+    Finding(tooth: '14', surface: 'O', condition: 'caries'),
+    Finding(tooth: '3', condition: 'filled'),
+  ],
+);
+
+CareSummary richCare() => CareSummary(
+  upcoming: [
+    Appointment(
+      id: 'a-1',
+      startsAt: DateTime(now.year, now.month, now.day + 6, 9, 30),
+      endsAt: DateTime(now.year, now.month, now.day + 6, 10, 30),
+      service: 'Composite filling, one surface',
+      location: 'Cambridge',
+      status: 'booked',
+    ),
+  ],
+  visits: [
+    visit,
+    Visit(
+      id: 'v-2',
+      at: DateTime(now.year - 1, 11, 3, 14),
+      kind: 'hygiene',
+      location: 'Back Bay',
+      procedures: const [Procedure(service: 'Adult cleaning', status: 'completed', feeCents: 12000)],
+    ),
+  ],
+  plans: const [
+    Plan(
+      id: 'p-1',
+      status: 'in_progress',
+      phases: [
+        PlanPhase(
+          sequence: 1,
+          name: 'Fillings',
+          procedures: [Procedure(service: 'Composite filling, one surface', status: 'planned', tooth: '14')],
+        ),
+        PlanPhase(
+          sequence: 2,
+          name: 'Review',
+          procedures: [Procedure(service: 'Comprehensive oral exam', status: 'planned')],
+        ),
+      ],
+    ),
+  ],
+  documents: [
+    PracticeDocument(
+      id: 'd-1',
+      encounterId: 'v-1',
+      kind: 'xray',
+      title: 'Bitewing X-ray',
+      path: 'p/x.jpg',
+      contentType: 'image/jpeg',
+      sharedAt: now,
+    ),
+    PracticeDocument(
+      id: 'd-2',
+      encounterId: 'v-1',
+      kind: 'visit_summary',
+      title: 'Visit summary',
+      path: 'p/s.pdf',
+      contentType: 'application/pdf',
+      sharedAt: now,
+    ),
+  ],
+);
+
+const michelle = LinkedPatient(id: 'p-m', name: 'Michelle Fiona', isSelf: true);
+
+Future<void> shot(WidgetTester tester, String name) async {
+  await tester.pumpAndSettle();
+  await expectLater(find.byType(MaterialApp), matchesGoldenFile('../../../docs/screenshots/app/$name.png'));
+}
+
+void main() {
+  setUpAll(loadFonts);
+
+  Future<FakeCareRepository> app(WidgetTester tester, {List<LinkedPatient> people = const [michelle], bool signIn_ = true}) async {
+    tester.view.physicalSize = const Size(720, 1600); // Galaxy A12
+    tester.view.devicePixelRatio = 2.0;
+    addTearDown(tester.view.reset);
+    final care = FakeCareRepository({'p-m': richCare()});
+    await pumpApp(
+      tester,
+      FakeAccountRepository(patients: people),
+      care: care,
+      extra: [pdfViewProvider.overrideWithValue((_) => const SizedBox())],
+    );
+    if (signIn_) await signIn(tester);
+    return care;
+  }
+
+  testWidgets('screenshots', skip: !shots, (tester) async {
+    await app(tester, signIn_: false);
+    await shot(tester, '01-sign-in');
+    await tapKey(tester, 'go-sign-up');
+    await shot(tester, '02-create-account');
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
+    await signIn(tester);
+    await shot(tester, '03-home');
+    await tapKey(tester, 'tab-records');
+    await shot(tester, '04-records');
+    await tapKey(tester, 'visit-v-1');
+    await shot(tester, '05-visit');
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await tapKey(tester, 'tab-profile');
+    await shot(tester, '06-profile');
+    await tapKey(tester, 'open-aligner');
+    await shot(tester, '07-aligner');
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await tapKey(tester, 'add-coverage');
+    await shot(tester, '08-insurance');
+  });
+
+  testWidgets('screenshots: booking and onboarding', skip: !shots, (tester) async {
+    await app(
+      tester,
+      people: const [LinkedPatient(id: 'p-m', name: 'Michelle Fiona', isSelf: true, detailsConfirmed: false)],
+    );
+    await shot(tester, '09-choose-clinic');
+  });
+
+  testWidgets('screenshots: link record', skip: !shots, (tester) async {
+    await app(tester, people: const []);
+    await shot(tester, '10-find-record');
+  });
+
+  testWidgets('screenshots: book a visit', skip: !shots, (tester) async {
+    await app(tester, people: const [michelle]);
+    final repo = FakeCareRepository({'p-m': const CareSummary()});
+    // Home without a visit shows "Book a visit".
+    await tester.pumpWidget(const SizedBox());
+    await pumpApp(tester, FakeAccountRepository(patients: [michelle]), care: repo);
+    await signIn(tester);
+    await tapKey(tester, 'book-visit');
+    await tapKey(tester, 'service-cleaning');
+    await tapKey(tester, 'day-0');
+    await tapKey(tester, 'slot-0');
+    await shot(tester, '11-booking');
+  });
+}
