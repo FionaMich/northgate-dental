@@ -108,6 +108,23 @@ jobs:
         if: failure()
         run: docker compose logs --tail 100
 
+  attribution:
+    name: attribution (no AI co-authors)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: commits, title and description credit no AI tool
+        env: # passed through the environment, never pasted into the script, so a crafted PR body cannot run code
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          TITLE: ${{ github.event.pull_request.title }}
+          BODY: ${{ github.event.pull_request.body }}
+        run: |
+          range="$BASE..HEAD"
+          git cat-file -e "$BASE" 2>/dev/null || range="HEAD~1..HEAD"
+          { git log "$range" --format='%B'; printf '%s\n%s\n' "$TITLE" "$BODY"; } | scripts/check-no-ai-attribution.sh
+
   pr-title:
     name: pr-title (Conventional Commits)
     if: github.event_name == 'pull_request'
