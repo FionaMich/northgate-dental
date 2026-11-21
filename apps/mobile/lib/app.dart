@@ -28,6 +28,7 @@ class _NorthgateAppState extends State<NorthgateApp> {
 
   @override
   Widget build(BuildContext context) => MaterialApp.router(
+    debugShowCheckedModeBanner: false,
     title: 'Northgate Dental',
     theme: northgateTheme(),
     routerConfig: _router,
