@@ -104,6 +104,40 @@ services:
       timeout: 5s
       retries: 5
 
+  # Section 10: the receptionist assistant and its model. Gemma runs on the VM's CPU (decision 2026-11-22: no hosted
+  # model), so nothing a patient writes leaves our own server. Ollama has no published port; only the assistant calls it.
+  ollama:
+    <<: *defaults
+    image: ollama/ollama:0.40.15        # the version proven with Gemma 4 on the build laptop
+    profiles: [assistant]
+    environment:
+      OLLAMA_KEEP_ALIVE: "24h"          # keep Gemma loaded: loading takes longer than answering
+      OLLAMA_NUM_PARALLEL: "1"          # one conversation at a time on 4 threads; others wait their turn
+    volumes: [ollama_models:/root/.ollama]
+    networks: [app]                     # outbound only to pull the model once
+    mem_limit: 9g
+
+  assistant:
+    <<: *defaults
+    build: ../services/agent
+    image: northgate-assistant:local
+    profiles: [assistant]
+    depends_on: [ollama]
+    environment:
+      SUPABASE_URL: ${ASSISTANT_SUPABASE_URL:-}              # the project the app signs in to (staging for the demo)
+      SUPABASE_PUBLISHABLE_KEY: ${ASSISTANT_SUPABASE_KEY:-}  # publishable: grants nothing without the patient's token
+      MODEL_PROVIDER: ollama
+      OLLAMA_URL: http://ollama:11434
+      OLLAMA_MODEL: gemma4:e4b-it-qat
+      LINK_BASE: https://n8n.${DOMAIN}/webhook
+      LANGSMITH_API_KEY: ${LANGSMITH_API_KEY:-}
+      LANGSMITH_ENDPOINT: ${LANGSMITH_ENDPOINT:-https://aws.api.smith.langchain.com}
+      LANGSMITH_PROJECT: northgate-assistant
+      LANGSMITH_HIDE_INPUTS: "true"
+      LANGSMITH_HIDE_OUTPUTS: "true"
+    networks: [app]
+    mem_limit: 512m
+
   # n8n (blueprint section 41): automations triggered by time or events. Its editor is not on the internet: only
   # /webhook/ is routed by the WAF; the editor is reached through a Bastion SSH tunnel to 127.0.0.1:5678.
   n8n-db:
@@ -163,6 +197,7 @@ networks:
   data: { internal: true } # no route in or out of the VM; only services on this network can reach Presidio
 
 volumes:
+  ollama_models: {}
   n8n_db: {}
   n8n_data: {}
   letsencrypt: {}

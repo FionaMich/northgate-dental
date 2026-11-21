@@ -31,13 +31,13 @@ variable "shape" {
 variable "ocpus" {
   description = "Cores, for flexible shapes only (Always Free allows a fixed A1 total)."
   type        = number
-  default     = 1
+  default     = 2 # 2026-11-22: the receptionist assistant runs Gemma on the CPU; 4 threads instead of 2 (Fiona)
 }
 
 variable "memory_gbs" {
   description = "Memory in GB, for flexible shapes only."
   type        = number
-  default     = 8
+  default     = 16 # Gemma 4 needs about 6 GB on top of the stack's 4 GB
 }
 
 variable "repository" {

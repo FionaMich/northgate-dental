@@ -61,6 +61,19 @@ server {
     location = / {
         try_files /index.html =404;
     }
+    # The receptionist assistant (section 10). Through the WAF like everything else; small bodies only; a long read
+    # timeout because Gemma answers on the CPU. Nothing else on this server proxies anywhere.
+    location /assistant/ {
+        limit_req zone=strict burst=10 nodelay;
+        client_max_body_size 16k;
+        resolver 127.0.0.11 valid=30s;   # Docker's DNS, so Nginx starts even when the assistant is not running
+        set $assistant http://assistant:8100;
+        proxy_pass $assistant;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_read_timeout 180s;
+    }
+
     location = /style.css {
         try_files /style.css =404;
     }
