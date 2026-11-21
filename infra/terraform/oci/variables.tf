@@ -20,14 +20,21 @@ variable "ssh_public_key_path" {
   default     = "~/.ssh/northgate_oracle.pub"
 }
 
+variable "shape" {
+  description = "VM shape. VM.Standard.A1.Flex (Arm) and VM.Standard.E2.1.Micro (AMD, 1 core, 1 GB) are Always Free."
+  type        = string
+  # shortcut: E2.1.Micro because Johannesburg had no A1 capacity on 2026-11-21; switch to A1 when it frees up.
+  default = "VM.Standard.E2.1.Micro"
+}
+
 variable "ocpus" {
-  description = "Ampere A1 cores (Always Free allows a fixed total across all A1 VMs)."
+  description = "Cores, for flexible shapes only (Always Free allows a fixed A1 total)."
   type        = number
   default     = 2
 }
 
 variable "memory_gbs" {
-  description = "Ampere A1 memory in GB."
+  description = "Memory in GB, for flexible shapes only."
   type        = number
   default     = 12
 }

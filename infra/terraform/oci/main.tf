@@ -178,11 +178,11 @@ resource "oci_core_subnet" "private" {
 
 # ---------- VM ----------
 
-data "oci_core_images" "ol9_arm" {
+data "oci_core_images" "ol9" {
   compartment_id           = var.tenancy_ocid
   operating_system         = "Oracle Linux"
   operating_system_version = "9"
-  shape                    = "VM.Standard.A1.Flex"
+  shape                    = var.shape
   sort_by                  = "TIMECREATED"
   sort_order               = "DESC"
 }
@@ -191,14 +191,17 @@ resource "oci_core_instance" "vm" {
   compartment_id      = oci_identity_compartment.northgate.id
   availability_domain = data.oci_identity_availability_domains.ads.availability_domains[0].name
   display_name        = "northgate-vm"
-  shape               = "VM.Standard.A1.Flex"
-  shape_config {
-    ocpus         = var.ocpus
-    memory_in_gbs = var.memory_gbs
+  shape               = var.shape
+  dynamic "shape_config" { # fixed shapes such as E2.1.Micro take no size
+    for_each = endswith(var.shape, ".Flex") ? [1] : []
+    content {
+      ocpus         = var.ocpus
+      memory_in_gbs = var.memory_gbs
+    }
   }
   source_details {
     source_type             = "image"
-    source_id               = data.oci_core_images.ol9_arm.images[0].id
+    source_id               = data.oci_core_images.ol9.images[0].id
     boot_volume_size_in_gbs = 50
   }
   create_vnic_details {
@@ -270,10 +273,13 @@ resource "oci_network_load_balancer_listener" "web" {
 
 resource "oci_bastion_bastion" "admin" {
   compartment_id               = oci_identity_compartment.northgate.id
-  bastion_type                 = "standard"
+  bastion_type                 = "STANDARD"
   name                         = "northgatebastion"
   target_subnet_id             = oci_core_subnet.public.id
   client_cidr_block_allow_list = [var.admin_cidr]
   max_session_ttl_in_seconds   = 10800
   freeform_tags                = local.tags
+  lifecycle {
+    ignore_changes = [defined_tags] # Oracle adds its own Oracle-Tags (CreatedBy, CreatedOn) after creation
+  }
 }
