@@ -237,4 +237,22 @@ void main() {
     await tapKey(tester, 'open-bag');
     await shot(tester, '22-bag');
   });
+
+  testWidgets('screenshots: assistant', skip: !shots, (tester) async {
+    tester.view.physicalSize = const Size(720, 1600);
+    tester.view.devicePixelRatio = 2.0;
+    addTearDown(tester.view.reset);
+    final assistant = FakeAssistantRepository();
+    await pumpApp(tester, FakeAccountRepository(patients: [michelle]), assistant: assistant,
+        care: FakeCareRepository({'p-m': richCare()}), extra: [pdfViewProvider.overrideWithValue((_) => const SizedBox())]);
+    await signIn(tester);
+    await tapKey(tester, 'open-assistant');
+    await tapKey(tester, 'pick-language');
+    await tapKey(tester, 'language-es');
+    await shot(tester, '23-assistant');
+    assistant.proposeBooking = true;
+    await tester.enterText(find.byKey(const Key('assistant-input')), 'Quiero una limpieza en Quincy el viernes por la mañana');
+    await tapKey(tester, 'assistant-send');
+    await shot(tester, '24-assistant-confirm');
+  });
 }

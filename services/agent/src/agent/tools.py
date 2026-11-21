@@ -85,11 +85,23 @@ def services(clinic_code: str, config: RunnableConfig) -> str:
 
 
 def _ids(s: Session, clinic_code: str, service_code: str) -> tuple[str, str, str]:
-    loc = _get(s, "/locations", select="id,time_zone", code=f"eq.{clinic_code}")
-    svc = _get(s, "/services", select="id", code=f"eq.{service_code}")
+    loc, svc, tz, _, _ = _named(s, clinic_code, service_code)
+    return loc, svc, tz
+
+
+def _named(s: Session, clinic_code: str, service_code: str) -> tuple[str, str, str, str, str]:
+    loc = _get(s, "/locations", select="id,time_zone,name", code=f"eq.{clinic_code}")
+    svc = _get(s, "/services", select="id,name", code=f"eq.{service_code}")
     if not loc or not svc:
         raise ToolRefused("unknown clinic or service code")
-    return loc[0]["id"], svc[0]["id"], loc[0]["time_zone"]
+    return loc[0]["id"], svc[0]["id"], loc[0]["time_zone"], loc[0].get("name", clinic_code), svc[0].get("name", service_code)
+
+
+def _card(s: Session, action: str, detail: str) -> dict:
+    """What the app's confirmation card shows: in the patient's language, from the reviewed texts, never generated."""
+    from .safety import fixed
+    return {"action": action, "title": fixed(f"confirm_{action}", s.language), "detail": detail,
+            "yes": fixed(f"yes_{action}", s.language), "no": fixed("not_now", s.language)}
 
 
 @tool
@@ -108,9 +120,9 @@ def find_slots(clinic_code: str, service_code: str, day: str, config: RunnableCo
 def book_visit(clinic_code: str, service_code: str, slot: str, config: RunnableConfig) -> str:
     """Book a visit in a slot from find_slots. The patient is asked to confirm with a button before anything is booked."""
     s = _session(config)
-    loc, svc, tz = _ids(s, clinic_code, service_code)
+    loc, svc, tz, clinic, service = _named(s, clinic_code, service_code)
     starts, practitioner = slot.split("|")
-    answer = interrupt({"action": "book", "clinic": clinic_code, "service": service_code, "when": _local(starts, tz)})
+    answer = interrupt(_card(s, "book", f"{service} · {_local(starts, tz)} · Northgate Dental, {clinic}"))
     if not answer:
         return "The patient chose not to book."
     held = _rpc(s, "hold_slot", loc=loc, service=svc, practitioner=practitioner, starts=starts, patient=s.patient_id)
@@ -135,7 +147,12 @@ def my_visits(config: RunnableConfig) -> str:
 def cancel_visit(visit_ref: str, config: RunnableConfig) -> str:
     """Cancel one of the patient's upcoming visits (ref from my_visits). The patient confirms with a button first."""
     s = _session(config)
-    if not interrupt({"action": "cancel", "visit": visit_ref}):
+    visit = _get(s, "/appointments", select="starts_at,location_services(services(name),locations(name,time_zone))", id=f"eq.{visit_ref}")
+    if not visit:
+        raise ToolRefused("that visit is not one of yours")
+    ls = visit[0]["location_services"]
+    detail = f"{ls['services']['name']} · {_local(visit[0]['starts_at'], ls['locations']['time_zone'])} · Northgate Dental, {ls['locations']['name']}"
+    if not interrupt(_card(s, "cancel", detail)):
         return "The patient kept the visit."
     _rpc(s, "cancel_appointment", appointment=visit_ref)
     return "Cancelled. A confirmation email is on its way."
