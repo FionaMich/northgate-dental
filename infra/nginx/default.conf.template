@@ -8,6 +8,8 @@ more_clear_headers Server;
 limit_req_zone $binary_remote_addr zone=general:10m rate=20r/s;
 limit_req_zone $binary_remote_addr zone=strict:10m rate=5r/s;
 limit_req_status 429;
+# Rate-limit events would log the full request line, query string included: keep them below the log level (warn).
+limit_req_log_level info;
 
 map $http_upgrade $connection_upgrade {
     default upgrade;

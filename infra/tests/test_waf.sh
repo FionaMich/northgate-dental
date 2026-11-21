@@ -38,8 +38,9 @@ check "TLS 1.1 is refused" fail "$(curl -sk --tls-max 1.1 -o /dev/null "$base/he
 codes="$(for _ in $(seq 1 120); do status "$base/health" & done; wait)"
 check "a flood gets 429 Too Many Requests" yes "$(grep -q 429 <<<"$codes" && echo yes || echo no)"
 
+sleep 2 # let the flood's limit drain, so the canary request takes the normal path
 curl -sk -o /dev/null "$base/health?token=CANARY-7F3A9"
-check "query strings never reach the access log" clean \
+check "query strings never reach the logs" clean \
   "$(docker compose logs waf --since 1m 2>/dev/null | grep -v 'ModSecurity' | grep -q 'CANARY-7F3A9' && echo leaked || echo clean)"
 
 echo "$fails failure(s)"
