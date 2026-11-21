@@ -54,7 +54,7 @@ void main() {
     expect(find.text('2h 30m'), findsOneWidget);
     expect(find.text('of 22h today'), findsOneWidget);
     expect(store.values.keys, ['aligner:p-elena'], reason: 'kept on the phone, per person');
-    expect(reminders.calls.where((c) => c != 'clear'), [
+    expect(reminders.calls.where((c) => c == 'in' || c.startsWith('out')), [
       'in',
       'out:10:30',
     ], reason: 'putting them in cancels reminders; taking them out schedules them');

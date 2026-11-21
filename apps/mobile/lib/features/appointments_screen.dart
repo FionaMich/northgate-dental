@@ -1,0 +1,203 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:material_ui/material_ui.dart';
+
+import '../data/care_repository.dart';
+import '../design/format.dart';
+import '../design/motion.dart';
+import '../design/tokens.dart';
+import '../design/widgets.dart';
+import '../state.dart';
+import 'booking_screen.dart';
+import 'care_widgets.dart';
+import 'dentist_screen.dart';
+import 'home_screen.dart' show confirmCancelVisit;
+import 'shell.dart';
+
+/// Every booked visit, each with Reschedule and Cancel; past visits live in Records.
+class AppointmentsScreen extends ConsumerWidget {
+  const AppointmentsScreen({super.key});
+
+  void _book(BuildContext context, WidgetRef ref, {Appointment? replacing}) {
+    final person = ref.read(currentPatientProvider);
+    if (person == null) return;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => BookingScreen(
+          patient: person,
+          clinicId: replacing?.clinicId,
+          serviceId: replacing?.serviceId,
+          dentistId: replacing?.dentistId,
+          replaces: replacing,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final care = ref.watch(careSummaryProvider);
+    final upcoming = care.value?.upcoming ?? const <Appointment>[];
+    return ListView(
+      padding: const EdgeInsets.only(bottom: 120),
+      children: [
+        PageHero(
+          title: 'Visits',
+          subtitle: upcoming.isEmpty ? 'Nothing booked yet.' : 'Your booked visits, soonest first.',
+          facts: [if (upcoming.isNotEmpty) (Icons.event_available_rounded, '${upcoming.length} booked')],
+        ),
+        OverHero(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                PrimaryButton(key: const Key('visits-book'), label: 'Book a visit', onPressed: () => _book(context, ref)),
+                const SizedBox(height: 22),
+                ...care.when(
+                  loading: () => const [LoadingPanels()],
+                  error: (_, _) => [
+                    Panel(
+                      onTap: () => ref.invalidate(careSummaryProvider),
+                      child: const Text('Could not load your visits. Tap to try again.'),
+                    ),
+                  ],
+                  data: (c) => [
+                    if (c.upcoming.isEmpty)
+                      const EmptyNote(
+                        icon: Icons.event_available_outlined,
+                        title: 'No visits booked',
+                        body: 'Book a time at your clinic and it appears here, with a reminder the day before.',
+                      ),
+                    for (final (i, a) in c.upcoming.indexed)
+                      Reveal(
+                        order: i,
+                        child: _VisitCard(
+                          appointment: a,
+                          onReschedule: () => _book(context, ref, replacing: a),
+                          onCancel: () => confirmCancelVisit(context, ref, a),
+                        ),
+                      ),
+                    const SizedBox(height: 8),
+                    GroupRow(
+                      key: const Key('visits-past'),
+                      icon: Icons.history_rounded,
+                      tint: Tint.sky,
+                      title: 'Past visits',
+                      detail: 'What was done, X-rays and summaries are in Records',
+                      onTap: () => ref.read(shellTabProvider.notifier).go(ShellTab.records),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _VisitCard extends StatelessWidget {
+  const _VisitCard({required this.appointment, required this.onReschedule, required this.onCancel});
+  final Appointment appointment;
+  final VoidCallback onReschedule, onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    final a = appointment;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Panel(
+        key: Key('upcoming-${a.id}'),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 58,
+                  height: 64,
+                  decoration: BoxDecoration(gradient: buttonGradient, borderRadius: BorderRadius.circular(16)),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        weekday(a.startsAt),
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFFCDEFE7)),
+                      ),
+                      Text(
+                        '${a.startsAt.day}',
+                        style: const TextStyle(fontSize: 24, height: 1.05, fontWeight: FontWeight.w700, color: Colors.white),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        a.service,
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Palette.deepSea),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${dayMonth(a.startsAt)}, ${clock(a.startsAt)} to ${clock(a.endsAt)}',
+                        style: const TextStyle(fontSize: 13.5, color: Palette.muted),
+                      ),
+                      Text(a.location, style: const TextStyle(fontSize: 13.5, color: Palette.muted)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            if (a.dentist != null) ...[
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  DentistAvatar(
+                    name: a.dentist!,
+                    asset: a.dentistPhoto == null ? null : 'assets/images/team/${a.dentistPhoto}.jpg',
+                    size: 34,
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    'With ${a.dentist}',
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Palette.deepSea),
+                  ),
+                ],
+              ),
+            ],
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    key: Key('reschedule-${a.id}'),
+                    onPressed: onReschedule,
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(46),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                    child: const Text('Reschedule'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: TextButton(
+                    key: Key('cancel-${a.id}'),
+                    onPressed: onCancel,
+                    style: TextButton.styleFrom(foregroundColor: Palette.error, minimumSize: const Size.fromHeight(46)),
+                    child: const Text('Cancel'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

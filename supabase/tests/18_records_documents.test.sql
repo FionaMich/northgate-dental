@@ -32,8 +32,8 @@ select throws_ok($$ insert into patient_documents (patient_id, kind, title, file
 select pg_temp.act_as('10000000-0000-4000-8000-000000000014', 'aal1');
 select isnt_empty($$ select 1 from practitioners p join encounters e on e.practitioner_id = p.id $$,
   'a patient sees the name of the dentist who treated them');
-select is((select count(*)::int from practitioners), (select count(distinct practitioner_id)::int from encounters),
-  'and only those dentists');
+select is((select count(*)::int from practitioners), (select count(*)::int from practitioners where active),
+  'and the rest of the active team, to choose from when booking (2026-11-21)');
 select is((select count(*)::int from patient_documents), 1, 'a patient sees their own documents, not anyone else''s');
 select throws_ok($$ insert into patient_documents (patient_id, kind, title, file_path, content_type)
                    values ('30000000-0000-4000-8000-000000000001', 'letter', 'Mine', '30000000-0000-4000-8000-000000000001/a.pdf', 'application/pdf') $$,

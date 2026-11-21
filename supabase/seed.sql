@@ -9,6 +9,9 @@ insert into public.locations (code, name, address_line, city, state, postal_code
   ('back-bay',  'Back Bay (synthetic)',  '1 Example Street',   'Boston',    'MA', '02116', 'America/New_York'),
   ('cambridge', 'Cambridge (synthetic)', '2 Example Avenue',   'Cambridge', 'MA', '02139', 'America/New_York'),
   ('quincy',    'Quincy (synthetic)',    '3 Example Road',     'Quincy',    'MA', '02169', 'America/New_York');
+update public.locations set phone = '+16175550110', photo_key = 'back-bay'  where code = 'back-bay';
+update public.locations set phone = '+16175550120', photo_key = 'cambridge' where code = 'cambridge';
+update public.locations set phone = '+16175550130', photo_key = 'quincy'    where code = 'quincy';
 
 -- Quincy takes MassHealth Dental: no missed-appointment fee there.
 insert into public.location_settings (location_id, overrides)
@@ -136,6 +139,26 @@ join public.locations l on l.code = p.code;
 
 insert into public.practitioners (profile_id, display_name)
 select id, display_name from public.profiles where role = 'clinician';
+
+-- What patients see: a name, title, focus, bio and photo (assets/images/team in the app).
+update public.practitioners set public_name = 'Dr Mei Chen', title = 'Orthodontist', focus = 'Braces and clear aligners', photo_key = 'mei-chen',
+  bio = 'Mei straightens smiles for teenagers and adults, and plans every aligner case from a 3D scan so you can see the result before you start.'
+ where display_name = 'Dr Mei Chen (synthetic orthodontist)';
+update public.practitioners set public_name = 'Priya Raman, RDH', title = 'Dental hygienist', focus = 'Cleanings and gum health', photo_key = 'priya-raman',
+  bio = 'Priya gives thorough, gentle cleanings and shows you the small changes at home that keep your gums healthy between visits.'
+ where display_name = 'Synthetic Back Bay Hygienist';
+update public.practitioners set public_name = 'Dr Samuel Okafor', title = 'Endodontist', focus = 'Root canal treatment', photo_key = 'samuel-okafor',
+  bio = 'Samuel saves teeth with calm, unhurried root canal treatment, and explains every step so nothing comes as a surprise.'
+ where display_name = 'Synthetic Endodontist';
+update public.practitioners set public_name = 'Dr Laura Bennett', title = 'Oral surgeon', focus = 'Extractions and implants', photo_key = 'laura-bennett',
+  bio = 'Laura looks after wisdom teeth, extractions and implants, planning each procedure with a 3D scan for a quicker recovery.'
+ where display_name = 'Synthetic Oral Surgeon';
+update public.practitioners set public_name = 'Dr Diego Alvarez', title = 'Children''s dentist', focus = 'Dental care for children', photo_key = 'diego-alvarez',
+  bio = 'Diego makes the dentist a fun place for children, with check-ups, sealants and plenty of time for questions from parents.'
+ where display_name = 'Synthetic Paediatric Dentist';
+update public.practitioners set public_name = 'Dr Hannah Brooks', title = 'General dentist', focus = 'Check-ups, fillings and crowns', photo_key = 'hannah-brooks',
+  bio = 'Hannah looks after the whole family, from check-ups to fillings and crowns, and believes in fixing small problems early.'
+ where display_name = 'Synthetic Quincy Dentist';
 
 -- Where and as what each clinician works. The orthodontist works at Cambridge and, on Tuesdays, at Back Bay.
 insert into public.practitioner_roles (practitioner_id, location_id, specialty_id, weekly_template)
