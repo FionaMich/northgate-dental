@@ -207,7 +207,7 @@ resource "oci_core_instance" "vm" {
   create_vnic_details {
     subnet_id        = oci_core_subnet.private.id
     assign_public_ip = false
-    hostname_label   = "vm"
+    hostname_label   = "vm${substr(md5(var.shape), 0, 6)}" # differs per shape, so old and new VMs can overlap
   }
   metadata = {
     ssh_authorized_keys = file(pathexpand(var.ssh_public_key_path))
@@ -222,7 +222,10 @@ resource "oci_core_instance" "vm" {
   }
   freeform_tags = local.tags
   lifecycle {
-    ignore_changes = [source_details[0].source_id, metadata] # a newer image or script must not replace a running VM
+    # A newer image or script must not replace a running VM.
+    ignore_changes = [source_details[0].source_id, metadata, create_vnic_details[0].hostname_label]
+    # A move to another shape builds the new VM first, so a failed build (no capacity) never leaves no VM.
+    create_before_destroy = true
   }
 }
 

@@ -23,20 +23,21 @@ variable "ssh_public_key_path" {
 variable "shape" {
   description = "VM shape. VM.Standard.A1.Flex (Arm) and VM.Standard.E2.1.Micro (AMD, 1 core, 1 GB) are Always Free."
   type        = string
-  # shortcut: E2.1.Micro because Johannesburg had no A1 capacity on 2026-11-21; switch to A1 when it frees up.
-  default = "VM.Standard.E2.1.Micro"
+  # Paid E3.Flex (decision of 2026-11-21) while Johannesburg has no A1 capacity; scripts/retry-a1.sh moves to
+  # the free VM.Standard.A1.Flex as soon as Oracle can place it.
+  default = "VM.Standard.E3.Flex"
 }
 
 variable "ocpus" {
   description = "Cores, for flexible shapes only (Always Free allows a fixed A1 total)."
   type        = number
-  default     = 2
+  default     = 1
 }
 
 variable "memory_gbs" {
   description = "Memory in GB, for flexible shapes only."
   type        = number
-  default     = 12
+  default     = 8
 }
 
 variable "repository" {
