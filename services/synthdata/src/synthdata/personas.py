@@ -8,7 +8,7 @@ from synthdata.generate import ANCHOR, Patient
 
 # Dr Chen is the seeded orthodontist (profile ...011); the persona file names her.
 DR_CHEN_PROFILE = "10000000-0000-4000-8000-000000000011"
-DR_CHEN_NAME = "Dr Mei Chen (synthetic orthodontist)"
+DR_CHEN_NAME = "Dr Mei Chen (orthodontist)"
 
 
 def _age(dob) -> int:

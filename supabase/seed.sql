@@ -1,14 +1,14 @@
--- Synthetic seed data for local development and tests. Describes no real person or practice.
--- Locations, hours and rooms follow the fictional Northgate Dental group. Prices are synthetic, in whole cents.
+-- Seed data for local development and tests. Describes no real person or practice.
+-- Locations, hours and rooms follow the fictional Northgate Dental group. Prices are fictional, in whole cents.
 
-insert into public.organisation (name, is_synthetic) values ('Northgate Dental (synthetic)', true);
+insert into public.organisation (name, is_synthetic) values ('Northgate Dental', true);
 insert into public.org_settings (settings) values
   ('{"language": "en", "cancellation_hours": 24, "missed_appointment_fee_cents": 5000, "synthetic": true}');
 
 insert into public.locations (code, name, address_line, city, state, postal_code, time_zone) values
-  ('back-bay',  'Back Bay (synthetic)',  '1 Example Street',   'Boston',    'MA', '02116', 'America/New_York'),
-  ('cambridge', 'Cambridge (synthetic)', '2 Example Avenue',   'Cambridge', 'MA', '02139', 'America/New_York'),
-  ('quincy',    'Quincy (synthetic)',    '3 Example Road',     'Quincy',    'MA', '02169', 'America/New_York');
+  ('back-bay',  'Back Bay',  '1 Example Street',   'Boston',    'MA', '02116', 'America/New_York'),
+  ('cambridge', 'Cambridge', '2 Example Avenue',   'Cambridge', 'MA', '02139', 'America/New_York'),
+  ('quincy',    'Quincy',    '3 Example Road',     'Quincy',    'MA', '02169', 'America/New_York');
 update public.locations set phone = '+16175550110', photo_key = 'back-bay'  where code = 'back-bay';
 update public.locations set phone = '+16175550120', photo_key = 'cambridge' where code = 'cambridge';
 update public.locations set phone = '+16175550130', photo_key = 'quincy'    where code = 'quincy';
@@ -75,7 +75,7 @@ update public.services set summary = 'Brightening the colour of your teeth safel
 update public.services set summary = 'A full removable set of upper teeth, made to fit your mouth over a few fittings.' where code = 'D5110';
 update public.services set summary = 'Quick relief for dental pain or injury. Call us and we will see you as soon as we can.' where code = 'D9110';
 
--- Prices per location, in whole cents (12000 is $120.00). Synthetic; Fiona reviews these line by line.
+-- Prices per location, in whole cents (12000 is $120.00). Fictional; Fiona reviews these line by line.
 insert into public.location_services (location_id, service_id, price_cents)
 select l.id, s.id, p.price_cents
 from (values
@@ -90,7 +90,7 @@ from (values
 join public.locations l on l.code = p.location
 join public.services s on s.code = p.service;
 
--- Synthetic sign-ins, one or more per role. No passwords: sign-in is set up in section 05.
+-- Demo sign-ins, one or more per role. No passwords: sign-in is set up in section 05.
 insert into auth.users (id, email, aud, role) values
   ('10000000-0000-4000-8000-000000000001', 'admin@northgate.synthetic',               'authenticated', 'authenticated'),
   ('10000000-0000-4000-8000-000000000002', 'backbay.reception@northgate.synthetic',   'authenticated', 'authenticated'),
@@ -108,20 +108,20 @@ insert into auth.users (id, email, aud, role) values
   ('10000000-0000-4000-8000-000000000014', 'patient@northgate.synthetic',             'authenticated', 'authenticated');
 
 insert into public.profiles (id, role, display_name) values
-  ('10000000-0000-4000-8000-000000000001', 'org_admin',        'Synthetic Admin'),
-  ('10000000-0000-4000-8000-000000000002', 'receptionist',     'Synthetic Back Bay Receptionist'),
-  ('10000000-0000-4000-8000-000000000003', 'receptionist',     'Synthetic Cambridge Receptionist'),
-  ('10000000-0000-4000-8000-000000000004', 'receptionist',     'Synthetic Quincy Receptionist'),
-  ('10000000-0000-4000-8000-000000000005', 'location_manager', 'Synthetic Back Bay Manager'),
-  ('10000000-0000-4000-8000-000000000006', 'location_manager', 'Synthetic Cambridge Manager'),
-  ('10000000-0000-4000-8000-000000000007', 'location_manager', 'Synthetic Quincy Manager'),
-  ('10000000-0000-4000-8000-000000000008', 'clinician',        'Synthetic Oral Surgeon'),
-  ('10000000-0000-4000-8000-000000000009', 'clinician',        'Synthetic Endodontist'),
-  ('10000000-0000-4000-8000-000000000010', 'clinician',        'Synthetic Back Bay Hygienist'),
-  ('10000000-0000-4000-8000-000000000011', 'clinician',        'Dr Mei Chen (synthetic orthodontist)'),
-  ('10000000-0000-4000-8000-000000000012', 'clinician',        'Synthetic Paediatric Dentist'),
-  ('10000000-0000-4000-8000-000000000013', 'clinician',        'Synthetic Quincy Dentist'),
-  ('10000000-0000-4000-8000-000000000014', 'patient',          'Synthetic Patient')
+  ('10000000-0000-4000-8000-000000000001', 'org_admin',        'Admin'),
+  ('10000000-0000-4000-8000-000000000002', 'receptionist',     'Back Bay Receptionist'),
+  ('10000000-0000-4000-8000-000000000003', 'receptionist',     'Cambridge Receptionist'),
+  ('10000000-0000-4000-8000-000000000004', 'receptionist',     'Quincy Receptionist'),
+  ('10000000-0000-4000-8000-000000000005', 'location_manager', 'Back Bay Manager'),
+  ('10000000-0000-4000-8000-000000000006', 'location_manager', 'Cambridge Manager'),
+  ('10000000-0000-4000-8000-000000000007', 'location_manager', 'Quincy Manager'),
+  ('10000000-0000-4000-8000-000000000008', 'clinician',        'Oral Surgeon'),
+  ('10000000-0000-4000-8000-000000000009', 'clinician',        'Endodontist'),
+  ('10000000-0000-4000-8000-000000000010', 'clinician',        'Back Bay Hygienist'),
+  ('10000000-0000-4000-8000-000000000011', 'clinician',        'Dr Mei Chen (orthodontist)'),
+  ('10000000-0000-4000-8000-000000000012', 'clinician',        'Paediatric Dentist'),
+  ('10000000-0000-4000-8000-000000000013', 'clinician',        'Quincy Dentist'),
+  ('10000000-0000-4000-8000-000000000014', 'patient',          'Patient')
 on conflict (id) do update set role = excluded.role, display_name = excluded.display_name;
 
 insert into public.staff_locations (profile_id, location_id)
@@ -143,34 +143,34 @@ select id, display_name from public.profiles where role = 'clinician';
 -- What patients see: a name, title, focus, bio and photo (assets/images/team in the app).
 update public.practitioners set public_name = 'Dr Mei Chen', title = 'Orthodontist', focus = 'Braces and clear aligners', photo_key = 'mei-chen',
   bio = 'Mei straightens smiles for teenagers and adults, and plans every aligner case from a 3D scan so you can see the result before you start.'
- where display_name = 'Dr Mei Chen (synthetic orthodontist)';
+ where display_name = 'Dr Mei Chen (orthodontist)';
 update public.practitioners set public_name = 'Priya Raman, RDH', title = 'Dental hygienist', focus = 'Cleanings and gum health', photo_key = 'priya-raman',
   bio = 'Priya gives thorough, gentle cleanings and shows you the small changes at home that keep your gums healthy between visits.'
- where display_name = 'Synthetic Back Bay Hygienist';
+ where display_name = 'Back Bay Hygienist';
 update public.practitioners set public_name = 'Dr Samuel Okafor', title = 'Endodontist', focus = 'Root canal treatment', photo_key = 'samuel-okafor',
   bio = 'Samuel saves teeth with calm, unhurried root canal treatment, and explains every step so nothing comes as a surprise.'
- where display_name = 'Synthetic Endodontist';
+ where display_name = 'Endodontist';
 update public.practitioners set public_name = 'Dr Laura Bennett', title = 'Oral surgeon', focus = 'Extractions and implants', photo_key = 'laura-bennett',
   bio = 'Laura looks after wisdom teeth, extractions and implants, planning each procedure with a 3D scan for a quicker recovery.'
- where display_name = 'Synthetic Oral Surgeon';
+ where display_name = 'Oral Surgeon';
 update public.practitioners set public_name = 'Dr Diego Alvarez', title = 'Children''s dentist', focus = 'Dental care for children', photo_key = 'diego-alvarez',
   bio = 'Diego makes the dentist a fun place for children, with check-ups, sealants and plenty of time for questions from parents.'
- where display_name = 'Synthetic Paediatric Dentist';
+ where display_name = 'Paediatric Dentist';
 update public.practitioners set public_name = 'Dr Hannah Brooks', title = 'General dentist', focus = 'Check-ups, fillings and crowns', photo_key = 'hannah-brooks',
   bio = 'Hannah looks after the whole family, from check-ups to fillings and crowns, and believes in fixing small problems early.'
- where display_name = 'Synthetic Quincy Dentist';
+ where display_name = 'Quincy Dentist';
 
 -- Where and as what each clinician works. The orthodontist works at Cambridge and, on Tuesdays, at Back Bay.
 insert into public.practitioner_roles (practitioner_id, location_id, specialty_id, weekly_template)
 select pr.id, l.id, s.id, r.template::jsonb
 from (values
-  ('Synthetic Oral Surgeon',       'back-bay',  'oral-surgery', '{"mon": [["08:00","18:00"]], "wed": [["08:00","18:00"]], "fri": [["08:00","18:00"]]}'),
-  ('Synthetic Endodontist',        'back-bay',  'endodontics',  '{"mon": [["08:00","18:00"]], "thu": [["08:00","18:00"]]}'),
-  ('Synthetic Back Bay Hygienist', 'back-bay',  'hygiene',      '{"mon": [["08:00","18:00"]], "tue": [["08:00","18:00"]], "wed": [["08:00","18:00"]], "thu": [["08:00","18:00"]], "fri": [["08:00","18:00"]]}'),
-  ('Dr Mei Chen (synthetic orthodontist)',       'cambridge', 'orthodontics', '{"mon": [["09:00","17:00"]], "wed": [["09:00","17:00"]], "thu": [["09:00","17:00"]], "fri": [["09:00","17:00"]], "sat": [["09:00","16:00"]]}'),
-  ('Dr Mei Chen (synthetic orthodontist)',       'back-bay',  'orthodontics', '{"tue": [["08:00","18:00"]]}'),
-  ('Synthetic Paediatric Dentist', 'cambridge', 'paediatric',   '{"mon": [["09:00","17:00"]], "tue": [["09:00","17:00"]], "wed": [["09:00","17:00"]], "thu": [["09:00","17:00"]]}'),
-  ('Synthetic Quincy Dentist',     'quincy',    'general',      '{"mon": [["07:00","15:00"]], "tue": [["07:00","15:00"]], "wed": [["12:00","20:00"]], "thu": [["12:00","20:00"]], "sat": [["07:00","15:00"]]}')
+  ('Oral Surgeon',       'back-bay',  'oral-surgery', '{"mon": [["08:00","18:00"]], "wed": [["08:00","18:00"]], "fri": [["08:00","18:00"]]}'),
+  ('Endodontist',        'back-bay',  'endodontics',  '{"mon": [["08:00","18:00"]], "thu": [["08:00","18:00"]]}'),
+  ('Back Bay Hygienist', 'back-bay',  'hygiene',      '{"mon": [["08:00","18:00"]], "tue": [["08:00","18:00"]], "wed": [["08:00","18:00"]], "thu": [["08:00","18:00"]], "fri": [["08:00","18:00"]]}'),
+  ('Dr Mei Chen (orthodontist)',       'cambridge', 'orthodontics', '{"mon": [["09:00","17:00"]], "wed": [["09:00","17:00"]], "thu": [["09:00","17:00"]], "fri": [["09:00","17:00"]], "sat": [["09:00","16:00"]]}'),
+  ('Dr Mei Chen (orthodontist)',       'back-bay',  'orthodontics', '{"tue": [["08:00","18:00"]]}'),
+  ('Paediatric Dentist', 'cambridge', 'paediatric',   '{"mon": [["09:00","17:00"]], "tue": [["09:00","17:00"]], "wed": [["09:00","17:00"]], "thu": [["09:00","17:00"]]}'),
+  ('Quincy Dentist',     'quincy',    'general',      '{"mon": [["07:00","15:00"]], "tue": [["07:00","15:00"]], "wed": [["12:00","20:00"]], "thu": [["12:00","20:00"]], "sat": [["07:00","15:00"]]}')
 ) as r(name, code, specialty, template)
 join public.practitioners pr on pr.display_name = r.name
 join public.locations l on l.code = r.code

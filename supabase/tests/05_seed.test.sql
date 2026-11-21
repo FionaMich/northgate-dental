@@ -2,7 +2,7 @@
 begin;
 select plan(11);
 
-select ok((select is_synthetic and name ilike '%synthetic%' from organisation), 'the organisation is marked and named synthetic');
+select ok((select is_synthetic from organisation), 'the organisation is marked as test data (is_synthetic), whatever its display name');
 select set_eq($$ select code from locations $$, array['back-bay', 'cambridge', 'quincy'], 'the three Northgate locations are seeded');
 select is_empty(
   $$ select l.code from locations l where not exists (select 1 from location_hours h where h.location_id = l.id) $$,

@@ -46,7 +46,7 @@ def test_canary_values_appear_only_in_the_canary_patient():
 
 
 def test_dr_chen_is_named_in_the_sql():
-    assert "Dr Mei Chen (synthetic orthodontist)" in to_sql(generate(patients=1, seed=1))
+    assert "Dr Mei Chen (orthodontist)" in to_sql(generate(patients=1, seed=1))
 
 
 def test_sofia_is_fifteen_on_the_anchor_date():
