@@ -43,3 +43,30 @@ def test_a_receipt_shows_the_amount_in_dollars_and_nothing_about_cancelling():
     message = render("receipt", replace(CTX, amount_cents=123456))
     assert message.subject == "Payment received"
     assert "$1,234.56" in message.text and "cancel" not in message.text
+
+
+def test_confirmations_and_reminders_carry_a_cancel_link_when_there_is_one():
+    from dataclasses import replace
+    message = render("reminder:24h", replace(CTX, link="https://n8n.example/webhook/visit?t=abc"))
+    assert "Need to cancel? Use this link: https://n8n.example/webhook/visit?t=abc" in message.text
+    assert '<a href="https://n8n.example/webhook/visit?t=abc"' in message.html
+
+
+def test_a_check_in_asks_how_the_patient_is_and_gives_the_emergency_path():
+    from dataclasses import replace
+    message = render("checkin:1d", replace(CTX, link="https://n8n.example/webhook/checkin?t=abc"))
+    assert message.subject == "How are you feeling?"
+    assert "https://n8n.example/webhook/checkin?t=abc" in message.text and "911" in message.text
+    assert "+16175550130" in message.text
+
+
+def test_a_statement_shows_the_balance_and_a_pay_link():
+    from dataclasses import replace
+    message = render("statement:14d", replace(CTX, amount_cents=11000, link="https://n8n.example/webhook/pay?t=abc"))
+    assert "$110.00" in message.text and "pay?t=abc" in message.text
+
+
+def test_the_clinic_alert_names_no_patient():
+    from worker.messages import render_alert
+    message = render_alert("Quincy", "4a000000-0000-4000-8000-000000000003")
+    assert "Quincy" in message.text and "4a000000" in message.text

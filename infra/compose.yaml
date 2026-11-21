@@ -80,6 +80,8 @@ services:
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       EMAIL_FROM: ${EMAIL_FROM:-Northgate Dental <onboarding@resend.dev>}
       EMAIL_REDIRECT_TO: ${EMAIL_REDIRECT_TO:-}  # staging and the demo: every email to one inbox
+      LINK_BASE: https://n8n.${DOMAIN}/webhook          # cancel, check-in and pay links point at n8n's pages
+      CLINIC_ALERT_EMAIL: ${CLINIC_ALERT_EMAIL:-}       # where urgent check-in alerts go
     networks: [app]                                # outbound only: Supabase and Resend; nothing connects to it
     mem_limit: 128m
     profiles: [worker]                             # started once its login and key are in .env
