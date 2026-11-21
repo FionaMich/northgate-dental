@@ -51,7 +51,10 @@ final visit = Visit(
   ],
   findings: const [
     Finding(tooth: '14', surface: 'O', condition: 'caries'),
-    Finding(tooth: '3', condition: 'filled'),
+    Finding(tooth: '3', surface: 'MO', condition: 'filled'),
+    Finding(tooth: '19', condition: 'crown'),
+    Finding(tooth: '1', condition: 'missing'),
+    Finding(tooth: '30', surface: 'O', condition: 'sealant'),
   ],
 );
 
