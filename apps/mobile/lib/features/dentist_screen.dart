@@ -7,6 +7,7 @@ import '../design/widgets.dart';
 import '../state.dart';
 import 'booking_screen.dart';
 import 'care_widgets.dart';
+import 'clinic_screen.dart';
 
 /// The active team, for booking and the team row on Home.
 final dentistsProvider = FutureProvider<List<Dentist>>(retry: (_, _) => null, (ref) async {
@@ -119,7 +120,19 @@ class DentistScreen extends ConsumerWidget {
                   title: 'About',
                   rows: [
                     GroupRow(icon: Icons.auto_awesome_rounded, tint: Tint.violet, title: 'Focus', detail: d.focus),
-                    GroupRow(icon: Icons.location_on_rounded, tint: Tint.teal, title: 'Works at', detail: d.clinics.values.join(' and ')),
+                    GroupRow(
+                      key: const Key('dentist-clinic'),
+                      icon: Icons.location_on_rounded,
+                      tint: Tint.teal,
+                      title: 'Works at',
+                      detail: d.clinics.values.join(' and '),
+                      onTap: () {
+                        final clinic = (ref.read(clinicsProvider).value ?? const []).where((c) => d.clinics.containsKey(c.id)).firstOrNull;
+                        if (clinic != null) {
+                          Navigator.of(context).push(MaterialPageRoute(builder: (_) => ClinicScreen(clinic: clinic)));
+                        }
+                      },
+                    ),
                   ],
                 ),
                 const SizedBox(height: 18),

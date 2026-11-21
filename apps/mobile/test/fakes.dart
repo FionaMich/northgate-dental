@@ -147,7 +147,14 @@ class FakeAccountRepository implements AccountRepository {
 
   @override
   Future<List<Clinic>> clinics() async => const [
-    Clinic(id: 'back-bay', name: 'Back Bay', address: '1 Example Street, Boston, MA 02116'),
+    Clinic(
+      id: 'back-bay',
+      name: 'Back Bay',
+      address: '1 Example Street, Boston, MA 02116',
+      phone: '+16175550110',
+      photoKey: 'back-bay',
+      hours: [(1, '08:00', '18:00'), (2, '08:00', '18:00'), (3, '08:00', '18:00'), (4, '08:00', '18:00'), (5, '08:00', '16:00')],
+    ),
     Clinic(id: 'cambridge', name: 'Cambridge', address: '2 Example Avenue, Cambridge, MA 02139'),
     Clinic(id: 'quincy', name: 'Quincy', address: '3 Example Road, Quincy, MA 02169'),
   ];

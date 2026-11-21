@@ -118,4 +118,15 @@ void main() {
     expect(find.text('Hannah looks after the whole family.'), findsOneWidget);
     expect(find.byKey(const Key('book-with-dentist')), findsOneWidget);
   });
+
+  testWidgets('services can be searched and filtered by group', (tester) async {
+    await openBooking(tester);
+    await tester.enterText(find.byKey(const Key('service-search')), 'exam');
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('service-exam')), findsOneWidget);
+    expect(find.byKey(const Key('service-cleaning')), findsNothing);
+    await tester.enterText(find.byKey(const Key('service-search')), '');
+    await tapKey(tester, 'category-Check-ups');
+    expect(find.byKey(const Key('service-exam')), findsOneWidget, reason: 'an exam is a check-up');
+  });
 }

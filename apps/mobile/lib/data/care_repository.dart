@@ -14,9 +14,15 @@ class Appointment {
     required this.status,
     this.dentist,
     this.dentistPhoto,
+    this.clinicId,
+    this.serviceId,
+    this.dentistId,
   });
   final String id, service, location, status;
   final String? dentist, dentistPhoto;
+
+  /// For rescheduling: book the same service with the same dentist at the same clinic.
+  final String? clinicId, serviceId, dentistId;
   final DateTime startsAt, endsAt;
 }
 
@@ -111,9 +117,24 @@ class CareSummary {
 
 /// A service patients may book themselves at a clinic.
 class BookableService {
-  const BookableService({required this.id, required this.name, required this.minutes, this.summary = ''});
+  const BookableService({required this.id, required this.name, required this.minutes, this.summary = '', this.specialty = 'general'});
   final String id, name;
   final int minutes;
+
+  /// The specialty code (general, hygiene, orthodontics, ...), used to group services for patients.
+  final String specialty;
+
+  /// The patient-facing group for browsing.
+  String get category => switch (specialty) {
+    'hygiene' || 'paediatric' => 'Check-ups',
+    'orthodontics' => 'Orthodontics',
+    'oral-surgery' => 'Surgery and implants',
+    'endodontics' => 'Fillings and crowns',
+    _ when name.toLowerCase().contains('whiten') => 'Cosmetic',
+    _ when name.toLowerCase().contains('exam') => 'Check-ups',
+    _ when name.toLowerCase().contains('extraction') => 'Surgery and implants',
+    _ => 'Fillings and crowns',
+  };
 
   /// One plain sentence about what happens, shown before booking.
   final String summary;
@@ -236,7 +257,8 @@ class SupabaseCareRepository implements CareRepository {
       _db
           .from('appointments')
           .select(
-            'id, starts_at, ends_at, status, location_services(services(name), locations(name)), practitioners(public_name, photo_key)',
+            'id, starts_at, ends_at, status, location_id, service_id, practitioner_id, '
+            'location_services(services(name), locations(name)), practitioners(public_name, photo_key)',
           )
           .eq('patient_id', patientId)
           .inFilter('status', ['booked', 'arrived'])
@@ -276,6 +298,9 @@ class SupabaseCareRepository implements CareRepository {
             status: r['status'] as String,
             dentist: (r['practitioners'] as Map?)?['public_name'] as String?,
             dentistPhoto: (r['practitioners'] as Map?)?['photo_key'] as String?,
+            clinicId: r['location_id'] as String?,
+            serviceId: r['service_id'] as String?,
+            dentistId: r['practitioner_id'] as String?,
           ),
       ],
       visits: [
@@ -347,7 +372,7 @@ class SupabaseCareRepository implements CareRepository {
   Future<List<BookableService>> services(String clinicId) async {
     final rows = await _db
         .from('location_services')
-        .select('services(id, name, summary, duration_minutes, self_bookable, active)')
+        .select('services(id, name, summary, duration_minutes, self_bookable, active, specialties(code))')
         .eq('location_id', clinicId)
         .eq('active', true);
     final list = [
@@ -358,6 +383,7 @@ class SupabaseCareRepository implements CareRepository {
             name: s['name'] as String,
             minutes: s['duration_minutes'] as int,
             summary: s['summary'] as String? ?? '',
+            specialty: (s['specialties'] as Map?)?['code'] as String? ?? 'general',
           ),
     ];
     return list..sort((a, b) => a.name.compareTo(b.name));

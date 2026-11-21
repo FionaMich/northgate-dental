@@ -11,6 +11,7 @@ import '../design/tokens.dart';
 import '../design/widgets.dart';
 import '../state.dart';
 import 'care_widgets.dart';
+import 'clinic_screen.dart';
 import 'dentist_screen.dart';
 
 /// Services the patient may book at one clinic.
@@ -27,11 +28,17 @@ final slotsProvider = FutureProvider.autoDispose.family<List<Slot>, (String, Str
 
 /// Book a visit: clinic, service, day, time, then a 10-minute hold to confirm.
 class BookingScreen extends ConsumerStatefulWidget {
-  const BookingScreen({super.key, required this.patient, this.dentistId, this.clinicId});
+  const BookingScreen({super.key, required this.patient, this.dentistId, this.clinicId, this.serviceId, this.replaces, this.category});
+
+  /// Start with the service list filtered to this group (from "Our services" on Home).
+  final String? category;
   final LinkedPatient patient;
 
-  /// Start with this dentist and clinic chosen (from a dentist's profile).
-  final String? dentistId, clinicId;
+  /// Start with this dentist, clinic and service chosen (from a dentist's profile, or when rescheduling).
+  final String? dentistId, clinicId, serviceId;
+
+  /// Rescheduling: the visit to cancel once the new time is confirmed (never before, so nobody is left unbooked).
+  final Appointment? replaces;
 
   @override
   ConsumerState<BookingScreen> createState() => _BookingScreenState();
@@ -40,7 +47,9 @@ class BookingScreen extends ConsumerStatefulWidget {
 class _BookingScreenState extends ConsumerState<BookingScreen> {
   late String? _clinic = widget.clinicId;
   late String? _dentist = widget.dentistId; // null: any available dentist
-  String? _service;
+  late String? _service = widget.serviceId;
+  late String? _category = widget.category;
+  String _search = '';
   DateTime? _day;
   Slot? _slot;
   bool _busy = false;
@@ -80,8 +89,15 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
       );
       if (!mounted) return;
       if (booked == true) {
+        if (widget.replaces case final old?) {
+          try {
+            await ref.read(careRepositoryProvider).cancel(old.id);
+          } on BookingError {
+            // The new visit stands; the old one stays visible so the patient can cancel it by hand.
+          }
+        }
         ref.invalidate(careSummaryProvider);
-        Navigator.of(context).pop();
+        if (mounted) Navigator.of(context).pop();
       } else {
         setState(() => _slot = null);
         ref.invalidate(slotsProvider((_clinic!, _service!)));
@@ -147,7 +163,39 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                   ),
                   AsyncData(:final value) => Column(
                     children: [
-                      for (final s in value)
+                      TextField(
+                        key: const Key('service-search'),
+                        onChanged: (v) => setState(() => _search = v.trim().toLowerCase()),
+                        decoration: const InputDecoration(labelText: 'Search services', prefixIcon: Icon(Icons.search_rounded)),
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        height: 40,
+                        child: ListView(
+                          scrollDirection: Axis.horizontal,
+                          children: [
+                            for (final cat in [
+                              null,
+                              ...{for (final s in value) s.category},
+                            ])
+                              Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: ChoiceChip(
+                                  key: Key('category-${cat ?? 'all'}'),
+                                  label: Text(cat ?? 'All'),
+                                  selected: _category == cat,
+                                  onSelected: (_) => setState(() => _category = cat),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      for (final s in value.where(
+                        (s) =>
+                            (_category == null || s.category == _category) &&
+                            (_search.isEmpty || '${s.name} ${s.summary}'.toLowerCase().contains(_search)),
+                      ))
                         _Choice(
                           key: Key('service-${s.id}'),
                           selected: s.id == _service,
@@ -192,7 +240,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                 ],
                 if (_service != null) ...[
                   const SizedBox(height: 26),
-                  const SectionTitle('Pick a day'),
+                  SectionTitle(days.isEmpty ? 'Pick a day' : 'Pick a day · ${monthYear(days.keys.first)}'),
                   if (slots == null || slots.isLoading)
                     const _Loading()
                   else if (slots.hasError)
@@ -209,7 +257,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                     )
                   else ...[
                     SizedBox(
-                      height: 92,
+                      height: 104,
                       child: ListView.separated(
                         scrollDirection: Axis.horizontal,
                         itemCount: days.length,
@@ -310,11 +358,25 @@ class _Header extends StatelessWidget {
               onPressed: () => Navigator.of(context).maybePop(),
               icon: const Icon(Icons.arrow_back_rounded),
             ),
-            const Padding(
-              padding: EdgeInsets.fromLTRB(12, 4, 12, 14),
-              child: Text(
-                'Book a visit',
-                style: TextStyle(fontSize: 30, fontWeight: FontWeight.w700, letterSpacing: -0.8, color: Colors.white),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 4, 4, 14),
+              child: Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Book a visit',
+                      style: TextStyle(fontSize: 30, fontWeight: FontWeight.w700, letterSpacing: -0.8, color: Colors.white),
+                    ),
+                  ),
+                  if (clinics.where((c) => c.id == selected).firstOrNull case final c?)
+                    TextButton.icon(
+                      key: const Key('about-clinic'),
+                      style: TextButton.styleFrom(foregroundColor: const Color(0xFF8FE3C8)),
+                      onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ClinicScreen(clinic: c))),
+                      icon: const Icon(Icons.info_outline_rounded, size: 18),
+                      label: const Text('Clinic info'),
+                    ),
+                ],
               ),
             ),
             SingleChildScrollView(
@@ -483,7 +545,10 @@ class _DayTile extends StatelessWidget {
                   '${day.day}',
                   style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: selected ? Colors.white : Palette.deepSea),
                 ),
-                Text(shortMonth(day), style: TextStyle(fontSize: 11, color: selected ? const Color(0xFFCDEFE7) : Palette.muted)),
+                Text(
+                  count == 1 ? '1 time' : '$count times',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: selected ? const Color(0xFFCDEFE7) : Palette.teal),
+                ),
               ],
             ),
           ),

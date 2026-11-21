@@ -2,7 +2,6 @@ import 'package:dental/data/account_repository.dart';
 import 'package:dental/data/aftercare.dart';
 import 'package:dental/data/care_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:material_ui/material_ui.dart';
 
 import 'fakes.dart';
 import 'sign_in_and_linking_test.dart' show pumpApp, signIn, tapKey;

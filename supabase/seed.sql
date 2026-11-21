@@ -9,6 +9,9 @@ insert into public.locations (code, name, address_line, city, state, postal_code
   ('back-bay',  'Back Bay (synthetic)',  '1 Example Street',   'Boston',    'MA', '02116', 'America/New_York'),
   ('cambridge', 'Cambridge (synthetic)', '2 Example Avenue',   'Cambridge', 'MA', '02139', 'America/New_York'),
   ('quincy',    'Quincy (synthetic)',    '3 Example Road',     'Quincy',    'MA', '02169', 'America/New_York');
+update public.locations set phone = '+16175550110', photo_key = 'back-bay'  where code = 'back-bay';
+update public.locations set phone = '+16175550120', photo_key = 'cambridge' where code = 'cambridge';
+update public.locations set phone = '+16175550130', photo_key = 'quincy'    where code = 'quincy';
 
 -- Quincy takes MassHealth Dental: no missed-appointment fee there.
 insert into public.location_settings (location_id, overrides)

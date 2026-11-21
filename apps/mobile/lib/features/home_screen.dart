@@ -133,6 +133,7 @@ class _Body extends ConsumerWidget {
           const SizedBox(height: 22),
         ],
         if (recall != null) ...[Reveal(child: _RecallCard(due: recall)), const SizedBox(height: 22)],
+        const Reveal(order: 1, child: _OurServices()),
         const Reveal(order: 1, child: _Team()),
         Reveal(
           order: 1,
@@ -222,7 +223,8 @@ class _BookPrompt extends ConsumerWidget {
   );
 }
 
-Future<void> _confirmCancel(BuildContext context, WidgetRef ref, Appointment a) async {
+/// Asks before cancelling a visit; used on Home and in Visits.
+Future<void> confirmCancelVisit(BuildContext context, WidgetRef ref, Appointment a) async {
   final yes = await showModalBottomSheet<bool>(
     context: context,
     backgroundColor: Colors.white,
@@ -367,7 +369,7 @@ class _NextVisit extends ConsumerWidget {
               const Spacer(),
             TextButton(
               key: const Key('cancel-visit'),
-              onPressed: () => _confirmCancel(context, ref, appointment),
+              onPressed: () => confirmCancelVisit(context, ref, appointment),
               style: TextButton.styleFrom(foregroundColor: Palette.error),
               child: const Text('Cancel visit'),
             ),
@@ -620,4 +622,57 @@ class _RecallCard extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// "Our services": a chip per group, each opening booking already filtered to it.
+class _OurServices extends ConsumerWidget {
+  const _OurServices();
+
+  static const _groups = [
+    ('Check-ups', Icons.health_and_safety_outlined, Tint.teal),
+    ('Fillings and crowns', Icons.build_circle_outlined, Tint.sky),
+    ('Cosmetic', Icons.auto_awesome_rounded, Tint.violet),
+    ('Orthodontics', Icons.grid_view_rounded, Tint.apricot),
+    ('Surgery and implants', Icons.healing_rounded, Tint.rose),
+  ];
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) => Padding(
+    padding: const EdgeInsets.only(bottom: 22),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SectionTitle('Our services'),
+        SizedBox(
+          height: 48,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            clipBehavior: Clip.none,
+            itemCount: _groups.length,
+            separatorBuilder: (_, _) => const SizedBox(width: 10),
+            itemBuilder: (_, i) {
+              final (label, icon, tint) = _groups[i];
+              return ActionChip(
+                key: Key('our-services-$i'),
+                avatar: Icon(icon, size: 18, color: tint.ink),
+                label: Text(label),
+                backgroundColor: Colors.white,
+                side: const BorderSide(color: Color(0xFFE3ECEA)),
+                shape: const StadiumBorder(),
+                onPressed: () {
+                  final person = ref.read(currentPatientProvider);
+                  if (person == null) return;
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => BookingScreen(patient: person, category: label),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+      ],
+    ),
+  );
 }
