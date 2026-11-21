@@ -27,7 +27,11 @@ flowchart LR
     storage[(Storage<br/>private buckets)]
     fn[Edge Function<br/>verify-address]
   end
-  subgraph vm[Oracle VM, Arm, Docker Compose]
+  subgraph oci[Oracle Cloud, built with Terraform]
+    nlb[Network Load Balancer<br/>TCP 80, 443, keeps client IP]
+    bastion[Bastion<br/>SSH, one admin address]
+  end
+  subgraph vm[Private VM, no public IP, Docker Compose]
     waf[Nginx + ModSecurity<br/>OWASP Core Rule Set]
     presidio[Presidio<br/>internal network only]
     backup[Nightly backup<br/>pg_dump + age]
@@ -41,7 +45,8 @@ flowchart LR
   app -->|5-minute signed links| storage
   app --> fn -->|street, city, state, ZIP only| census
   auth -->|sign-in codes| resend
-  internet((Internet)) -->|80, 443| waf
+  internet((Internet)) -->|80, 443| nlb -->|private subnet| waf
+  bastion -.->|22| waf
   backup -->|read| db
   backup -->|upload-only key| s3
 ```
@@ -119,13 +124,23 @@ Supabase sends the sign-in codes through Resend's SMTP service, with branded tem
 </details>
 
 <details>
-<summary><b>Oracle VM with Docker Compose</b></summary>
+<summary><b>Oracle Cloud: a private VM behind a Network Load Balancer, built with Terraform</b></summary>
 
-The always-on services run on an Oracle Cloud Always Free Arm (Ampere) VM with Docker Compose. A single VM keeps the cost at zero, and Compose makes the server reproducible: it can be rebuilt from this repository with two scripts.
+The always-on services run on one Oracle Cloud VM with Docker Compose. Everything around it is code in `infra/terraform/oci/`, so the whole server can be destroyed and rebuilt from this repository, and every infrastructure change is reviewed as a pull request with a `terraform plan`.
+
+- **No public IP on the VM.** It sits in a private subnet that forbids public addresses. The only way in from the internet is the Network Load Balancer on ports 80 and 443; outbound traffic (updates, image pulls, backups) leaves through a NAT gateway.
+- **Network Load Balancer, not an HTTP load balancer:**
+  - it passes traffic straight through and keeps each visitor's real IP, so the WAF and rate limits work per visitor (shown in the WAF log);
+  - TLS stays end to end to our own Nginx, where it is tested in CI;
+  - an HTTP load balancer would end TLS itself and replace every visitor's address with its own.
+- **SSH only through Oracle Bastion.** Port 22 is closed to the internet. Sessions last at most three hours and can only be opened from one admin address. `infra/scripts/ssh-vm.sh` opens a session and signs in, in one command.
+- **Least-privilege security lists:** the public subnet takes 80 and 443 only. The private subnet takes 80 and 443, and SSH only from the bastion's subnet.
+- **Its own compartment,** and every resource tagged with product, environment and `managed_by=terraform`.
+- **Shape:** VM.Standard.E3.Flex (1 core, 8 GB) while Johannesburg has no free Ampere A1 capacity. `infra/terraform/oci/retry-a1.sh` checks Oracle's capacity report and moves to the Always Free A1 when it can. The new VM is built before the old one is removed, so a failed attempt never leaves the site without a server.
 
 - **Three networks:** `edge` faces the internet and only the WAF is on it; `app` is for services; `data` is internal-only, with no route in or out, and holds Presidio.
-- **Every container** has a pinned version, a memory limit, a health check and log rotation, and every image has an arm64 build.
-- **Hardening** (`infra/scripts/bootstrap-vm.sh`): keys-only SSH, no root sign-in, fail2ban, automatic security updates, a firewall open only on 22, 80 and 443, and a non-root `deploy` user.
+- **Every container** has a pinned version, a memory limit, a health check and log rotation, and every image has amd64 and arm64 builds.
+- **Hardening** (`infra/scripts/bootstrap-vm.sh`, run automatically on first boot): keys-only SSH, no root sign-in, fail2ban, automatic security updates, a host firewall for 80 and 443, and a non-root `deploy` user.
 
 </details>
 
@@ -219,7 +234,64 @@ Merges into `develop` apply database migrations to staging automatically.
 ## Deployments
 
 <details>
-<summary><b>21 November 2026: hardened server on Oracle Cloud, live at <code>https://145-241-98-74.sslip.io</code></b></summary>
+<summary><b>21 November 2026 (later): private VM behind a Network Load Balancer, live at <code>https://84-12-126-31.sslip.io</code></b></summary>
+
+**What changed:**
+- Terraform built a compartment, a network with public and private subnets, NAT and service gateways, a Network Load Balancer, a Bastion and a new VM with no public IP.
+- The services moved to the new VM, and the first VM was deleted.
+
+**Terraform plan:** 20 resources to add, nothing to change or destroy.
+
+![Terraform plan](.github/readme/deploy-06b/09-terraform-plan.jpg)
+
+**All WAF checks pass on the new VM, behind the balancer:**
+
+![WAF checks behind the load balancer](.github/readme/deploy-06b/10-waf-checks-behind-nlb.jpg)
+
+**The VM has no public IP, and the balancer answers only on 80 and 443:**
+
+![Private VM proof](.github/readme/deploy-06b/13-private-vm-proof.jpg)
+
+**The backup leaves the private VM through the NAT gateway:**
+
+![Backup from the new VM](.github/readme/deploy-06b/12-backup-new-vm.jpg)
+
+**Commands, in order:**
+
+```bash
+# Oracle API key in ~/.oci/config (console: My profile → API keys), then:
+cd infra/terraform/oci
+terraform init
+terraform plan -out=northgate.tfplan          # 20 to add
+terraform apply northgate.tfplan              # A1 had no capacity, so the shape setting switched to E3.Flex
+
+# the VM hardens itself on first boot; sign in through the bastion
+infra/scripts/ssh-vm.sh deploy
+cd /opt/northgate/infra
+nano .env                                     # settings copied from the first VM, DOMAIN=84-12-126-31.sslip.io
+scripts/issue-certs.sh --letsencrypt          # the certificate check arrives through the load balancer
+docker compose up -d --wait
+tests/test_waf.sh && tests/test_presidio.sh && scripts/backup.sh
+
+# first VM deleted together with its boot volume
+oci compute instance terminate --instance-id <first VM> --preserve-boot-volume false
+
+# move to the free Ampere A1 when Oracle has capacity
+nohup infra/terraform/oci/retry-a1.sh 900 > ~/retry-a1.log 2>&1 &
+```
+
+**Console screenshots still to take:**
+
+- [ ] Network Load Balancer, showing its listeners, backend sets and health: https://cloud.oracle.com/networking/network-load-balancers?region=af-johannesburg-1
+- [ ] The VM's page, showing the private IP only and the shape: https://cloud.oracle.com/compute/instances?region=af-johannesburg-1
+- [ ] The VCN with its two subnets and gateways: https://cloud.oracle.com/networking/vcns?region=af-johannesburg-1
+- [ ] The Bastion and an active session: https://cloud.oracle.com/bastion/bastions?region=af-johannesburg-1
+- [ ] The `northgate` compartment's resources, with their tags
+
+</details>
+
+<details>
+<summary><b>21 November 2026: hardened server on Oracle Cloud (first VM, since replaced)</b></summary>
 
 **What went live:**
 - the WAF front door, with HTTPS from Let's Encrypt;
@@ -259,13 +331,13 @@ aws login --profile northgate
 infra/aws/backup-bucket.sh
 
 # harden the VM (Oracle Linux 9): updates, firewall, fail2ban, keys-only SSH, Docker, age, deploy user, cron
-ssh opc@145.241.98.74 'sudo bash -s' < infra/scripts/bootstrap-vm.sh
+ssh opc@<first VM IP> 'sudo bash -s' < infra/scripts/bootstrap-vm.sh
 
 # backup key pair: the private key never leaves the laptop
 age-keygen -o ~/.config/northgate/backup-age-key.txt
 
 # on the VM, as the deploy user
-ssh deploy@145.241.98.74
+ssh deploy@<first VM IP>
 cd /opt/northgate/infra
 nano .env                                   # DOMAIN, SUBDOMAINS, SUPABASE_DB_URL=<pooler URI>, backup keys
 scripts/issue-certs.sh --letsencrypt         # start the WAF, get the certificate
