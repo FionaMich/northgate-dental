@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -15,6 +14,7 @@ import '../design/tokens.dart';
 import '../state.dart';
 import 'aftercare_screen.dart';
 import 'care_widgets.dart';
+import 'tooth_chart.dart';
 
 /// Opens a short-lived document link outside the app (PDFs open in the phone's viewer). Replaced in tests.
 final documentOpenerProvider = Provider<Future<void> Function(String url)>(
@@ -285,142 +285,6 @@ class _Chip extends StatelessWidget {
   );
 }
 
-/// The 32 permanent teeth on two arches, as the patient faces you (Universal numbering): treated teeth in teal,
-/// planned treatment in apricot, teeth the dentist noted ringed. Numbers show only on teeth with something to say.
-class ToothChart extends StatelessWidget {
-  const ToothChart({super.key, required this.procedures, required this.findings});
-  final List<Procedure> procedures;
-  final List<Finding> findings;
-
-  // Molars are widest, then premolars, canines and incisors; one side of the arch, back to front.
-  static const _sideWidths = [1.25, 1.25, 1.25, 0.95, 0.95, 0.85, 0.78, 0.82];
-
-  @override
-  Widget build(BuildContext context) => Column(
-    children: [
-      LayoutBuilder(
-        builder: (context, box) {
-          final w = box.maxWidth, h = w * 0.86;
-          final unit = w / 15.5;
-          final widths = [..._sideWidths, ..._sideWidths.reversed]; // 16 teeth, back right to back left
-          final total = widths.fold(0.0, (a, b) => a + b);
-          final children = <Widget>[];
-          for (final upper in [true, false]) {
-            final cx = w / 2, cy = upper ? h * 0.48 : h * 0.52;
-            final rx = w * 0.43, ry = h * 0.40;
-            var run = 0.0;
-            for (var k = 0; k < 16; k++) {
-              final mid = (run + widths[k] / 2) / total;
-              run += widths[k];
-              // Upper arch runs over the top (pi to 2pi), lower arch under the bottom (pi down to 0).
-              final theta = upper ? math.pi + 0.10 + mid * (math.pi - 0.20) : math.pi - 0.10 - mid * (math.pi - 0.20);
-              final x = cx + rx * math.cos(theta), y = cy + ry * math.sin(theta);
-              final number = upper ? '${k + 1}' : '${32 - k}';
-              final tw = unit * widths[k], th = unit * 1.15;
-              children.add(
-                Positioned(
-                  left: x - tw / 2,
-                  top: y - th / 2,
-                  child: Transform.rotate(angle: theta + math.pi / 2, child: _tooth(number, tw, th, theta + math.pi / 2)),
-                ),
-              );
-            }
-          }
-          return SizedBox(
-            width: w,
-            height: h,
-            child: Stack(
-              children: [
-                ...children,
-                Align(
-                  alignment: const Alignment(0, -0.12),
-                  child: Text(
-                    'Upper',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Palette.muted.withValues(alpha: 0.8)),
-                  ),
-                ),
-                Align(
-                  alignment: const Alignment(0, 0.12),
-                  child: Text(
-                    'Lower',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Palette.muted.withValues(alpha: 0.8)),
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-      const SizedBox(height: 8),
-      const Wrap(
-        spacing: 14,
-        runSpacing: 6,
-        alignment: WrapAlignment.center,
-        children: [_Key(Palette.teal, 'Treated'), _Key(Palette.apricot, 'Planned'), _Key(null, 'Noted by the dentist')],
-      ),
-    ],
-  );
-
-  Widget _tooth(String n, double w, double h, double turn) {
-    final here = procedures.where((p) => p.tooth == n);
-    final done = here.any((p) => p.done), planned = here.any((p) => !p.done);
-    final noted = findings.any((f) => f.tooth == n);
-    final states = [if (done) 'treated', if (planned) 'treatment planned', if (noted) 'finding'];
-    final fill = done ? Palette.teal : (planned ? Palette.apricot : Colors.white);
-    return Semantics(
-      label: states.isEmpty ? 'Tooth $n' : 'Tooth $n: ${states.join(', ')}',
-      child: ExcludeSemantics(
-        child: Container(
-          width: w,
-          height: h,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: fill,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(w * 0.45), bottom: Radius.circular(w * 0.3)),
-            border: Border.all(
-              color: noted ? const Color(0xFFB35F1E) : (states.isEmpty ? const Color(0xFFCFE0DC) : Colors.transparent),
-              width: noted ? 2 : 1.2,
-            ),
-            boxShadow: states.isEmpty ? null : lift(0.6),
-          ),
-          child: states.isEmpty
-              ? null
-              : Transform.rotate(
-                  angle: -turn, // the number stays upright while the tooth follows the arch
-                  child: Text(
-                    n,
-                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: done ? Colors.white : Palette.deepSea),
-                  ),
-                ),
-        ),
-      ),
-    );
-  }
-}
-
-class _Key extends StatelessWidget {
-  const _Key(this.color, this.label);
-  final Color? color;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Container(
-        width: 14,
-        height: 14,
-        decoration: BoxDecoration(
-          color: color ?? Palette.enamel,
-          borderRadius: BorderRadius.circular(4),
-          border: color == null ? Border.all(color: const Color(0xFFB35F1E), width: 2) : null,
-        ),
-      ),
-      const SizedBox(width: 6),
-      Text(label, style: const TextStyle(fontSize: 12, color: Palette.muted)),
-    ],
-  );
-}
 
 /// A shared document: X-rays and PDFs both open inside the app, through a 5-minute link; downloading is optional.
 class DocumentTile extends ConsumerStatefulWidget {
