@@ -183,6 +183,38 @@
             }
           }
         }
+      },
+      {
+        "id": "cd97a13b-ce77-50e1-9c26-6a04628146cc",
+        "name": "Note 1",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          -40,
+          -500
+        ],
+        "parameters": {
+          "content": "## W06 Pay link\n**Trigger:** a patient opens the pay link in a statement reminder (days 0, 14, 28) or taps Pay in the app.\n\nAn open balance runs W04 and redirects (303) to Stripe Checkout. A paid or expired link gets a plain page.",
+          "width": 460,
+          "height": 300,
+          "color": 4
+        }
+      },
+      {
+        "id": "efff6749-3303-51cb-8f45-3cfdb13d18f0",
+        "name": "Note 2",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          460,
+          -500
+        ],
+        "parameters": {
+          "content": "## Security and data\n- `payment_for_token()` returns only the state and the visit ID.\n- The amount is never in the link; W04 reads it from the price list.\n- Database login: `northgate_actions_app`.",
+          "width": 460,
+          "height": 300,
+          "color": 3
+        }
       }
     ],
     "connections": {

@@ -189,6 +189,38 @@
             }
           }
         }
+      },
+      {
+        "id": "c8fd60e4-66ea-5bc2-b8dd-8a0998ab9444",
+        "name": "Note 1",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          -40,
+          -400
+        ],
+        "parameters": {
+          "content": "## W03 Cancel link\n**Trigger:** a patient opens the cancel link in a confirmation or reminder email.\n\n**Top row (GET):** shows the visit only. Mail scanners open links, so opening one must never cancel.\n\n**Bottom row (POST):** the button. `cancel_by_token()` applies the clinic's cancellation window and works once. The outbox then sends the cancellation email.",
+          "width": 460,
+          "height": 300,
+          "color": 4
+        }
+      },
+      {
+        "id": "8fda0343-b8b2-5853-ab87-ab6b3d8f5d68",
+        "name": "Note 2",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          460,
+          -400
+        ],
+        "parameters": {
+          "content": "## Security and data\n- The link is a random token; the database stores only its SHA-256 hash.\n- The page shows service, time and clinic: never the patient's name (links get forwarded).\n- Database login: `northgate_actions_app`, which can call four functions and read no table.\n- Failed runs keep no data.",
+          "width": 460,
+          "height": 300,
+          "color": 3
+        }
       }
     ],
     "connections": {
