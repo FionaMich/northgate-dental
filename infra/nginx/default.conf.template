@@ -75,3 +75,42 @@ server {
         try_files /error.html =404;
     }
 }
+
+# n8n: only webhooks are public (Stripe, Meta); the editor and API answer 404 here and are reached through the Bastion.
+server {
+    listen 8443 ssl;
+    http2 on;
+    server_name n8n.${DOMAIN};
+
+    ssl_certificate     /etc/letsencrypt/live/northgate/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/northgate/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Content-Type-Options nosniff always;
+    add_header X-Frame-Options DENY always;
+    add_header Referrer-Policy strict-origin-when-cross-origin always;
+
+    root /usr/share/nginx/static;
+    error_page 400 403 404 405 413 429 500 502 503 504 /error.html;
+    location = /error.html {
+        internal;
+        try_files /error.html =404;
+    }
+
+    client_max_body_size 1m;
+
+    location /webhook/ {
+        limit_req zone=strict burst=20 nodelay;
+        resolver 127.0.0.11 valid=30s;  # Docker's DNS, so Nginx starts even when n8n is not running
+        set $n8n http://n8n:5678;
+        proxy_pass $n8n;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto https;
+    }
+
+    location / {
+        try_files /nonexistent =404;
+    }
+}
