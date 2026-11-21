@@ -202,7 +202,7 @@ resource "oci_core_instance" "vm" {
   source_details {
     source_type             = "image"
     source_id               = data.oci_core_images.ol9.images[0].id
-    boot_volume_size_in_gbs = 50
+    boot_volume_size_in_gbs = 100 # 2026-11-22: room for Gemma (6 GB) and images; still inside the free 200 GB
   }
   create_vnic_details {
     subnet_id        = oci_core_subnet.private.id
