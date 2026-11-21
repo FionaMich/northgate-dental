@@ -91,7 +91,7 @@ class _LinkCodeScreenState extends ConsumerState<LinkCodeScreen> {
     final text = Theme.of(context).textTheme;
     return Scaffold(
       body: DecoratedBox(
-        decoration: const BoxDecoration(gradient: heroGradient),
+        decoration: const BoxDecoration(gradient: heroGradient, image: heroPhoto),
         child: LayoutBuilder(
           builder: (context, box) => SingleChildScrollView(
             child: ConstrainedBox(

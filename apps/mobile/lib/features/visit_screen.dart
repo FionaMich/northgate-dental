@@ -83,6 +83,7 @@ class VisitScreen extends ConsumerWidget {
           DecoratedBox(
             decoration: const BoxDecoration(
               gradient: heroGradient,
+              image: heroPhoto,
               borderRadius: BorderRadius.vertical(bottom: Radius.circular(32)),
             ),
             child: SafeArea(
@@ -105,7 +106,7 @@ class VisitScreen extends ConsumerWidget {
                         children: [
                           Text(
                             visitTitle(v.kind),
-                            style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w800, letterSpacing: -0.8, color: Colors.white),
+                            style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w700, letterSpacing: -0.8, color: Colors.white),
                           ),
                           const SizedBox(height: 4),
                           Text(
@@ -137,7 +138,16 @@ class VisitScreen extends ConsumerWidget {
                 if (v.reason != null && v.reason!.trim().isNotEmpty) ...[
                   const SectionTitle('Why you came'),
                   Panel(
-                    child: Text(v.reason!, style: const TextStyle(fontSize: 15, height: 1.45, color: Palette.deepSea)),
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        const TintIcon(Icons.chat_bubble_outline_rounded, Tint.sky),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Text(v.reason!, style: const TextStyle(fontSize: 15, height: 1.45, color: Palette.deepSea)),
+                        ),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 22),
                 ],
@@ -180,7 +190,7 @@ class VisitScreen extends ConsumerWidget {
                                 ),
                                 Text(
                                   dollars(v.totalCents),
-                                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Palette.deepSea),
+                                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Palette.deepSea),
                                 ),
                               ],
                             ),
@@ -202,7 +212,7 @@ class VisitScreen extends ConsumerWidget {
                               backgroundColor: const Color(0xFFFFF1E4),
                               child: Text(
                                 f.tooth,
-                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFFB35F1E)),
+                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFFB35F1E)),
                               ),
                             ),
                             title: Text(
@@ -407,7 +417,7 @@ class _DocumentTileState extends ConsumerState<DocumentTile> {
                 Text(
                   d.isImage ? 'IMAGE' : 'PDF',
                   maxLines: 1,
-                  style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, letterSpacing: 1, color: tint.ink),
+                  style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, letterSpacing: 1, color: tint.ink),
                 ),
                 const SizedBox(height: 4),
                 Expanded(

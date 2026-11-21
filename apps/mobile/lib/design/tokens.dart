@@ -27,6 +27,14 @@ const heroGradient = RadialGradient(
   stops: [0, 0.48, 1],
 );
 
+/// The real clinic photo, faint and tinted, under every dark header: depth from something real, not decoration.
+const heroPhoto = DecorationImage(
+  image: AssetImage('assets/images/intro_clinic.jpg'),
+  fit: BoxFit.cover,
+  opacity: 0.10,
+  colorFilter: ColorFilter.mode(Palette.heroMid, BlendMode.color),
+);
+
 const buttonGradient = LinearGradient(
   begin: Alignment.topCenter,
   end: Alignment.bottomCenter,
@@ -74,14 +82,14 @@ ThemeData northgateTheme() {
           headlineLarge: const TextStyle(
             fontSize: 34,
             height: 1.05,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w700,
             letterSpacing: -1,
             color: Palette.deepSea,
           ),
           headlineMedium: const TextStyle(
             fontSize: 30,
             height: 1.1,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w700,
             letterSpacing: -0.9,
             color: Palette.deepSea,
           ),

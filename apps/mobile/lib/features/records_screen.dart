@@ -51,7 +51,7 @@ class RecordsScreen extends ConsumerWidget {
                         padding: EdgeInsets.fromLTRB(6, 0, 6, 10),
                         child: Text(
                           'DOCUMENTS',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 1.1, color: Color(0xFFA9DCD1)),
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1.1, color: Color(0xFFA9DCD1)),
                         ),
                       ),
                       SizedBox(
@@ -105,7 +105,7 @@ class _YearMark extends StatelessWidget {
     padding: const EdgeInsets.fromLTRB(4, 6, 0, 10),
     child: Text(
       '$year',
-      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, letterSpacing: 1, color: Palette.muted),
+      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, letterSpacing: 1, color: Palette.muted),
     ),
   );
 }
@@ -144,7 +144,7 @@ class _TimelineVisit extends StatelessWidget {
                 ),
                 Text(
                   '${v.at.day}',
-                  style: const TextStyle(fontSize: 22, height: 1.1, fontWeight: FontWeight.w800, color: Palette.deepSea),
+                  style: const TextStyle(fontSize: 22, height: 1.1, fontWeight: FontWeight.w700, color: Palette.deepSea),
                 ),
               ],
             ),
@@ -182,7 +182,7 @@ class _TimelineVisit extends StatelessWidget {
                         Expanded(
                           child: Text(
                             visitTitle(v.kind),
-                            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: Palette.deepSea),
+                            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: Palette.deepSea),
                           ),
                         ),
                         if (planned > 0)
@@ -191,7 +191,7 @@ class _TimelineVisit extends StatelessWidget {
                             decoration: BoxDecoration(color: Tint.apricot.wash, borderRadius: BorderRadius.circular(999)),
                             child: Text(
                               '$planned planned',
-                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Tint.apricot.ink),
+                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Tint.apricot.ink),
                             ),
                           ),
                         const Icon(Icons.chevron_right_rounded, color: Color(0xFF9DB3AF)),

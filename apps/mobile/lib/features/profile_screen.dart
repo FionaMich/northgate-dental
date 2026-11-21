@@ -41,13 +41,10 @@ class ProfileScreen extends ConsumerWidget {
             ),
             child: Text(
               initials,
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Palette.deepSea),
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: Palette.deepSea),
             ),
           ),
-          facts: [
-            (Icons.verified_user_rounded, 'Signed in with email code'),
-            if (people.length > 1) (Icons.group_rounded, '${people.length} people'),
-          ],
+          facts: [if (people.length > 1) (Icons.group_rounded, '${people.length} people')],
         ),
         OverHero(
           child: Padding(

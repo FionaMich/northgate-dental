@@ -93,21 +93,6 @@ class HeroStage extends StatelessWidget {
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          Positioned(
-            right: 36,
-            top: height * (quietCorner ? 0.42 : 0.12),
-            child: const Float(distance: 10, phase: 0.3, child: Orb(size: 64)),
-          ),
-          Positioned(
-            left: 40,
-            bottom: height * 0.14,
-            child: const Orb(size: 40, tone: OrbTone.pearl),
-          ),
-          Positioned(
-            right: 30,
-            bottom: height * 0.2,
-            child: const Orb(size: 26, tone: OrbTone.teal),
-          ),
           Positioned(left: 24, top: 18, child: const Lockup(onDark: true, markHeight: 34)),
           Align(
             alignment: const Alignment(0, 0.35),
@@ -161,7 +146,7 @@ class AuthLayout extends StatelessWidget {
   );
 
   Widget _scroller(BuildContext context) => DecoratedBox(
-    decoration: const BoxDecoration(gradient: heroGradient),
+    decoration: const BoxDecoration(gradient: heroGradient, image: heroPhoto),
     child: LayoutBuilder(
       builder: (context, box) => SingleChildScrollView(
         child: ConstrainedBox(
@@ -248,7 +233,7 @@ class _CodeBoxesState extends State<CodeBoxes> {
                 ),
                 child: Text(
                   i < _c.text.length ? _c.text[i] : '',
-                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: Palette.deepSea),
+                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: Palette.deepSea),
                 ),
               ),
           ],

@@ -85,6 +85,7 @@ class _AlignerScreenState extends ConsumerState<AlignerScreen> {
           DecoratedBox(
             decoration: const BoxDecoration(
               gradient: heroGradient,
+              image: heroPhoto,
               borderRadius: BorderRadius.vertical(bottom: Radius.circular(36)),
             ),
             child: SafeArea(
@@ -104,7 +105,7 @@ class _AlignerScreenState extends ConsumerState<AlignerScreen> {
                       padding: EdgeInsets.fromLTRB(12, 4, 12, 20),
                       child: Text(
                         'Aligner timer',
-                        style: TextStyle(fontSize: 30, fontWeight: FontWeight.w800, letterSpacing: -0.8, color: Colors.white),
+                        style: TextStyle(fontSize: 30, fontWeight: FontWeight.w700, letterSpacing: -0.8, color: Colors.white),
                       ),
                     ),
                     Center(
@@ -120,7 +121,7 @@ class _AlignerScreenState extends ConsumerState<AlignerScreen> {
                                 children: [
                                   Text(
                                     hoursMinutes(today),
-                                    style: const TextStyle(fontSize: 38, fontWeight: FontWeight.w800, color: Colors.white),
+                                    style: const TextStyle(fontSize: 38, fontWeight: FontWeight.w700, color: Colors.white),
                                   ),
                                   const Text('of 22h today', style: TextStyle(fontSize: 15, color: Color(0xFFCDEFE7))),
                                 ],
@@ -153,7 +154,7 @@ class _AlignerScreenState extends ConsumerState<AlignerScreen> {
                                 children: [
                                   Text(
                                     log.wearing ? 'Aligners in' : 'Aligners out',
-                                    style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: Palette.deepSea),
+                                    style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: Palette.deepSea),
                                   ),
                                   Text(
                                     log.wearing

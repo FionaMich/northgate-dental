@@ -221,7 +221,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                           ),
                           Text(
                             '${clock(_slot!.startsAt)} to ${clock(_slot!.endsAt)}',
-                            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: Palette.deepSea),
+                            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: Palette.deepSea),
                           ),
                         ],
                       ),
@@ -253,6 +253,7 @@ class _Header extends StatelessWidget {
   Widget build(BuildContext context) => DecoratedBox(
     decoration: const BoxDecoration(
       gradient: heroGradient,
+      image: heroPhoto,
       borderRadius: BorderRadius.vertical(bottom: Radius.circular(32)),
     ),
     child: SafeArea(
@@ -272,7 +273,7 @@ class _Header extends StatelessWidget {
               padding: EdgeInsets.fromLTRB(12, 4, 12, 14),
               child: Text(
                 'Book a visit',
-                style: TextStyle(fontSize: 30, fontWeight: FontWeight.w800, letterSpacing: -0.8, color: Colors.white),
+                style: TextStyle(fontSize: 30, fontWeight: FontWeight.w700, letterSpacing: -0.8, color: Colors.white),
               ),
             ),
             SingleChildScrollView(
@@ -366,7 +367,7 @@ class _Choice extends StatelessWidget {
                           Flexible(
                             child: Text(
                               title,
-                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, height: 1.25, color: Palette.deepSea),
+                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, height: 1.25, color: Palette.deepSea),
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -439,7 +440,7 @@ class _DayTile extends StatelessWidget {
                 ),
                 Text(
                   '${day.day}',
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: selected ? Colors.white : Palette.deepSea),
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: selected ? Colors.white : Palette.deepSea),
                 ),
                 Text(shortMonth(day), style: TextStyle(fontSize: 11, color: selected ? const Color(0xFFCDEFE7) : Palette.muted)),
               ],
@@ -630,7 +631,7 @@ class _HoldSheetState extends ConsumerState<_HoldSheet> {
                           ),
                           child: Text(
                             expired ? 'Expired' : mmss,
-                            style: TextStyle(fontWeight: FontWeight.w800, color: expired ? Palette.error : const Color(0xFFB35F1E)),
+                            style: TextStyle(fontWeight: FontWeight.w700, color: expired ? Palette.error : const Color(0xFFB35F1E)),
                           ),
                         ),
                       ],

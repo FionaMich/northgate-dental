@@ -50,7 +50,7 @@ class SectionTitle extends StatelessWidget {
         Expanded(
           child: Text(
             title,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: -0.3, color: Palette.deepSea),
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, letterSpacing: -0.3, color: Palette.deepSea),
           ),
         ),
         if (action != null) TextButton(onPressed: onAction, child: Text(action!)),
@@ -142,7 +142,7 @@ class VisitTile extends StatelessWidget {
                   ),
                   Text(
                     '${visit.at.day}',
-                    style: const TextStyle(fontSize: 20, height: 1.1, fontWeight: FontWeight.w800, color: Palette.deepSea),
+                    style: const TextStyle(fontSize: 20, height: 1.1, fontWeight: FontWeight.w700, color: Palette.deepSea),
                   ),
                 ],
               ),
@@ -237,6 +237,7 @@ class PageHero extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     decoration: const BoxDecoration(
       gradient: heroGradient,
+      image: heroPhoto,
       borderRadius: BorderRadius.vertical(bottom: Radius.circular(36)),
     ),
     padding: EdgeInsets.fromLTRB(22, 22 + MediaQuery.paddingOf(context).top, 22, 58),
@@ -244,7 +245,6 @@ class PageHero extends StatelessWidget {
       clipBehavior: Clip.none,
       children: [
         const Positioned(right: -4, top: -6, child: Float(child: Tooth3D(height: 92))),
-        const Positioned(right: 8, top: 112, child: Orb(size: 30, tone: OrbTone.teal)),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -335,7 +335,7 @@ class RowGroup extends StatelessWidget {
           title.toUpperCase(),
           style: TextStyle(
             fontSize: 12,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w700,
             letterSpacing: 1.1,
             color: onHero ? const Color(0xFFA9DCD1) : Palette.muted,
           ),
