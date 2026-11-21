@@ -71,6 +71,19 @@ services:
       timeout: 5s
       retries: 5
 
+  worker:
+    <<: *defaults
+    build: ../services/worker
+    image: northgate-worker:local
+    environment:
+      WORKER_DB_URL: ${WORKER_DB_URL:?}          # the northgate_worker login on the production database
+      RESEND_API_KEY: ${RESEND_API_KEY:?}
+      EMAIL_FROM: ${EMAIL_FROM:-Northgate Dental <onboarding@resend.dev>}
+      EMAIL_REDIRECT_TO: ${EMAIL_REDIRECT_TO:-}  # staging and the synthetic demo: every email to one inbox
+    networks: [app]                                # outbound only: Supabase and Resend; nothing connects to it
+    mem_limit: 128m
+    profiles: [worker]                             # started once its login and key are in .env
+
 networks:
   edge: {}
   app: {}
