@@ -5,6 +5,7 @@ import 'dart:io';
 
 import 'package:dental/data/account_repository.dart';
 import 'package:dental/data/care_repository.dart';
+import 'package:dental/data/shop_repository.dart';
 import 'package:dental/features/visit_screen.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -198,5 +199,39 @@ void main() {
     await tapKey(tester, 'day-0');
     await tapKey(tester, 'slot-0');
     await shot(tester, '11-booking');
+  });
+
+  testWidgets('screenshots: shop', skip: !shots, (tester) async {
+    tester.view.physicalSize = const Size(720, 1600);
+    tester.view.devicePixelRatio = 2.0;
+    addTearDown(tester.view.reset);
+    final shop = FakeShopRepository(items: const [
+      ShopProduct(id: 'brush', name: 'Sonic electric toothbrush', category: 'brush', summary: 'Two-minute timer, pressure sensor and a 30-day battery.',
+        description: 'The brush our hygienists recommend most: 31,000 strokes a minute and a pressure sensor that slows down when you press too hard.',
+        priceCents: 7900, imageKey: 'sonic-brush', tags: ['Everyday', 'Gums']),
+      ShopProduct(id: 'heads', name: 'Replacement brush heads, 2 pack', category: 'brush', summary: 'Change every three months.',
+        description: 'Soft, end-rounded bristles that fade when it is time to change.', priceCents: 1400, imageKey: 'brush-heads',
+        refillMonths: 3, tags: ['Everyday']),
+      ShopProduct(id: 'flosser', name: 'Cordless water flosser', category: 'clean_between', summary: 'Three pressure modes.',
+        description: 'Good for implants and braces.', priceCents: 6900, imageKey: 'water-flosser', tags: ['Gums', 'Implants']),
+      ShopProduct(id: 'interdental', name: 'Interdental brushes, mixed sizes', category: 'clean_between', summary: 'For bridges, braces and gaps.',
+        description: 'Eight sizes in one pack.', priceCents: 850, imageKey: 'interdental', refillMonths: 3, tags: ['Gums']),
+      ShopProduct(id: 'sensitive', name: 'Sensitive toothpaste', category: 'paste_and_rinse', summary: 'Potassium nitrate formula.',
+        description: 'Daily toothpaste for sensitive teeth.', priceCents: 750, imageKey: 'sensitive-paste', refillMonths: 3, tags: ['Sensitive']),
+      ShopProduct(id: 'kids', name: "Kids' sonic toothbrush", category: 'kids', summary: 'Gentle mode and a fun timer.',
+        description: 'Made for ages 3 to 10.', priceCents: 3900, imageKey: 'kids-brush', tags: ['Kids']),
+    ]);
+    await pumpApp(tester, FakeAccountRepository(patients: [michelle]), shop: shop,
+        care: FakeCareRepository({'p-m': richCare()}), extra: [pdfViewProvider.overrideWithValue((_) => const SizedBox())]);
+    await signIn(tester);
+    await tapKey(tester, 'tab-shop');
+    await shot(tester, '20-shop');
+    await tapKey(tester, 'product-heads');
+    await shot(tester, '21-product');
+    await tapKey(tester, 'add-to-bag');
+    await tapKey(tester, 'product-brush');
+    await tapKey(tester, 'add-to-bag');
+    await tapKey(tester, 'open-bag');
+    await shot(tester, '22-bag');
   });
 }
