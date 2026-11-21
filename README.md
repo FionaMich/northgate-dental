@@ -304,6 +304,39 @@ Merges into `develop` apply database migrations to staging automatically.
 ## Deployments
 
 <details>
+<summary><b>21 November 2026 (evening): notification worker live, sending booking confirmations</b></summary>
+
+**What went live:**
+- the queues and outbox (#79);
+- the notification worker (#80), running on the private VM. For the demo it serves the staging project, which is the one the app on the test phone uses.
+
+**How it was proved:**
+- **Least privilege:** the worker's own database login can read the queues, but reading `patients` is denied.
+- **End to end:** a booking made in the database became an event, then a confirmation request, then an email. The worker log shows each step with IDs only.
+- **A failure caught along the way:** the first send failed with HTTP 401, because the email key had been copied one character short. The message stayed on the queue, and it was sent once the key was corrected: nothing was lost and nothing was sent twice.
+
+```bash
+# worker login: only a SCRAM hash of the password reaches the database
+create role northgate_worker_app login inherit password '<SCRAM-SHA-256 hash>' in role northgate_worker;
+
+# settings onto the VM through the Bastion, never printed
+printf 'WORKER_DB_URL=<url>\nRESEND_API_KEY=<send-only key>\n' | infra/scripts/ssh-vm.sh deploy 'cat >> /opt/northgate/infra/.env'
+
+# build and start (VM)
+docker compose --profile worker build worker
+docker compose --profile worker up -d worker
+docker compose --profile worker logs -f worker
+```
+
+**Screenshots still to take:**
+
+- [ ] The confirmation email in your inbox (subject "Your visit is booked")
+- [ ] Resend's email log, showing the sends: https://resend.com/emails
+- [ ] The worker log on the VM (`docker compose --profile worker logs worker`)
+
+</details>
+
+<details>
 <summary><b>21 November 2026 (later): private VM behind a Network Load Balancer, live at <code>https://84-12-126-31.sslip.io</code></b></summary>
 
 **What changed:**
