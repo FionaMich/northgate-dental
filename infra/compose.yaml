@@ -23,9 +23,9 @@ services:
       ACCESSLOG: /dev/stdout
       METRICSLOG: /dev/null
     volumes:
-      - ./nginx/default.conf.template:/etc/nginx/templates/conf.d/default.conf.template:ro
-      - ./nginx/logging.conf.template:/etc/nginx/templates/conf.d/logging.conf.template:ro
-      - ./nginx/static:/usr/share/nginx/static:ro
+      - ./nginx/default.conf.template:/etc/nginx/templates/conf.d/default.conf.template:ro,z
+      - ./nginx/logging.conf.template:/etc/nginx/templates/conf.d/logging.conf.template:ro,z
+      - ./nginx/static:/usr/share/nginx/static:ro,z # z: relabel for SELinux hosts (Oracle Linux); ignored elsewhere
       - letsencrypt:/etc/letsencrypt:ro
       - certbot_www:/var/www/certbot:ro
     networks: [edge, app]

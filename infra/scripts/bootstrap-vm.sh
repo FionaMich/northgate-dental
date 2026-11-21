@@ -4,7 +4,11 @@
 # Safe to run again. Works on Ubuntu (apt) and Oracle Linux (dnf).
 set -euo pipefail
 AGE_VERSION=v1.3.2
-AGE_ARM64_SHA256=6b8dc4333c53a5a57c9e5834e3a48f92605d7154014cd07269ff3327db5d37f4
+declare -A AGE_SHA256=(
+  [amd64]=cbe24006683f8eb669266162894b9a522a1af52f2665fbc63a4bb032ed26ac10
+  [arm64]=6b8dc4333c53a5a57c9e5834e3a48f92605d7154014cd07269ff3327db5d37f4
+)
+case "$(uname -m)" in x86_64) arch=amd64 ;; aarch64) arch=arm64 ;; *) echo "unsupported CPU $(uname -m)"; exit 1 ;; esac
 admin="${SUDO_USER:-$(logname)}"
 
 if command -v apt-get >/dev/null; then
@@ -22,10 +26,14 @@ if command -v apt-get >/dev/null; then
   done
   netfilter-persistent save
 else
+  # fail2ban comes from EPEL; Oracle ships its own EPEL release package.
+  dnf install -yq oracle-epel-release-el9 dnf-plugins-core
+  dnf config-manager --set-enabled ol9_developer_EPEL
   dnf install -yq dnf-automatic fail2ban git curl
+  sed -i 's/^apply_updates = .*/apply_updates = yes/' /etc/dnf/automatic.conf
   systemctl enable --now dnf-automatic-install.timer
   if ! command -v docker >/dev/null; then
-    dnf config-manager --add-repo https://download.docker.com/linux/rhel/docker-ce.repo
+    dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
     dnf install -yq docker-ce docker-ce-cli containerd.io docker-compose-plugin
   fi
   firewall-cmd --permanent --add-service=http --add-service=https && firewall-cmd --reload
@@ -51,9 +59,9 @@ systemctl restart fail2ban
 # age, for encrypting backups, checked against the release's published SHA-256.
 if ! command -v age >/dev/null; then
   tmp="$(mktemp -d)"
-  curl -fsSLo "$tmp/age.tgz" "https://github.com/FiloSottile/age/releases/download/$AGE_VERSION/age-$AGE_VERSION-linux-arm64.tar.gz"
-  echo "$AGE_ARM64_SHA256  $tmp/age.tgz" | sha256sum -c -
-  tar -xzf "$tmp/age.tgz" -C "$tmp" && install -m 755 "$tmp/age/age" /usr/local/bin/age && rm -rf "$tmp"
+  curl -fsSLo "$tmp/age.tgz" "https://github.com/FiloSottile/age/releases/download/$AGE_VERSION/age-$AGE_VERSION-linux-$arch.tar.gz"
+  echo "${AGE_SHA256[$arch]}  $tmp/age.tgz" | sha256sum -c -
+  tar -xzf "$tmp/age.tgz" -C "$tmp" && install -m 755 "$tmp/age/age" /usr/bin/age && rm -rf "$tmp"
 fi
 
 # A non-root deploy user that runs the stack; it signs in with the same key as the admin user.
