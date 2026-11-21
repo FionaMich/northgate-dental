@@ -128,7 +128,12 @@ services:
       N8N_DIAGNOSTICS_ENABLED: "false"
       N8N_PERSONALIZATION_ENABLED: "false"
       N8N_VERSION_NOTIFICATIONS_ENABLED: "false"
-    volumes: [n8n_data:/home/node/.n8n]
+      # Supabase signs its database certificates with its own root CA; trusting it lets n8n verify the connection
+      # instead of skipping the check. Fingerprint checked against Supabase's published copy (see infra/certs).
+      NODE_EXTRA_CA_CERTS: /certs/supabase-root-2021.crt
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./certs:/certs:ro,z
     networks: [app, data]
     mem_limit: 1g
 
