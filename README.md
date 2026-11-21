@@ -216,6 +216,80 @@ Merges into `develop` apply database migrations to staging automatically.
 
 </details>
 
+## Deployments
+
+<details>
+<summary><b>21 November 2026: hardened server on Oracle Cloud, live at <code>https://145-241-98-74.sslip.io</code></b></summary>
+
+**What went live:**
+- the WAF front door, with HTTPS from Let's Encrypt;
+- Presidio for redaction;
+- nightly encrypted backups of the production database to Amazon S3, with a restore test on a separate machine.
+
+| Gateway page | On a phone |
+| --- | --- |
+| ![Gateway page](.github/readme/deploy-06/04-gateway-desktop.jpg) | ![Gateway on a phone](.github/readme/deploy-06/04-gateway-phone.jpg) |
+
+**The firewall, tested on the live server:** every attack is refused, the headers are set, and floods get 429.
+
+![WAF checks on the live server](.github/readme/deploy-06/01-waf-checks-live.jpg)
+
+**From the internet:** attacks get 403, and the certificate is valid.
+
+![Attacks refused and TLS certificate](.github/readme/deploy-06/06-attacks-refused-and-tls.jpg)
+
+**Presidio removes every canary value:**
+
+![Presidio redaction on the VM](.github/readme/deploy-06/02-presidio-canary-live.jpg)
+
+**Backups:** encrypted on the VM, and the VM's key can only upload.
+
+![Backup run](.github/readme/deploy-06/03-backup-live.jpg)
+![Upload-only key proof](.github/readme/deploy-06/07-s3-upload-only-proof.jpg)
+
+**Restore test:** downloaded with a read-only key, decrypted on a laptop, and restored into Supabase's own Postgres image.
+
+![Restore test](.github/readme/deploy-06/08-restore-test.jpg)
+
+**Commands, in order** (placeholders stand in for secrets):
+
+```bash
+# one-time AWS set-up from a laptop: bucket, upload-only and read-only users, budget alert
+aws login --profile northgate
+infra/aws/backup-bucket.sh
+
+# harden the VM (Oracle Linux 9): updates, firewall, fail2ban, keys-only SSH, Docker, age, deploy user, cron
+ssh opc@145.241.98.74 'sudo bash -s' < infra/scripts/bootstrap-vm.sh
+
+# backup key pair: the private key never leaves the laptop
+age-keygen -o ~/.config/northgate/backup-age-key.txt
+
+# on the VM, as the deploy user
+ssh deploy@145.241.98.74
+cd /opt/northgate/infra
+nano .env                                   # DOMAIN, SUBDOMAINS, SUPABASE_DB_URL=<pooler URI>, backup keys
+scripts/issue-certs.sh --letsencrypt         # start the WAF, get the certificate
+docker compose up -d --wait                  # Presidio
+tests/test_waf.sh && tests/test_presidio.sh  # prove it
+scripts/backup.sh                            # first backup; cron runs it at 02:00 UTC
+
+# back on the laptop: prove the backup restores
+infra/scripts/restore-test.sh s3://<bucket>/nightly/<file>.dump.age ~/.config/northgate/backup-age-key.txt
+```
+
+**Console screenshots still to take** (they need a sign-in):
+
+- [ ] Oracle instance page, showing the shape, OS and public IP: https://cloud.oracle.com/compute/instances?region=af-johannesburg-1
+- [ ] Oracle security list with only 22, 80 and 443 open (VM page → Networking → Subnet → Security)
+- [ ] S3 bucket properties, showing versioning, encryption, Block Public Access and the lifecycle rule: https://eu-north-1.console.aws.amazon.com/s3/buckets?region=eu-north-1
+- [ ] The nightly backups in the bucket (`nightly/`)
+- [ ] IAM user `northgate-backup-upload` with its single inline policy: https://us-east-1.console.aws.amazon.com/iam/home#/users
+- [ ] Storage Lens dashboard `northgate-storage` (first data within 48 hours): https://eu-north-1.console.aws.amazon.com/s3/lens?region=eu-north-1
+- [ ] AWS Budgets, showing the US$1 alert: https://us-east-1.console.aws.amazon.com/costmanagement/home#/budgets
+- [ ] GitHub rulesets, showing 8 required checks on `develop` and `main`
+
+</details>
+
 ## Repository layout
 
 | Path | What it holds |
@@ -268,7 +342,7 @@ flutter build apk --release --dart-define-from-file=staging.env
 cd infra
 sed -e 's/^DOMAIN=.*/DOMAIN=localhost/' -e 's/^HTTP_PORT=.*/HTTP_PORT=18080/' -e 's/^HTTPS_PORT=.*/HTTPS_PORT=18443/' .env.example > .env
 scripts/issue-certs.sh       # starts the WAF with a placeholder certificate
-tests/test_waf.sh            # 18 checks: attacks refused, headers, TLS, rate limits, logs
+tests/test_waf.sh            # 21 checks: attacks refused, headers, TLS, rate limits, logs, error pages
 tests/test_presidio.sh       # canary record fully redacted
 ```
 
