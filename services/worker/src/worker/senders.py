@@ -26,7 +26,7 @@ class ResendSender:
             "subject": message.subject, "text": message.text, "html": message.html,
         })
         if response.status_code >= 300:
-            raise SendError(f"resend returned {response.status_code}")  # never the body: it may echo the address
+            raise SendError(f"resend returned {response.status_code}")  # status only, never the body: it may echo the address
         return response.json()["id"]
 
 

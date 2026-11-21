@@ -97,7 +97,7 @@ def run_once(conn, sender) -> int:
                 handled += 1
             except (SendError, psycopg.Error, KeyError) as error:
                 # left on the queue: it reappears after the visibility timeout and is retried
-                log(event="failed", queue=queue, msg_id=msg["msg_id"], error=type(error).__name__)
+                log(event="failed", queue=queue, msg_id=msg["msg_id"], error=type(error).__name__, detail=str(error)[:80])
     return handled
 
 
