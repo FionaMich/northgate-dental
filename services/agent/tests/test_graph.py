@@ -32,9 +32,9 @@ def db(monkeypatch):
         return {"hold_slot": "appt-1", "available_slots": [{"starts_at": "2026-11-27T15:00:00+00:00", "practitioner_id": "dr-1"}]}.get(name)
     def get(_s, path, **params):
         if path == "/locations":
-            return [{"id": "loc-1", "time_zone": "America/New_York"}]
+            return [{"id": "loc-1", "time_zone": "America/New_York", "name": "Quincy"}]
         if path == "/services":
-            return [{"id": "svc-1"}]
+            return [{"id": "svc-1", "name": "Adult cleaning"}]
         return []
     monkeypatch.setattr(tools, "_rpc", rpc)
     monkeypatch.setattr(tools, "_get", get)
@@ -70,8 +70,11 @@ def test_booking_waits_for_the_patients_button(db):
         call("book_visit", clinic_code="quincy", service_code="D1110", slot="2026-11-27T15:00:00+00:00|dr-1"),
         AIMessage("You're booked."),
     )
-    app, config, out = run(model, "Book the 10:00 cleaning please")
+    app, config, out = run(model, "Reserva la limpieza de las 10:00", language="es")
     assert "__interrupt__" in out, "nothing is booked before the patient confirms"
+    card = out["__interrupt__"][0].value
+    assert card["title"] == "¿Reservar esta cita?" and card["yes"] == "Confirmar", "the card speaks the patient's language"
+    assert "Adult cleaning" in card["detail"] and "Northgate Dental, Quincy" in card["detail"]
     assert not any(n == "hold_slot" for n, _ in db)
     app.invoke(Command(resume=True), config)
     assert [n for n, _ in db] == ["hold_slot", "confirm_booking"]

@@ -122,7 +122,14 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> {
 
   void _answer(bool accept) {
     setState(() {
-      _lines.add(_Line(accept ? 'Yes, confirm' : 'Not now', mine: true));
+      _lines.add(
+        _Line(
+          accept
+              ? (_confirm?['yes'] as String? ?? 'Confirm')
+              : (_confirm?['no'] as String? ?? 'Not now'),
+          mine: true,
+        ),
+      );
       _confirm = null;
     });
     _run(
@@ -187,18 +194,21 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> {
               child: Center(child: Tooth3D(height: 26)),
             ),
             SizedBox(width: 10),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Receptionist',
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
-                ),
-                Text(
-                  'AI assistant · answers in 12 languages',
-                  style: TextStyle(fontSize: 12, color: Color(0xFFA9DCD1)),
-                ),
-              ],
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Receptionist',
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+                  ),
+                  Text(
+                    'AI assistant · 12 languages',
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 12, color: Color(0xFFA9DCD1)),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -211,9 +221,13 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> {
               color: Colors.white,
               size: 18,
             ),
-            label: Text(
-              assistantLanguages[_language]!,
-              style: const TextStyle(color: Colors.white),
+            label: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 96),
+              child: Text(
+                assistantLanguages[_language]!,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: Colors.white),
+              ),
             ),
           ),
         ],
@@ -339,32 +353,39 @@ class _ConfirmCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Wording comes from the server's reviewed texts in the patient's language; English only as a fallback.
     final booking = confirm['action'] == 'book';
+    String text(String key, String fallback) =>
+        (confirm[key] as String?) ?? fallback;
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Palette.teal, width: 1.5),
+        border: Border.all(
+          color: booking ? Palette.teal : Palette.error,
+          width: 1.5,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            booking ? 'Book this visit?' : 'Cancel this visit?',
+            text('title', booking ? 'Book this visit?' : 'Cancel this visit?'),
             style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w800,
               color: Palette.deepSea,
             ),
           ),
-          const SizedBox(height: 6),
-          if (booking)
+          if (confirm['detail'] != null) ...[
+            const SizedBox(height: 6),
             Text(
-              '${confirm['when']} · ${confirm['clinic']}',
-              style: const TextStyle(color: Palette.deepSea),
+              confirm['detail'] as String,
+              style: const TextStyle(height: 1.4, color: Palette.deepSea),
             ),
+          ],
           const SizedBox(height: 12),
           Row(
             children: [
@@ -372,7 +393,7 @@ class _ConfirmCard extends StatelessWidget {
                 child: OutlinedButton(
                   key: const Key('confirm-no'),
                   onPressed: () => onAnswer(false),
-                  child: const Text('Not now'),
+                  child: Text(text('no', 'Not now')),
                 ),
               ),
               const SizedBox(width: 10),
@@ -383,7 +404,9 @@ class _ConfirmCard extends StatelessWidget {
                   style: FilledButton.styleFrom(
                     backgroundColor: booking ? Palette.teal : Palette.error,
                   ),
-                  child: Text(booking ? 'Confirm' : 'Cancel visit'),
+                  child: Text(
+                    text('yes', booking ? 'Confirm' : 'Cancel visit'),
+                  ),
                 ),
               ),
             ],

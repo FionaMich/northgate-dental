@@ -7,6 +7,11 @@ en:
   emergency: "This sounds urgent. If you have trouble breathing or swallowing, bleeding you cannot stop, or swelling spreading towards your eye or throat, call 911 now or go to the nearest emergency department. For a dental emergency, call us on {phone}. If you are thinking about harming yourself, call or text 988. I have also alerted the clinic."
   cannot_advise: "I can't give medical advice. I've passed your question to our clinical team, who will contact you. If it's urgent, call us on {phone}, or 911 in an emergency."
   handover: "I've passed this to our team with a summary, so you won't need to repeat yourself. Someone will get back to you during opening hours."
+  confirm_book: "Book this visit?"
+  confirm_cancel: "Cancel this visit?"
+  yes_book: "Confirm"
+  yes_cancel: "Cancel visit"
+  not_now: "Not now"
 es:
   status: draft
   name: Español
@@ -14,6 +19,11 @@ es:
   emergency: "Esto parece urgente. Si tiene dificultad para respirar o tragar, un sangrado que no se detiene o una hinchazón que se extiende hacia el ojo o la garganta, llame al 911 ahora o vaya a la sala de emergencias más cercana. Para una urgencia dental, llámenos al {phone}. Si está pensando en hacerse daño, llame o envíe un mensaje al 988. También he avisado a la clínica."
   cannot_advise: "No puedo dar consejos médicos. He enviado su pregunta a nuestro equipo clínico, que se pondrá en contacto con usted. Si es urgente, llámenos al {phone}, o al 911 en una emergencia."
   handover: "He pasado esto a nuestro equipo con un resumen, así que no tendrá que repetirlo. Alguien le responderá en horario de atención."
+  confirm_book: "¿Reservar esta cita?"
+  confirm_cancel: "¿Cancelar esta cita?"
+  yes_book: "Confirmar"
+  yes_cancel: "Cancelar cita"
+  not_now: "Ahora no"
 pt:
   status: draft
   name: Português
@@ -21,6 +31,11 @@ pt:
   emergency: "Isto parece urgente. Se tiver dificuldade para respirar ou engolir, um sangramento que não para ou um inchaço que se espalha para o olho ou a garganta, ligue para o 911 agora ou vá ao pronto-socorro mais próximo. Para uma urgência dentária, ligue para nós no {phone}. Se estiver pensando em se machucar, ligue ou envie uma mensagem para o 988. Também avisei a clínica."
   cannot_advise: "Não posso dar conselhos médicos. Encaminhei a sua pergunta à nossa equipe clínica, que entrará em contato. Se for urgente, ligue para {phone}, ou para o 911 numa emergência."
   handover: "Encaminhei isto para a nossa equipe com um resumo, para que não precise repetir. Alguém responderá no horário de atendimento."
+  confirm_book: "Marcar esta consulta?"
+  confirm_cancel: "Cancelar esta consulta?"
+  yes_book: "Confirmar"
+  yes_cancel: "Cancelar consulta"
+  not_now: "Agora não"
 ht:
   status: draft
   name: Kreyòl ayisyen
@@ -28,6 +43,11 @@ ht:
   emergency: "Sa sanble ijan. Si w gen pwoblèm pou respire oswa vale, yon senyen ki pa sispann, oswa yon anflamasyon k ap gaye bò je w oswa gòj ou, rele 911 kounye a oswa ale nan sal ijans ki pi pre a. Pou yon ijans dantè, rele nou nan {phone}. Si w ap panse pou fè tèt ou mal, rele oswa voye mesaj nan 988. Mwen te avèti klinik la tou."
   cannot_advise: "Mwen pa ka bay konsèy medikal. Mwen voye kesyon w lan bay ekip klinik nou an, ki pral kontakte w. Si se ijan, rele nou nan {phone}, oswa 911 nan yon ijans."
   handover: "Mwen voye sa bay ekip nou an ak yon rezime, konsa ou pa bezwen repete. Yon moun ap reponn ou pandan lè travay yo."
+  confirm_book: "Pran randevou sa a?"
+  confirm_cancel: "Anile randevou sa a?"
+  yes_book: "Konfime"
+  yes_cancel: "Anile randevou"
+  not_now: "Pa kounye a"
 zh-Hans:
   status: draft
   name: 简体中文
@@ -35,6 +55,11 @@ zh-Hans:
   emergency: "这听起来很紧急。如果您呼吸或吞咽困难、出血止不住，或肿胀向眼睛或喉咙蔓延，请立即拨打 911 或前往最近的急诊室。牙科急症请拨打我们的电话 {phone}。如果您有伤害自己的想法，请拨打或发短信至 988。我也已经通知了诊所。"
   cannot_advise: "我不能提供医疗建议。我已将您的问题转给我们的临床团队，他们会联系您。如果情况紧急，请拨打 {phone}，紧急情况请拨打 911。"
   handover: "我已将此事连同摘要转交给我们的团队，您无需重复说明。工作人员会在营业时间内回复您。"
+  confirm_book: "预约这次就诊？"
+  confirm_cancel: "取消这次就诊？"
+  yes_book: "确认"
+  yes_cancel: "取消就诊"
+  not_now: "暂不"
 zh-Hant:
   status: draft
   name: 繁體中文
@@ -42,6 +67,11 @@ zh-Hant:
   emergency: "這聽起來很緊急。如果您呼吸或吞嚥困難、出血止不住，或腫脹向眼睛或喉嚨蔓延，請立即撥打 911 或前往最近的急診室。牙科急症請撥打我們的電話 {phone}。如果您有傷害自己的念頭，請撥打或傳訊息至 988。我也已經通知了診所。"
   cannot_advise: "我不能提供醫療建議。我已將您的問題轉給我們的臨床團隊，他們會與您聯絡。如果情況緊急，請撥打 {phone}，緊急情況請撥打 911。"
   handover: "我已將此事連同摘要轉交給我們的團隊，您無需重複說明。工作人員會在營業時間內回覆您。"
+  confirm_book: "預約這次就診？"
+  confirm_cancel: "取消這次就診？"
+  yes_book: "確認"
+  yes_cancel: "取消就診"
+  not_now: "暫不"
 vi:
   status: draft
   name: Tiếng Việt
@@ -49,6 +79,11 @@ vi:
   emergency: "Việc này có vẻ khẩn cấp. Nếu bạn khó thở hoặc khó nuốt, chảy máu không cầm được, hoặc sưng lan về phía mắt hoặc cổ họng, hãy gọi 911 ngay hoặc đến phòng cấp cứu gần nhất. Với trường hợp khẩn cấp về răng, hãy gọi cho chúng tôi theo số {phone}. Nếu bạn đang nghĩ đến việc tự làm hại bản thân, hãy gọi hoặc nhắn tin đến 988. Tôi cũng đã báo cho phòng khám."
   cannot_advise: "Tôi không thể đưa ra lời khuyên y tế. Tôi đã chuyển câu hỏi của bạn đến đội ngũ lâm sàng, họ sẽ liên hệ với bạn. Nếu khẩn cấp, hãy gọi {phone}, hoặc 911 khi cấp cứu."
   handover: "Tôi đã chuyển việc này cho nhân viên kèm bản tóm tắt, nên bạn không cần nhắc lại. Sẽ có người phản hồi bạn trong giờ làm việc."
+  confirm_book: "Đặt lịch hẹn này?"
+  confirm_cancel: "Hủy lịch hẹn này?"
+  yes_book: "Xác nhận"
+  yes_cancel: "Hủy lịch hẹn"
+  not_now: "Để sau"
 ar:
   status: draft
   name: العربية
@@ -56,6 +91,11 @@ ar:
   emergency: "يبدو هذا عاجلًا. إذا كنت تعاني من صعوبة في التنفس أو البلع، أو نزيف لا يتوقف، أو تورم يمتد نحو العين أو الحلق، فاتصل بالرقم 911 الآن أو توجه إلى أقرب قسم طوارئ. لحالة أسنان طارئة، اتصل بنا على {phone}. إذا كنت تفكر في إيذاء نفسك، فاتصل أو أرسل رسالة إلى 988. لقد أبلغت العيادة أيضًا."
   cannot_advise: "لا يمكنني تقديم نصائح طبية. لقد أرسلت سؤالك إلى فريقنا السريري وسيتواصلون معك. إذا كان الأمر عاجلًا، فاتصل على {phone}، أو 911 في حالة الطوارئ."
   handover: "لقد حوّلت هذا إلى فريقنا مع ملخص، فلن تحتاج إلى التكرار. سيرد عليك أحدهم خلال ساعات العمل."
+  confirm_book: "هل تريد حجز هذا الموعد؟"
+  confirm_cancel: "هل تريد إلغاء هذا الموعد؟"
+  yes_book: "تأكيد"
+  yes_cancel: "إلغاء الموعد"
+  not_now: "ليس الآن"
 fr:
   status: draft
   name: Français
@@ -63,6 +103,11 @@ fr:
   emergency: "Cela semble urgent. Si vous avez du mal à respirer ou à avaler, un saignement qui ne s'arrête pas ou un gonflement qui s'étend vers l'œil ou la gorge, appelez le 911 maintenant ou rendez-vous aux urgences les plus proches. Pour une urgence dentaire, appelez-nous au {phone}. Si vous pensez à vous faire du mal, appelez ou envoyez un SMS au 988. J'ai aussi prévenu le cabinet."
   cannot_advise: "Je ne peux pas donner de conseils médicaux. J'ai transmis votre question à notre équipe clinique, qui vous contactera. En cas d'urgence, appelez le {phone}, ou le 911."
   handover: "J'ai transmis votre demande à notre équipe avec un résumé, vous n'aurez pas à répéter. Quelqu'un vous répondra pendant les heures d'ouverture."
+  confirm_book: "Réserver ce rendez-vous ?"
+  confirm_cancel: "Annuler ce rendez-vous ?"
+  yes_book: "Confirmer"
+  yes_cancel: "Annuler le rendez-vous"
+  not_now: "Pas maintenant"
 ru:
   status: draft
   name: Русский
@@ -70,6 +115,11 @@ ru:
   emergency: "Похоже, это срочно. Если вам трудно дышать или глотать, кровотечение не останавливается или отёк распространяется к глазу или горлу, немедленно звоните 911 или обратитесь в ближайшее отделение неотложной помощи. При неотложной стоматологической проблеме звоните нам: {phone}. Если вы думаете о том, чтобы причинить себе вред, позвоните или напишите на номер 988. Я также сообщила в клинику."
   cannot_advise: "Я не могу давать медицинские советы. Я передала ваш вопрос нашей клинической команде, с вами свяжутся. Если это срочно, звоните {phone}, а в экстренном случае 911."
   handover: "Я передала это нашей команде вместе с кратким описанием, так что вам не придётся повторять. С вами свяжутся в рабочее время."
+  confirm_book: "Записаться на этот приём?"
+  confirm_cancel: "Отменить этот приём?"
+  yes_book: "Подтвердить"
+  yes_cancel: "Отменить приём"
+  not_now: "Не сейчас"
 ko:
   status: draft
   name: 한국어
@@ -77,6 +127,11 @@ ko:
   emergency: "긴급한 상황인 것 같습니다. 숨쉬기나 삼키기가 어렵거나, 출혈이 멈추지 않거나, 붓기가 눈이나 목 쪽으로 퍼지면 지금 바로 911에 전화하거나 가까운 응급실로 가세요. 치과 응급 상황은 {phone}로 전화해 주세요. 자해를 생각하고 계시다면 988로 전화하거나 문자를 보내세요. 치과에도 알렸습니다."
   cannot_advise: "의학적 조언은 드릴 수 없습니다. 질문을 저희 진료팀에 전달했으며 연락드릴 것입니다. 급한 경우 {phone}로, 응급 상황에는 911로 전화하세요."
   handover: "요약과 함께 저희 팀에 전달했으니 다시 설명하실 필요는 없습니다. 진료 시간 중에 연락드리겠습니다."
+  confirm_book: "이 예약을 확정할까요?"
+  confirm_cancel: "이 예약을 취소할까요?"
+  yes_book: "확인"
+  yes_cancel: "예약 취소"
+  not_now: "나중에"
 tl:
   status: draft
   name: Tagalog
@@ -84,3 +139,8 @@ tl:
   emergency: "Mukhang ito ay apurahan. Kung nahihirapan kang huminga o lumunok, may pagdurugong hindi tumitigil, o pamamagang kumakalat papunta sa mata o lalamunan, tumawag sa 911 ngayon o pumunta sa pinakamalapit na emergency room. Para sa dental emergency, tawagan kami sa {phone}. Kung iniisip mong saktan ang sarili mo, tumawag o mag-text sa 988. Naabisuhan ko na rin ang klinika."
   cannot_advise: "Hindi ako makapagbibigay ng payong medikal. Ipinasa ko ang tanong mo sa aming clinical team at kokontakin ka nila. Kung apurahan, tumawag sa {phone}, o sa 911 kung emergency."
   handover: "Ipinasa ko ito sa aming team kasama ang buod, kaya hindi mo na kailangang ulitin. May sasagot sa iyo sa oras ng opisina."
+  confirm_book: "I-book ang appointment na ito?"
+  confirm_cancel: "Kanselahin ang appointment na ito?"
+  yes_book: "Kumpirmahin"
+  yes_cancel: "Kanselahin"
+  not_now: "Hindi muna"

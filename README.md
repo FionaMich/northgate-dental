@@ -37,10 +37,12 @@ flowchart LR
     backup[Nightly backup<br/>pg_dump + age]
     worker[Notification worker<br/>Python]
     n8n[n8n automations<br/>only /webhook/ public]
+    agent[Receptionist assistant<br/>LangGraph, Gemma on Ollama]
   end
   census[US Census geocoder]
   resend[Resend email]
   stripe[Stripe Checkout<br/>test mode]
+  langsmith[LangSmith<br/>traces, text hidden]
   s3[(Amazon S3<br/>encrypted backups)]
 
   app -->|HTTPS, publishable key + user token| auth
@@ -58,6 +60,9 @@ flowchart LR
   n8n -->|create Checkout Session| stripe
   worker -->|worker role: queues + 1 view| db
   worker -->|receipts, confirmations| resend
+  app -->|chat, user token| agent
+  agent -->|as the patient, RLS applies| db
+  agent -.->|steps and timings only| langsmith
 ```
 
 <details>
@@ -345,6 +350,70 @@ A small shop inside the patient app for the products our dentists and hygienists
 </details>
 
 <details>
+<summary><b>The receptionist assistant: LangGraph, 12 languages, safety first</b></summary>
+
+A virtual receptionist in the patient app, benchmarked on OralSync's "Lisa" (the leading AI receptionist for Dutch dental practices), without the phone line. It books, moves and cancels visits, answers questions about the clinics, payments and the shop, and hands anything else to the team with a written summary.
+
+| Chat | Confirm a booking |
+| --- | --- |
+| ![Assistant](.github/readme/assistant.png) | ![Confirm](.github/readme/assistant-confirm.png) |
+
+**How a message is handled** (`services/agent/src/agent/graph.py`):
+
+```mermaid
+flowchart TD
+  msg[Patient message, any of 12 languages] --> gate{Safety gate<br/>red-flag rules in all 12 languages}
+  gate -->|red flag| emergency[Fixed emergency text: 911, 988, the clinic<br/>urgent handover with the flags, not the words]
+  gate -->|safe| model[Assistant model<br/>Gemma 4 on Ollama]
+  model -->|tool call| tools[Tools act as the signed-in patient<br/>row level security applies]
+  tools -->|book or cancel| button[[Patient presses Confirm]]
+  button --> tools
+  tools --> model
+  tools -->|handoff_to_staff| handover[Fixed handover text<br/>task for the patient's clinic]
+  model -->|answer| grounded{Every price and time<br/>came from a tool?}
+  grounded -->|yes| reply[Reply in the patient's language]
+  grounded -->|no| handover
+```
+
+**What Lisa does, and how Northgate does it:**
+
+| Lisa | Northgate |
+| --- | --- |
+| Answers the phone around the clock | Chat in the app around the clock (website next, with the portal) |
+| Books in slots the practice keeps free | The same `available_slots`, `hold_slot` and `confirm_booking` the app uses, under the patient's own session |
+| The team gets a summary after each conversation | `request_handover`: a task for the patient's own clinic with a short English summary, whatever language the patient used |
+| AI Act text for the practice's website | The first message of every conversation says it is an AI (EU AI Act Article 50, US state bot-disclosure laws) |
+| Specialty variants (orthodontics, implants, children) | Planned as reviewed playbooks per service family |
+
+**Safety rules, each with a test** (`services/agent/tests/`, 28 tests):
+
+| Rule | How it is enforced |
+| --- | --- |
+| Emergencies never reach the model | Red-flag patterns for breathing or swallowing trouble, heavy bleeding, spreading swelling, chest pain and self-harm, in every language, run on every message; a match returns fixed text and an urgent handover |
+| Safety text is never generated | Disclosure, emergency, "I can't give medical advice", handover and the confirmation card come from `texts/fixed.yaml`, one reviewed entry per language |
+| No medical advice | Any question about symptoms, medicines or treatment goes to the team with the fixed reply |
+| Identity is never a model argument | The patient comes from the verified token; tools call Supabase with that token, so the database decides what the assistant may see |
+| Nothing is booked or cancelled without the patient | LangGraph pauses (`interrupt`) until the patient presses Confirm; declining books nothing (tested) |
+| No invented prices or times | A grounding check replaces a reply whose price or time no tool returned, and really hands it over |
+
+**Languages:** English, Spanish, Portuguese, Haitian Creole, Simplified and Traditional Chinese, Vietnamese, Arabic (laid out right to left), French, Russian, Korean and Tagalog: the languages most spoken in the Boston area. Every non-English safety text is marked draft until a native speaker reviews it, as health messaging requires.
+
+**Model:** `model_for(role)` picks the model from one setting. The demo runs Gemma 4 on Ollama, so nothing leaves our own machines. On a CPU a reply takes 30 to 60 seconds, so the app says so while it waits; Amazon Bedrock is one setting away if speed matters more than keeping everything in-house.
+
+**Tracing:** LangSmith records each conversation's steps, tool calls, timings and outcomes, with inputs and outputs hidden: what the patient wrote never leaves the service.
+
+</details>
+
+<details>
+<summary><b>The tooth chart: sculpted arches, painted surfaces</b></summary>
+
+![Tooth chart](.github/readme/tooth-chart.png)
+
+Both jaws seen from above, as a dentist sees them: two U-shaped arches set in the gums, the patient's right on the left of the screen (Universal numbering). Each tooth is drawn by type and shaded like enamel: molars with four cusps and their grooves, premolars with two, pointed canines, thin incisors. What happened is painted on the surface it happened to, read from the record's surface letters (top, front, back, cheek or tongue side): planned treatment in apricot, treatment done in teal, older fillings in silver, crowns in gold, implants in steel, decay as a dark spot, a crack as a line, a missing tooth as a dashed gap. The ring marks only what needs attention. Tapping a tooth opens its name in plain words ("Upper left first molar") and what was done, planned or noted. Drawn with Flutter's `CustomPainter`: no 3D engine, so it stays sharp, fast and readable by screen readers.
+
+</details>
+
+<details>
 <summary><b>Flutter for the patient app</b></summary>
 
 One codebase for Android now and iOS later, with full control over every pixel. That matters for an app that has to feel trustworthy, not generic.
@@ -538,7 +607,8 @@ Each principle below comes from a well-known software engineering book, and each
   - a photo, open or closed right now, and the opening hours;
   - directions and a call button;
   - the services offered and the team at that clinic.
-- **Visit records:** the reason for the visit, a tooth chart drawn as two arches, what was done, the findings and the treatment plan.
+- **Visit records:** the reason for the visit, a sculpted tooth chart (tap any tooth), what was done, the findings and the treatment plan.
+- **Receptionist assistant:** chat in 12 languages to book, move, cancel or pay, with confirm buttons, and a handover to the team for anything else.
 - **Documents from the practice:** visit summaries and X-rays, opened in an in-app PDF viewer.
 - **Reminders and recall:** visit reminders the evening before and on the day, check-up recall, and aftercare sheets after treatment.
 - **Clear aligner timer** with in-app notifications.
@@ -550,6 +620,44 @@ Each principle below comes from a well-known software engineering book, and each
 </details>
 
 ## Deployments
+
+<details>
+<summary><b>22 November 2026: the receptionist assistant, the sculpted tooth chart, LangSmith</b></summary>
+
+**What was built and merged (PRs #93 and #94):**
+- the sculpted tooth chart, installed on the test phone;
+- the receptionist assistant service (`services/agent`), its chat screen in the app, and `request_handover` on staging;
+- LangSmith connected (a test trace and the `northgate-assistant` project);
+- a CI job for the assistant's tests.
+
+**Not yet live:** the assistant on the VM. Gemma needs about 6 GB of memory and the VM has about 4 GB free; it goes live on the free Ampere A1 (24 GB) as soon as Oracle has capacity, or sooner with more memory on the current VM.
+
+**How it was proved:**
+- 28 assistant tests: emergencies caught in all 12 languages, ordinary questions left alone, the model never called on a red flag, clinical questions handed over, bookings waiting for the button, invented prices refused;
+- 457 database tests, 72 app tests;
+- Gemma 4 on the laptop called the booking tool correctly from Spanish and Haitian Creole.
+
+**Problems found and fixed on the way:**
+- The confirmation card showed a clinic code and English buttons in a Spanish chat: it now shows the clinic and service names, and its wording comes from the reviewed texts in the patient's language.
+- The chat header overflowed on a 360-wide phone with a long language name: the title and language button now shrink.
+- LangSmith refused the first keys with 403: the account is on LangSmith's AWS deployment, and the free plan needs a Personal Access Token.
+
+**Commands:**
+
+```bash
+cd services/agent && uv init --package && uv add fastapi uvicorn langgraph langchain-core langchain-ollama langsmith httpx pydantic pyyaml
+uv run pytest -q
+uv run python evals/smoke_live_model.py
+gh pr create --base develop --title "feat(assistant): multilingual receptionist with a safety gate, confirmations and team handover"
+flutter build apk --release --dart-define-from-file=staging.env && adb install -r build/app/outputs/flutter-apk/app-release.apk
+```
+
+**Screenshots still to take:**
+- [ ] LangSmith: the `northgate-assistant` project with a conversation's steps (and the hidden inputs)
+- [ ] The app on the phone: a visit's tooth chart, and a tooth's sheet after tapping it
+- [ ] Supabase staging, Table editor: `assistant_handovers` and the matching `staff_tasks` row after a handover
+
+</details>
 
 <details>
 <summary><b>21 November 2026 (late): section 07 finished, paying in the app, and the dental shop</b></summary>
@@ -841,6 +949,8 @@ infra/scripts/restore-test.sh s3://<bucket>/nightly/<file>.dump.age ~/.config/no
 | `infra/` | The server: Compose stack, Nginx configuration, certificate, backup, restore and hardening scripts, and their tests |
 | `services/worker/` | Notification worker: reads Supabase Queues, sends confirmations and reminders (Python, psycopg, Resend) |
 | `infra/terraform/oci/`, `infra/terraform/aws/` | Oracle network, load balancer, bastion and VM; AWS audit trail and account baseline |
+| `services/agent/` | The receptionist assistant: LangGraph graph, safety gate, tools, fixed texts in 12 languages, FastAPI |
+| `n8n/` | n8n workflows: SDK source (`sdk/`), exported JSON (`workflows/`) and the notes script |
 | `services/synthdata/` | Test data generator |
 | `scripts/` | Local helpers: database tests, canary scan, guards, mobile toolchain setup |
 | `.github/workflows/` | CI, staging deploy and staging data load |
@@ -888,6 +998,61 @@ tests/test_presidio.sh       # canary record fully redacted
 ```
 
 On the VM, `scripts/bootstrap-vm.sh` hardens the machine once, and `scripts/issue-certs.sh --letsencrypt` gets the real certificate.
+
+</details>
+
+<details>
+<summary><b>Receptionist assistant, step by step</b></summary>
+
+1. **Install Ollama and the model** (https://ollama.com), then in a terminal that stays open:
+   ```bash
+   ollama pull gemma4:e4b-it-qat
+   ollama serve
+   ```
+2. **Install the assistant's dependencies:**
+   ```bash
+   cd services/agent
+   uv sync
+   ```
+3. **Run the fast tests.** They use a scripted model, so they take about a second:
+   ```bash
+   uv run pytest -q
+   ```
+4. **Try the real model** without a database. It runs three conversations (Spanish booking, a Haitian Creole medicine question, a Chinese opening-hours question); expect 30 to 60 seconds per reply on a CPU:
+   ```bash
+   uv run python evals/smoke_live_model.py
+   ```
+5. **Start the API** against a Supabase project:
+   ```bash
+   export SUPABASE_URL=<project URL> SUPABASE_PUBLISHABLE_KEY=<publishable key> LINK_BASE=https://n8n.<domain>/webhook
+   uv run uvicorn agent.api:app --port 8100
+   ```
+6. **Point the app at it** and open Home, then "Ask our receptionist":
+   ```bash
+   cd apps/mobile
+   flutter run --dart-define-from-file=staging.env --dart-define=ASSISTANT_BASE=http://<laptop IP>:8100
+   ```
+
+</details>
+
+<details>
+<summary><b>LangSmith tracing, step by step</b></summary>
+
+1. Sign up at https://smith.langchain.com and choose the **US** region. Note the address the dashboard opens on: this account lives on LangSmith's AWS deployment (`aws.smith.langchain.com`), whose API is `https://aws.api.smith.langchain.com`.
+2. **Settings → API Keys → + API Key → Personal Access Token** (on the free plan a Service Key is refused with 403). Copy the key; it starts with `lsv2_pt_` and is shown once.
+3. Add to `infra/.env` (git-ignored), never to chat or Git:
+   ```bash
+   LANGSMITH_API_KEY=<the key>
+   LANGSMITH_ENDPOINT=https://aws.api.smith.langchain.com
+   LANGSMITH_PROJECT=northgate-assistant
+   LANGSMITH_HIDE_INPUTS=true
+   LANGSMITH_HIDE_OUTPUTS=true
+   ```
+4. Check it: a 200 here means the key works.
+   ```bash
+   curl -s -o /dev/null -w "%{http_code}\n" -H "x-api-key: $LANGSMITH_API_KEY" "$LANGSMITH_ENDPOINT/api/v1/sessions?limit=1"  # gitleaks:allow
+   ```
+5. Tracing switches on by itself when the key is set; the project appears in the dashboard with the first conversation. Hidden inputs and outputs mean the dashboard shows steps, tools and timings, never what a patient wrote.
 
 </details>
 
