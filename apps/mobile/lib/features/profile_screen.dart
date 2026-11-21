@@ -9,6 +9,7 @@ import 'aligner_screen.dart';
 import 'clinic_screen.dart';
 import 'coverage_screen.dart';
 import 'details_screen.dart';
+import 'payments_screen.dart';
 
 /// The account: who is linked, their clinic and address, privacy, and signing out.
 class ProfileScreen extends ConsumerWidget {
@@ -79,6 +80,14 @@ class ProfileScreen extends ConsumerWidget {
                   RowGroup(
                     title: 'Tools',
                     rows: [
+                      GroupRow(
+                        key: const Key('open-payments'),
+                        icon: Icons.receipt_long_rounded,
+                        tint: Tint.teal,
+                        title: 'Payments',
+                        detail: 'Pay for visits and see your receipts',
+                        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PaymentsScreen())),
+                      ),
                       GroupRow(
                         key: const Key('open-aligner'),
                         icon: Icons.timer_outlined,

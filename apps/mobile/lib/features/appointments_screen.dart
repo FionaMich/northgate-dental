@@ -11,6 +11,7 @@ import 'booking_screen.dart';
 import 'care_widgets.dart';
 import 'dentist_screen.dart';
 import 'home_screen.dart' show confirmCancelVisit;
+import 'payments_screen.dart';
 import 'shell.dart';
 
 /// Every booked visit, each with Reschedule and Cancel; past visits live in Records.
@@ -73,6 +74,8 @@ class AppointmentsScreen extends ConsumerWidget {
                         order: i,
                         child: _VisitCard(
                           appointment: a,
+                          payment: c.paymentFor(a.id),
+                          onPay: () => payForVisit(context, ref, a.id),
                           onReschedule: () => _book(context, ref, replacing: a),
                           onCancel: () => confirmCancelVisit(context, ref, a),
                         ),
@@ -98,9 +101,16 @@ class AppointmentsScreen extends ConsumerWidget {
 }
 
 class _VisitCard extends StatelessWidget {
-  const _VisitCard({required this.appointment, required this.onReschedule, required this.onCancel});
+  const _VisitCard({
+    required this.appointment,
+    required this.onReschedule,
+    required this.onCancel,
+    required this.onPay,
+    this.payment,
+  });
   final Appointment appointment;
-  final VoidCallback onReschedule, onCancel;
+  final Payment? payment;
+  final VoidCallback onReschedule, onCancel, onPay;
 
   @override
   Widget build(BuildContext context) {
@@ -168,6 +178,52 @@ class _VisitCard extends StatelessWidget {
                     style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Palette.deepSea),
                   ),
                 ],
+              ),
+            ],
+            if (a.priceCents != null && a.priceCents! > 0) ...[
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
+                decoration: BoxDecoration(color: Palette.mist, borderRadius: BorderRadius.circular(14)),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text.rich(
+                        TextSpan(
+                          children: [
+                            TextSpan(
+                              text: dollars(payment?.amountCents ?? a.priceCents!),
+                              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: Palette.deepSea),
+                            ),
+                            TextSpan(
+                              text: payment?.paid == true ? '  paid' : '  to pay',
+                              style: const TextStyle(fontSize: 13, color: Palette.muted),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    if (payment?.paid == true)
+                      const Row(
+                        children: [
+                          Icon(Icons.check_circle_rounded, size: 18, color: Palette.teal),
+                          SizedBox(width: 6),
+                          Text('Paid', style: TextStyle(fontWeight: FontWeight.w700, color: Palette.teal)),
+                        ],
+                      )
+                    else
+                      FilledButton(
+                        key: Key('pay-visit-${a.id}'),
+                        onPressed: onPay,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Palette.teal,
+                          minimumSize: const Size(84, 40),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: const Text('Pay now', style: TextStyle(fontWeight: FontWeight.w700)),
+                      ),
+                  ],
+                ),
               ),
             ],
             const SizedBox(height: 14),

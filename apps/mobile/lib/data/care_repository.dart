@@ -17,14 +17,47 @@ class Appointment {
     this.clinicId,
     this.serviceId,
     this.dentistId,
+    this.priceCents,
   });
   final String id, service, location, status;
+
+  /// The clinic's price for this service, in whole cents; what the patient pays in the app.
+  final int? priceCents;
   final String? dentist, dentistPhoto;
 
   /// For rescheduling: book the same service with the same dentist at the same clinic.
   final String? clinicId, serviceId, dentistId;
   final DateTime startsAt, endsAt;
 }
+
+/// A payment for one visit: open (pending) or paid. Expired Checkout attempts are left out.
+class Payment {
+  const Payment({
+    required this.id,
+    required this.appointmentId,
+    required this.amountCents,
+    required this.status,
+    required this.service,
+    required this.location,
+    required this.visitAt,
+    this.paidAt,
+  });
+  final String id, appointmentId, status, service, location;
+  final int amountCents;
+  final DateTime visitAt;
+  final DateTime? paidAt;
+  bool get paid => status == 'paid';
+}
+
+class PaymentError implements Exception {
+  const PaymentError(this.message);
+  final String message;
+  @override
+  String toString() => message;
+}
+
+/// Where the pay page lives (n8n's W06 behind the WAF); a build can point elsewhere with --dart-define=LINK_BASE=...
+const linkBase = String.fromEnvironment('LINK_BASE', defaultValue: 'https://n8n.84-12-126-31.sslip.io/webhook');
 
 class Procedure {
   const Procedure({required this.service, required this.status, this.tooth, this.surface, this.feeCents});
@@ -99,8 +132,18 @@ class Plan {
 
 /// Everything the home, records and plan screens show for one person.
 class CareSummary {
-  const CareSummary({this.upcoming = const [], this.visits = const [], this.plans = const [], this.documents = const []});
+  const CareSummary({
+    this.upcoming = const [],
+    this.visits = const [],
+    this.plans = const [],
+    this.documents = const [],
+    this.payments = const [],
+  });
   final List<Appointment> upcoming;
+  final List<Payment> payments; // newest first
+
+  /// The payment for a visit, if one was started.
+  Payment? paymentFor(String appointmentId) => payments.where((p) => p.appointmentId == appointmentId).firstOrNull;
   final List<Visit> visits; // newest first
   final List<Plan> plans;
   final List<PracticeDocument> documents; // newest first
@@ -231,6 +274,9 @@ abstract class CareRepository {
   Future<void> confirm(String appointmentId);
   Future<void> cancel(String appointmentId);
 
+  /// A single-use link to Stripe Checkout for one of the patient's own visits, at the price-list amount.
+  Future<Uri> payLink(String appointmentId);
+
   Future<List<Coverage>> coverages(String patientId);
   Future<List<InsurancePlan>> insurancePlans();
 
@@ -269,7 +315,7 @@ class SupabaseCareRepository implements CareRepository {
           .from('appointments')
           .select(
             'id, starts_at, ends_at, status, location_id, service_id, practitioner_id, '
-            'location_services(services(name), locations(name)), practitioners(public_name, photo_key)',
+            'location_services(price_cents, services(name), locations(name)), practitioners(public_name, photo_key)',
           )
           .eq('patient_id', patientId)
           .inFilter('status', ['booked', 'arrived'])
@@ -295,6 +341,12 @@ class SupabaseCareRepository implements CareRepository {
           .select('id, encounter_id, kind, title, file_path, content_type, shared_at')
           .eq('patient_id', patientId)
           .order('shared_at', ascending: false),
+      _db
+          .from('payments')
+          .select('id, appointment_id, amount_cents, status, paid_at, appointments(starts_at, location_services(services(name), locations(name)))')
+          .eq('patient_id', patientId)
+          .neq('status', 'expired')
+          .order('created_at', ascending: false),
     ]);
     String loc(Map<String, dynamic> r) => clinicLabel((r['locations'] as Map?)?['name'] as String? ?? 'Northgate Dental');
     return CareSummary(
@@ -312,6 +364,22 @@ class SupabaseCareRepository implements CareRepository {
             clinicId: r['location_id'] as String?,
             serviceId: r['service_id'] as String?,
             dentistId: r['practitioner_id'] as String?,
+            priceCents: (r['location_services'] as Map?)?['price_cents'] as int?,
+          ),
+      ],
+      payments: [
+        for (final r in results[4])
+          Payment(
+            id: r['id'] as String,
+            appointmentId: r['appointment_id'] as String,
+            amountCents: r['amount_cents'] as int,
+            status: r['status'] as String,
+            paidAt: r['paid_at'] == null ? null : DateTime.parse(r['paid_at'] as String).toLocal(),
+            visitAt: DateTime.parse((r['appointments'] as Map)['starts_at'] as String).toLocal(),
+            service: _serviceName(r['appointments'] as Map<String, dynamic>) ?? 'Visit',
+            location: clinicLabel(
+              (((r['appointments'] as Map)['location_services'] as Map?)?['locations'] as Map?)?['name'] as String? ?? 'Northgate Dental',
+            ),
           ),
       ],
       visits: [
@@ -474,6 +542,17 @@ class SupabaseCareRepository implements CareRepository {
       await _db.rpc('cancel_appointment', params: {'appointment': appointmentId});
     } on PostgrestException catch (e) {
       _bookingError(e);
+    }
+  }
+
+  @override
+  Future<Uri> payLink(String appointmentId) async {
+    try {
+      final token = await _db.rpc('start_my_payment', params: {'appointment': appointmentId}) as String;
+      return Uri.parse('$linkBase/pay?t=$token');
+    } on PostgrestException catch (e) {
+      if (e.message.contains('already paid')) throw const PaymentError('This visit is already paid.');
+      throw const PaymentError('We could not start the payment. Please try again, or pay at the clinic.');
     }
   }
 
