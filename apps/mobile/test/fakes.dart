@@ -191,6 +191,12 @@ class FakeCareRepository implements CareRepository {
   }
 
   @override
+  Future<Uri> payLink(String appointmentId) async {
+    calls.add('pay:$appointmentId');
+    return Uri.parse('https://pay.test/pay?t=token');
+  }
+
+  @override
   Future<String> documentLink(String path) async {
     calls.add('link:$path');
     return 'https://files.test/$path?token=short';

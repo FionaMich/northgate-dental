@@ -83,3 +83,31 @@ def test_a_paid_visit_sends_one_receipt_with_the_amount(conn):
     cents = payment["amount_cents"]
     assert len(receipts) == 1
     assert f"${cents // 100:,}.{cents % 100:02d}" in receipts[0].text
+
+
+def test_a_worried_check_in_alerts_the_clinic_once_and_the_patient_email_has_a_check_in_link(conn):
+    conn.execute("insert into auth.users (id, email, aud, role, email_confirmed_at) values (%s, 'fiona.test@example.com',"
+                 " 'authenticated', 'authenticated', now())", (USER,))
+    conn.execute("insert into patient_links (profile_id, patient_id) values (%s, '30000000-0000-4000-8000-000000000099')", (USER,))
+    appointment = conn.execute("""insert into appointments (patient_id, location_id, practitioner_id, service_id, starts_at, ends_at, status)
+        select '30000000-0000-4000-8000-000000000099', l.id, pr.id, s.id, '2027-01-10 14:00+00', '2027-01-10 15:00+00', 'completed'
+        from locations l, practitioners pr, services s
+        where l.code = 'quincy' and pr.profile_id = '10000000-0000-4000-8000-000000000013' and s.code = 'D1110'
+        returning id""").fetchone()["id"]
+    assert conn.execute("select count(*) as n from private.claim_due_checkins('2027-01-11 15:30+00')").fetchone()["n"] == 1
+
+    sender = FakeSender()
+    run_once(conn, sender, link_base="https://n8n.example/webhook", alert_to="clinic@example.com")
+    checkin_mail = [m for _, m, _ in sender.sent if m.subject == "How are you feeling?"]
+    assert len(checkin_mail) == 1 and "https://n8n.example/webhook/checkin?t=" in checkin_mail[0].text
+
+    token = checkin_mail[0].text.split("checkin?t=")[1].split()[0]
+    flags = conn.execute("select red_flags from private.record_checkin(%s, 'concern', 'the bleeding will not stop')",
+                         (token,)).fetchone()["red_flags"]
+    assert flags == ["heavy_bleeding"]
+    run_once(conn, sender, link_base="https://n8n.example/webhook", alert_to="clinic@example.com")
+    run_once(conn, sender, link_base="https://n8n.example/webhook", alert_to="clinic@example.com")
+    alerts = [(to, m) for to, m, _ in sender.sent if m.subject == "Check-in needs follow-up"]
+    assert len(alerts) == 1 and alerts[0][0] == "clinic@example.com"
+    assert "bleeding" not in alerts[0][1].text, "the alert carries IDs, never what the patient wrote"
+    assert str(appointment)

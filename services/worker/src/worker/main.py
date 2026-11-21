@@ -1,5 +1,6 @@
-"""The notification worker. Reads two queues in small batches, one message per transaction:
+"""The notification worker. Reads three queues in small batches, one message per transaction:
 
+- urgent: check-ins that need a clinician; read first on every pass, an alert to the clinic at once.
 - events: appointment changes from the outbox; a booking or cancellation asks for a send on the notifications queue.
 - notifications: send requests; each is claimed in notification_log (one per appointment, kind and channel) before the
   email goes out, so a redelivered message never sends twice.
@@ -15,7 +16,7 @@ import time
 import psycopg
 from psycopg.rows import dict_row
 
-from .messages import Context, decide, render
+from .messages import Context, decide, render, render_alert
 from .senders import ResendSender, SendError
 
 BATCH = 10          # fixed batch: the worker never takes more than it can finish (Addendum D)
@@ -53,16 +54,37 @@ def handle_event(conn, msg: dict) -> None:
     archive(conn, "events", msg["msg_id"])
 
 
-def handle_notification(conn, msg: dict, sender) -> None:
+LINKS = {"cancel": "visit", "checkin": "checkin", "pay": "pay"}  # n8n webhook paths that serve each link's page
+
+
+def link_for(conn, link_base: str, kind: str, appointment: str, request: dict) -> str | None:
+    """A single-use link for the email, issued inside the send's transaction (a failed send discards it too)."""
+    if not link_base:
+        return None
+    if kind == "confirmation" or kind.startswith("reminder:"):
+        purpose, args = "cancel", (appointment, "cancel", None, None)
+    elif kind.startswith("checkin:"):
+        purpose, args = "checkin", (appointment, "checkin", request["kind"], None)
+    elif kind.startswith("statement:"):
+        purpose, args = "pay", (appointment, "pay", request["kind"], request["payment_id"])
+    else:
+        return None
+    token = conn.execute("select private.issue_action_token(%s, %s, %s, %s) as t", args).fetchone()["t"]
+    return f"{link_base}/{LINKS[purpose]}?t={token}"
+
+
+def handle_notification(conn, msg: dict, sender, link_base: str = "") -> None:
     request = msg["message"]
-    appointment = request["appointment_id"]
-    kind = request["type"] if request["type"] != "reminder" else f"reminder:{request['kind']}"
+    appointment, kind_type = request["appointment_id"], request["type"]
+    kind = kind_type if "kind" not in request else f"{kind_type}:{request['kind']}"
     ctx = conn.execute("select * from private.notification_context(%s)", (appointment,)).fetchone()
-    wanted = {"cancellation": ("cancelled",), "receipt": ("booked", "arrived", "completed")}.get(kind, ("booked",))
+    wanted = {"cancellation": ("cancelled",), "receipt": ("booked", "arrived", "completed"),
+              "checkin": ("completed",), "statement": ("completed",)}.get(kind_type, ("booked",))
     amount = None
-    if kind == "receipt":
-        amount = conn.execute("select private.receipt_amount(%s) as cents", (request["payment_id"],)).fetchone()["cents"]
-    if ctx is None or ctx["status"] not in wanted or (kind == "receipt" and amount is None):
+    if kind_type in ("receipt", "statement"):
+        fn = "receipt_amount" if kind_type == "receipt" else "balance_amount"
+        amount = conn.execute(f"select private.{fn}(%s) as cents", (request["payment_id"],)).fetchone()["cents"]
+    if ctx is None or ctx["status"] not in wanted or (kind_type in ("receipt", "statement") and amount is None):
         log(event="skipped", reason="status changed", kind=kind, appointment_id=appointment)
     elif not ctx["email"]:
         log(event="skipped", reason="no app sign-in email", kind=kind, appointment_id=appointment)
@@ -72,8 +94,9 @@ def handle_notification(conn, msg: dict, sender) -> None:
                values (%s, %s, %s, 'email', %s) on conflict do nothing returning id""",
             (appointment, ctx["patient_id"], kind, f"{kind}.v1")).fetchone()
         if claimed:
+            link = link_for(conn, link_base, kind, appointment, request)
             message = render(kind, Context(ctx["first_name"], ctx["starts_at"], ctx["time_zone"], ctx["clinic_name"],
-                                           ctx["clinic_phone"], ctx["service_name"], amount))
+                                           ctx["clinic_phone"], ctx["service_name"], amount, link))
             provider_id = sender.send(ctx["email"], message, idempotency_key=f"{appointment}:{kind}:email")
             conn.execute("update private.notification_log set status = 'sent', provider_message_id = %s, updated_at = now() "
                          "where id = %s", (provider_id, claimed["id"]))
@@ -83,11 +106,28 @@ def handle_notification(conn, msg: dict, sender) -> None:
     archive(conn, "notifications", msg["msg_id"])
 
 
-def run_once(conn, sender) -> int:
-    """One pass over both queues; returns how many messages were handled. Each message commits on its own."""
+def handle_urgent(conn, msg: dict, sender, alert_to: str | None) -> None:
+    """Check-ins that need a clinician: an alert to the clinic's inbox at once, IDs only."""
+    request = msg["message"]
+    appointment, checkin = request["appointment_id"], request["checkin_id"]
+    kind = f"alert:{checkin}"
+    ctx = conn.execute("select clinic_name from private.notification_context(%s)", (appointment,)).fetchone()
+    if not alert_to or ctx is None:
+        log(event="skipped", reason="no clinic alert address", kind="alert", appointment_id=appointment)
+    elif conn.execute("""insert into private.notification_log (appointment_id, kind, channel, template)
+                         values (%s, %s, 'email', 'checkin_alert.v1') on conflict do nothing returning id""",
+                      (appointment, kind)).fetchone():
+        sender.send(alert_to, render_alert(ctx["clinic_name"], checkin), idempotency_key=f"{kind}:email")
+        log(event="sent", kind="alert", channel="email", appointment_id=appointment)
+    archive(conn, "urgent", msg["msg_id"])
+
+
+def run_once(conn, sender, link_base: str = "", alert_to: str | None = None) -> int:
+    """One pass over the queues, urgent first; returns how many messages were handled. Each commits on its own."""
     handled = 0
-    for queue, handler in (("events", lambda c, m: handle_event(c, m)),
-                           ("notifications", lambda c, m: handle_notification(c, m, sender))):
+    for queue, handler in (("urgent", lambda c, m: handle_urgent(c, m, sender, alert_to)),
+                           ("events", lambda c, m: handle_event(c, m)),
+                           ("notifications", lambda c, m: handle_notification(c, m, sender, link_base))):
         with conn.transaction():
             messages = read(conn, queue)
         for msg in messages:
@@ -114,10 +154,12 @@ def main() -> None:
     signal.signal(signal.SIGTERM, request_stop)
     signal.signal(signal.SIGINT, request_stop)
     sender = ResendSender(os.environ["RESEND_API_KEY"], os.environ["EMAIL_FROM"], os.environ.get("EMAIL_REDIRECT_TO") or None)
+    link_base = os.environ.get("LINK_BASE", "").rstrip("/")         # e.g. https://n8n.<domain>/webhook
+    alert_to = os.environ.get("CLINIC_ALERT_EMAIL") or None         # the clinic inbox for urgent check-ins
     with psycopg.connect(os.environ["WORKER_DB_URL"], row_factory=dict_row, autocommit=True) as conn:
         log(event="started")
         while not stop:
-            if run_once(conn, sender) == 0:
+            if run_once(conn, sender, link_base, alert_to) == 0:
                 time.sleep(2)
     log(event="stopped")
     sys.exit(0)
