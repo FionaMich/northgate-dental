@@ -5,8 +5,10 @@
 # Without BACKUP_BUCKET it stops after encrypting (local testing). Section 07 adds n8n's database to the loop.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+set -a
 # shellcheck source=/dev/null
-set -a; source .env; set +a
+source .env
+set +a
 : "${SUPABASE_DB_URL:?}" "${BACKUP_AGE_PUBLIC_KEY:?}"
 
 stamp="$(date -u +%Y%m%dT%H%MZ)"

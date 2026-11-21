@@ -4,8 +4,10 @@
 # Needs the stack running (scripts/issue-certs.sh). Usage: infra/tests/test_waf.sh [https://host:port]
 set -uo pipefail
 cd "$(dirname "$0")/.." || exit 1
+set -a
 # shellcheck source=/dev/null
-set -a; source .env; set +a
+source .env
+set +a
 base="${1:-https://$DOMAIN:${HTTPS_PORT:-443}}"
 plain="http://$DOMAIN:${HTTP_PORT:-80}"
 fails=0
