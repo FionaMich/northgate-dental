@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -262,63 +263,113 @@ class _Chip extends StatelessWidget {
   );
 }
 
-/// The 32 permanent teeth (Universal numbering, as the patient faces you): treated teeth in teal,
-/// planned treatment in apricot, teeth with a finding ringed.
+/// The 32 permanent teeth on two arches, as the patient faces you (Universal numbering): treated teeth in teal,
+/// planned treatment in apricot, teeth the dentist noted ringed. Numbers show only on teeth with something to say.
 class ToothChart extends StatelessWidget {
   const ToothChart({super.key, required this.procedures, required this.findings});
   final List<Procedure> procedures;
   final List<Finding> findings;
 
-  @override
-  Widget build(BuildContext context) {
-    Widget row(Iterable<int> numbers, String label) => Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Palette.muted),
-        ),
-        const SizedBox(height: 6),
-        Row(children: [for (final n in numbers) Expanded(child: _tooth('$n'))]),
-      ],
-    );
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        row([for (var n = 1; n <= 16; n++) n], 'Upper teeth'),
-        const SizedBox(height: 12),
-        row([for (var n = 32; n >= 17; n--) n], 'Lower teeth'),
-        const SizedBox(height: 14),
-        const Wrap(
-          spacing: 14,
-          runSpacing: 6,
-          children: [_Key(Palette.teal, 'Treated'), _Key(Palette.apricot, 'Planned'), _Key(null, 'Noted by the dentist')],
-        ),
-      ],
-    );
-  }
+  // Molars are widest, then premolars, canines and incisors; one side of the arch, back to front.
+  static const _sideWidths = [1.25, 1.25, 1.25, 0.95, 0.95, 0.85, 0.78, 0.82];
 
-  Widget _tooth(String n) {
+  @override
+  Widget build(BuildContext context) => Column(
+    children: [
+      LayoutBuilder(
+        builder: (context, box) {
+          final w = box.maxWidth, h = w * 0.86;
+          final unit = w / 15.5;
+          final widths = [..._sideWidths, ..._sideWidths.reversed]; // 16 teeth, back right to back left
+          final total = widths.fold(0.0, (a, b) => a + b);
+          final children = <Widget>[];
+          for (final upper in [true, false]) {
+            final cx = w / 2, cy = upper ? h * 0.48 : h * 0.52;
+            final rx = w * 0.43, ry = h * 0.40;
+            var run = 0.0;
+            for (var k = 0; k < 16; k++) {
+              final mid = (run + widths[k] / 2) / total;
+              run += widths[k];
+              // Upper arch runs over the top (pi to 2pi), lower arch under the bottom (pi down to 0).
+              final theta = upper ? math.pi + 0.10 + mid * (math.pi - 0.20) : math.pi - 0.10 - mid * (math.pi - 0.20);
+              final x = cx + rx * math.cos(theta), y = cy + ry * math.sin(theta);
+              final number = upper ? '${k + 1}' : '${32 - k}';
+              final tw = unit * widths[k], th = unit * 1.15;
+              children.add(
+                Positioned(
+                  left: x - tw / 2,
+                  top: y - th / 2,
+                  child: Transform.rotate(angle: theta + math.pi / 2, child: _tooth(number, tw, th, theta + math.pi / 2)),
+                ),
+              );
+            }
+          }
+          return SizedBox(
+            width: w,
+            height: h,
+            child: Stack(
+              children: [
+                ...children,
+                Align(
+                  alignment: const Alignment(0, -0.12),
+                  child: Text(
+                    'Upper',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Palette.muted.withValues(alpha: 0.8)),
+                  ),
+                ),
+                Align(
+                  alignment: const Alignment(0, 0.12),
+                  child: Text(
+                    'Lower',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Palette.muted.withValues(alpha: 0.8)),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+      const SizedBox(height: 8),
+      const Wrap(
+        spacing: 14,
+        runSpacing: 6,
+        alignment: WrapAlignment.center,
+        children: [_Key(Palette.teal, 'Treated'), _Key(Palette.apricot, 'Planned'), _Key(null, 'Noted by the dentist')],
+      ),
+    ],
+  );
+
+  Widget _tooth(String n, double w, double h, double turn) {
     final here = procedures.where((p) => p.tooth == n);
     final done = here.any((p) => p.done), planned = here.any((p) => !p.done);
     final noted = findings.any((f) => f.tooth == n);
     final states = [if (done) 'treated', if (planned) 'treatment planned', if (noted) 'finding'];
+    final fill = done ? Palette.teal : (planned ? Palette.apricot : Colors.white);
     return Semantics(
       label: states.isEmpty ? 'Tooth $n' : 'Tooth $n: ${states.join(', ')}',
       child: ExcludeSemantics(
         child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 1.5),
-          height: 30,
+          width: w,
+          height: h,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: done ? Palette.teal : (planned ? Palette.apricot : Palette.enamel),
-            borderRadius: BorderRadius.circular(7),
-            border: noted ? Border.all(color: const Color(0xFFB35F1E), width: 2) : null,
+            color: fill,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(w * 0.45), bottom: Radius.circular(w * 0.3)),
+            border: Border.all(
+              color: noted ? const Color(0xFFB35F1E) : (states.isEmpty ? const Color(0xFFCFE0DC) : Colors.transparent),
+              width: noted ? 2 : 1.2,
+            ),
+            boxShadow: states.isEmpty ? null : lift(0.6),
           ),
-          child: Text(
-            n,
-            style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: done ? Colors.white : Palette.deepSea),
-          ),
+          child: states.isEmpty
+              ? null
+              : Transform.rotate(
+                  angle: -turn, // the number stays upright while the tooth follows the arch
+                  child: Text(
+                    n,
+                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: done ? Colors.white : Palette.deepSea),
+                  ),
+                ),
         ),
       ),
     );
