@@ -130,7 +130,7 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
                               crossAxisCount: 2,
                               mainAxisSpacing: 14,
                               crossAxisSpacing: 14,
-                              childAspectRatio: 0.62,
+                              childAspectRatio: 0.58, // fits two lines of name on a 360-wide phone
                             ),
                             itemBuilder: (_, i) => Reveal(order: i, child: _ProductCard(product: shown[i])),
                           ),

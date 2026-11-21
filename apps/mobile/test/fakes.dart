@@ -357,8 +357,9 @@ class FakeAlignerReminders implements AlignerReminders {
 }
 
 class FakeShopRepository implements ShopRepository {
-  FakeShopRepository({this.refuseWith});
+  FakeShopRepository({this.refuseWith, this.items = catalogue});
   final String? refuseWith;
+  final List<ShopProduct> items;
   final placed = <String>[];
 
   static const catalogue = [
@@ -371,7 +372,7 @@ class FakeShopRepository implements ShopRepository {
   ];
 
   @override
-  Future<List<ShopProduct>> products() async => catalogue;
+  Future<List<ShopProduct>> products() async => items;
 
   @override
   Future<Uri> checkout(List<BagLine> lines, {required String fulfilment, required String clinicId}) async {

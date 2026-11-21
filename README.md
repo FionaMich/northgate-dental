@@ -264,6 +264,87 @@ If the page does not load: the Bastion refuses sessions from an IP outside `clie
 </details>
 
 <details>
+<summary><b>Links in patient emails: cancel, check-in and pay, single use and never naming the patient</b></summary>
+
+Confirmations, reminders, check-ins and balance reminders each carry at most one link. Each link is a random 32-character token; the database stores only its SHA-256 hash (`private.action_tokens`), so a copy of the database cannot be turned into working links.
+
+| Link | Sent in | What the page does | Rule enforced in Postgres |
+| --- | --- | --- | --- |
+| **Cancel** (W03) | Confirmation and every reminder | Shows the visit; the button cancels | Not inside the clinic's cancellation window (24 hours by default, per location); works once; the cancellation then goes through the outbox like any other |
+| **Check-in** (W11) | 10:00 clinic time, 1 and 3 days after a completed visit | "Fine" or "I have a concern", plus an optional note | Fixed red-flag rules (bleeding that will not stop, spreading swelling, fever, trouble breathing or swallowing, lasting numbness, signs of infection, severe pain); a flag tells the patient to call now or 911, opens an urgent staff task and goes on the `urgent` queue; no AI model reads the note |
+| **Pay** (W06) | Balance reminders on days 0, 14 and 28 after a visit; a billing task on day 35 | Redirects to Stripe Checkout through W04 | The amount comes from the price list; a paid link shows "already paid" |
+
+**Opening a link never changes anything.** Mail scanners and link previews open links automatically, so a GET only shows the page; only the button (a POST) acts. Pages name the service, time and clinic, never the patient, because links get forwarded. Each workflow's database login (`northgate_actions_app`) can call four functions and read no table.
+
+**The worker** adds the link when it writes the email, inside the same transaction as the send, so a failed send also discards its link. Urgent check-in alerts go to the clinic inbox at once, carrying IDs only; the patient's words stay in Postgres.
+
+</details>
+
+<details>
+<summary><b>Conflict scanner (W22) and the staff task inbox</b></summary>
+
+When a dentist books leave or a clinic closes, visits already booked can become impossible. `private.detect_schedule_conflicts()` finds four kinds: the clinician unavailable (leave, training, sick), the location closed, too little travel time between two clinics for the same clinician, and the same patient booked within 30 minutes of another visit.
+
+- **When it runs:** a trigger on every change to leave or closures, so a conflict shows within seconds; and pg_cron every 15 minutes over the next 30 days, for changes no trigger sees.
+- **Recorded once:** `schedule_conflicts` is unique per appointment and conflict type; scanning again raises nothing new.
+- **Fixes itself:** when the leave is cancelled or the visit moved, the conflict is resolved and its task closed.
+- **One inbox:** `staff_tasks` holds schedule conflicts, check-ins that need a clinician, balances that need billing follow-up and shop orders to set aside, each pointing at an appointment or order by ID. Staff see only their own clinics' tasks; patients see none. The web portal (next section) shows this inbox.
+- **Nothing is sent to a patient from here:** a person decides, as the blueprint requires.
+
+</details>
+
+<details>
+<summary><b>PDF receipts from an internal renderer</b></summary>
+
+Receipt emails carry a PDF receipt, rendered from HTML by **Gotenberg**, a maintained container that wraps headless Chromium. It does the job the blueprint gives Puppeteer without any browser code of our own to keep patched.
+
+![A PDF receipt](.github/readme/receipt-pdf.png)
+
+- **Internal only:** it sits on the `data` network, which has no route in or out; only the worker can reach it.
+- **Locked down:** JavaScript is off and it may load nothing but the HTML it is sent; the receipt document is self-contained (no fonts, images or scripts to fetch).
+- **Never blocks a receipt:** if the renderer is down, the email still goes without the attachment and the log says so (tested).
+
+</details>
+
+<details>
+<summary><b>The dental shop: clinician-curated, with refills and sales tax</b></summary>
+
+A small shop inside the patient app for the products our dentists and hygienists already recommend at the chair. It is not a marketplace: its value over Amazon is trust and fit, "what my dentist recommends for my mouth".
+
+| Shop | Product | Bag | Stripe Checkout |
+| --- | --- | --- | --- |
+| ![Shop](.github/readme/shop-shop.png) | ![Product](.github/readme/shop-product.png) | ![Bag](.github/readme/shop-bag.png) | ![Checkout](.github/readme/shop-checkout.png) |
+
+**Benchmarks, and what was taken from each:**
+
+| Benchmark | What it does well | Taken here |
+| --- | --- | --- |
+| quip | Refill subscriptions as the default | Refills every 1, 2, 3 or 6 months through Stripe Billing, offered first on refillable products |
+| Oral-B and Philips Sonicare apps | Replacement reminders tied to the product | Brush heads on a 3-month refill |
+| Byte, Invisalign aftercare | Aftercare kits at the moment of treatment | An aligner category: chewies, cases, cleaning crystals |
+| Hims and Hers, Curology | Clinician-gated products | Prescription-strength items locked until a dentist approves them for that patient |
+| DUA, Fellow | Calm premium retail | Category chips, large product cards on one consistent mint stage, benefit labels |
+
+**Rules, all enforced on the server** (`create_shop_order`, 25 database tests):
+
+| Rule | How |
+| --- | --- |
+| The price is the catalogue's | The app sends product IDs, quantities and refill choices only; a price it sends is ignored (tested) |
+| Prescription-strength items need a dentist | `shop_approvals`, per patient and product, expiring; only a clinician who can see the patient may approve |
+| Whitening is for adults with a recent exam | Age 18 or over and an exam encounter in the last 12 months |
+| Collection needs stock | `shop_stock` per clinic; paid collection orders take the stock |
+| Refills only where offered | `refill_interval_months` on the product |
+| Payment matches the order | W05 compares Stripe's item subtotal and shipping with the order, then records the tax Stripe calculated |
+
+**Paying:** W12 turns the order's lines into a Stripe Checkout Session: subscription mode when any line is a refill (Stripe Billing), payment mode otherwise; **Stripe Tax** on (Massachusetts registration, 6.25 per cent verified); a US address and a flat $7.99 rate when delivered (free from $50), or only country and ZIP when collected; Adaptive Pricing off, so a US clinic always charges US dollars. Each refill cycle (`invoice.paid`) becomes a new paid order with a fulfilment task.
+
+**What Stripe receives:** product names (deliberately non-diagnostic: "High-fluoride toothpaste", never a condition), amounts and our order ID; the patient types their own card, email and address on Stripe's page.
+
+**Product photography:** one approved style for every product (white product, teal accent, pale mint stage, soft studio light), generated and checked on a sample before the set.
+
+</details>
+
+<details>
 <summary><b>Flutter for the patient app</b></summary>
 
 One codebase for Android now and iOS later, with full control over every pixel. That matters for an app that has to feel trustworthy, not generic.
@@ -463,10 +544,62 @@ Each principle below comes from a well-known software engineering book, and each
 - **Clear aligner timer** with in-app notifications.
 - **Details:** insurance plans picked from a list, and a verified home address.
 - **Family access:** parents see their children's records, with limits for teenagers.
+- **Payments:** each booked visit shows its price with Pay now or Paid; Payments, under Profile, lists what is due and the receipts; card details go only to Stripe.
+- **Shop:** clinician-recommended products by category, refills every few months, collection at a chosen clinic or delivery, prescription items unlocked by the dentist, and orders under Profile.
 
 </details>
 
 ## Deployments
+
+<details>
+<summary><b>21 November 2026 (late): section 07 finished, paying in the app, and the dental shop</b></summary>
+
+**What went live (PRs #87 to #91):**
+- W22 conflict scanner and the staff task inbox;
+- cancel (W03), check-in (W11) and pay (W06) links with their n8n pages;
+- PDF receipts (Gotenberg on the internal network);
+- paying for visits in the app;
+- the dental shop: catalogue, rules, W12 checkout with Stripe Billing refills and Stripe Tax, order emails, and the Shop tab;
+- sticky notes on every n8n workflow, placed above the nodes.
+
+**Proved on staging, end to end:** a toothbrush plus brush heads on a 3-month refill, collected at Quincy. Stripe charged $98.81 ($93.00 plus $5.81 Massachusetts tax) and created the subscription; the order became paid, Quincy's stock fell from 12 to 11, the clinic got a set-aside task and the confirmation email was sent. A forged webhook was refused (400); a cancel link opened without cancelling, cancelled on the button and refused a second press.
+
+**Problems found and fixed on the way:**
+- Refill checkouts showed Kenyan shillings (Adaptive Pricing): now off for every checkout.
+- Collection orders asked for a full billing address: now only what Stripe Tax needs.
+- A snackbar after "Add to bag" covered the next product's button: removed, the bag button confirms instead.
+- Product cards overflowed by 5 pixels on a 360-wide phone: taller cards.
+
+**Commands (secrets replaced with placeholders):**
+
+```bash
+# Stripe Tax: Massachusetts registration (test mode), then a check
+curl -s -u "$STRIPE_SECRET_KEY:" https://api.stripe.com/v1/tax/registrations -d country=US -d "country_options[us][state]=MA" -d "country_options[us][type]=state_sales_tax" -d active_from=now  # gitleaks:allow
+# webhook: refills too
+curl -s -u "$STRIPE_SECRET_KEY:" https://api.stripe.com/v1/webhook_endpoints/<endpoint id> -d "enabled_events[]=invoice.paid" ...  # gitleaks:allow
+
+# workflows: built through the n8n MCP server, exported, notes added, imported on the VM
+python3 n8n/add_notes.py
+docker exec -i <n8n container> n8n import:workflow --input=/tmp/w12-shop-checkout.json
+docker exec <n8n container> n8n update:workflow --id=<id> --active=true
+
+# VM: worker with links, order emails and PDF receipts, plus the renderer
+docker compose --profile worker up -d --build worker pdf
+
+# app: build for the test phone and install
+flutter build apk --release --dart-define-from-file=staging.env
+adb install -r build/app/outputs/flutter-apk/app-release.apk
+```
+
+**Screenshots still to take:**
+- [ ] Stripe Dashboard, Subscriptions: the brush-head refill (https://dashboard.stripe.com/test/subscriptions)
+- [ ] Stripe Dashboard, Tax: the Massachusetts registration (https://dashboard.stripe.com/test/tax/registrations)
+- [ ] The order confirmation email and a receipt email with its PDF attachment
+- [ ] The app on the phone: Shop tab, a product, the bag, Payments and Orders under Profile
+- [ ] Supabase staging, Table editor: `shop_orders` (the paid order) and `staff_tasks`
+- [ ] The n8n editor through the tunnel: the workflow list, and W12 with its notes
+
+</details>
 
 <details>
 <summary><b>21 November 2026 (night): payments live in Stripe test mode, and n8n on the VM</b></summary>
