@@ -18,6 +18,7 @@ check() { # name, expected, actual
 status() { curl -sk -o /dev/null -w '%{http_code}' "$@"; }
 
 check "health passes" 200 "$(status "$base/health")"
+check "root page is served" 200 "$(status "$base/")"
 check "unknown path is 404, not an error page" 404 "$(status "$base/nothing-here")"
 check "cross-site scripting in a query is refused" 403 "$(status "$base/health?q=<script>alert(1)</script>")"
 check "SQL injection in a query is refused" 403 "$(status "$base/health?id=1'%20OR%20'1'='1")"
