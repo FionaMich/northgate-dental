@@ -179,7 +179,6 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final rtl = _language == 'ar';
     return Scaffold(
       backgroundColor: Palette.mist,
       appBar: AppBar(
@@ -203,7 +202,7 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> {
                     style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
                   ),
                   Text(
-                    'AI assistant · 12 languages',
+                    'AI assistant · 7 languages',
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(fontSize: 12, color: Color(0xFFA9DCD1)),
                   ),
@@ -236,7 +235,7 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> {
         children: [
           Expanded(
             child: Directionality(
-              textDirection: rtl ? TextDirection.rtl : TextDirection.ltr,
+              textDirection: TextDirection.ltr,
               child: ListView(
                 controller: _scroll,
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),

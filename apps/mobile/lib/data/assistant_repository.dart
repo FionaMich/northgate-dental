@@ -6,17 +6,12 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// The languages the receptionist speaks: code, and the name in that language (shown in the picker).
 const assistantLanguages = {
   'en': 'English',
-  'es': 'Español',
-  'pt': 'Português',
-  'ht': 'Kreyòl ayisyen',
-  'zh-Hans': '简体中文',
-  'zh-Hant': '繁體中文',
-  'vi': 'Tiếng Việt',
-  'ar': 'العربية',
   'fr': 'Français',
-  'ru': 'Русский',
-  'ko': '한국어',
-  'tl': 'Tagalog',
+  'nl': 'Nederlands',
+  'de': 'Deutsch',
+  'es': 'Español',
+  'lt': 'Lietuvių',
+  'sv': 'Svenska',
 };
 
 /// What the assistant said, or a booking or cancellation waiting for the patient's button.

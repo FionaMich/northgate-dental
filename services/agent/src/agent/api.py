@@ -31,7 +31,7 @@ LINK_BASE = os.environ.get("LINK_BASE", "")
 app = FastAPI(title="Northgate assistant", docs_url=None, redoc_url=None, openapi_url=None)
 assistant = graph.build()
 
-Language = Literal["en", "es", "pt", "ht", "zh-Hans", "zh-Hant", "vi", "ar", "fr", "ru", "ko", "tl"]
+Language = Literal["en", "fr", "nl", "de", "es", "lt", "sv"]
 
 
 @dataclass(frozen=True)
