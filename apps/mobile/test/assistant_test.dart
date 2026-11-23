@@ -46,4 +46,41 @@ void main() {
     }
     expect(find.byKey(const Key('language-ar')), findsNothing);
   });
+
+  testWidgets('Nora speaks her greeting, hears the patient and answers aloud with captions', (tester) async {
+    final assistant = FakeAssistantRepository();
+    final voice = FakeVoiceEngine()..heard.add('What time does Quincy open?');
+    await pumpApp(tester, FakeAccountRepository(patients: [elena]), assistant: assistant, voice: voice);
+    await signIn(tester);
+    await tapKey(tester, 'open-assistant');
+    await tapKey(tester, 'open-voice');
+    expect(voice.spoken.last, 'en:Hi, I am an AI assistant.', reason: 'the AI disclosure is spoken first');
+
+    await tapKey(tester, 'voice-mic');
+    expect(assistant.sent.last, 'en:What time does Quincy open?');
+    expect(voice.spoken.last, 'en:Quincy opens at 07:00 on Mondays.');
+    expect(find.text('Quincy opens at 07:00 on Mondays.'), findsOneWidget, reason: 'captions for every spoken reply');
+  });
+
+  testWidgets('a spoken booking still waits for the button, never for a spoken yes', (tester) async {
+    final assistant = FakeAssistantRepository()..proposeBooking = true;
+    final voice = FakeVoiceEngine()..heard.add('Book a cleaning');
+    await pumpApp(tester, FakeAccountRepository(patients: [elena]), assistant: assistant, voice: voice);
+    await signIn(tester);
+    await tapKey(tester, 'open-assistant');
+    await tapKey(tester, 'open-voice');
+    await tapKey(tester, 'voice-mic');
+    expect(find.byKey(const Key('voice-yes')), findsOneWidget);
+    expect(assistant.answers, isEmpty);
+    await tapKey(tester, 'voice-yes');
+    expect(assistant.answers, [true]);
+  });
+
+  testWidgets('with no on-device recogniser the microphone is off and Nora says so', (tester) async {
+    await pumpApp(tester, FakeAccountRepository(patients: [elena]), voice: FakeVoiceEngine(available: false));
+    await signIn(tester);
+    await tapKey(tester, 'open-assistant');
+    await tapKey(tester, 'open-voice');
+    expect(find.textContaining('Voice is not available'), findsOneWidget);
+  });
 }

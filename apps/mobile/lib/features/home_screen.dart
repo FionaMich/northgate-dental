@@ -486,10 +486,10 @@ class _NextVisit extends ConsumerWidget {
             ] else
               const Spacer(),
             Flexible(
-              child: TextButton(
+              child: OutlinedButton(
                 key: const Key('cancel-visit'),
                 onPressed: () => confirmCancelVisit(context, ref, appointment),
-                style: TextButton.styleFrom(foregroundColor: Palette.error),
+                style: dangerOutline,
                 child: const Text(
                   'Cancel visit',
                   maxLines: 1,
@@ -937,7 +937,7 @@ class _AskReceptionist extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Ask our receptionist',
+                    'Ask Nora, our receptionist',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,

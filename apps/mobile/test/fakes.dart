@@ -7,6 +7,7 @@ import 'package:dental/data/shop_repository.dart';
 import 'package:dental/data/assistant_repository.dart';
 import 'package:dental/data/aligner_reminders.dart';
 import 'package:dental/data/wear_log.dart';
+import 'package:dental/data/voice_engine.dart';
 
 /// In-memory stand-in for Supabase, so widget tests run without a network.
 class FakeAccountRepository implements AccountRepository {
@@ -565,4 +566,31 @@ class FakeAssistantRepository implements AssistantRepository {
     answers.add(accept);
     return AssistantTurn(reply: accept ? 'Booked.' : 'No problem.');
   }
+}
+
+/// Hears whatever the test queues and records what Nora says; no microphone or speaker.
+class FakeVoiceEngine implements VoiceEngine {
+  FakeVoiceEngine({this.available = true});
+  final bool available;
+  final heard = <String>[];
+  final spoken = <String>[];
+
+  @override
+  Future<bool> canListen(String language) async => available;
+
+  @override
+  Future<String> listen(String language, void Function(String words) onWords) async {
+    final words = heard.isEmpty ? '' : heard.removeAt(0);
+    onWords(words);
+    return words;
+  }
+
+  @override
+  Future<void> stopListening() async {}
+
+  @override
+  Future<void> speak(String text, String language) async => spoken.add('$language:$text');
+
+  @override
+  Future<void> stopSpeaking() async {}
 }

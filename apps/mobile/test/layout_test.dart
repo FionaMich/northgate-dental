@@ -55,6 +55,7 @@ void main() {
       await tester.pumpAndSettle();
       await tapKey(tester, 'tab-home');
       problems.addAll(await visit(tester, () => tapKey(tester, 'open-assistant'), 'assistant'));
+      problems.addAll(await visit(tester, () => tapKey(tester, 'open-voice'), 'nora voice'));
       expect(problems, isEmpty);
     });
   }

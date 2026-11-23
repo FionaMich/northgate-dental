@@ -4,9 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../data/assistant_repository.dart';
-import '../design/art.dart';
 import '../design/tokens.dart';
 import '../state.dart';
+import 'voice_screen.dart';
 
 /// Chat with Northgate's virtual receptionist, in the patient's language. It always opens by saying it is an AI;
 /// bookings and cancellations wait for the patient's own button; anything clinical goes to the team.
@@ -35,12 +35,12 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> {
   bool _waiting = false;
   Map<String, dynamic>? _confirm;
 
-  static const _starters = [
-    'Book a cleaning',
-    'Opening hours',
-    'Pay my bill',
-    'Talk to a person',
-  ];
+  static const _starters = {
+    'Book a cleaning': Icons.event_available_rounded,
+    'Opening hours': Icons.schedule_rounded,
+    'Pay my bill': Icons.credit_card_rounded,
+    'Talk to a person': Icons.support_agent_rounded,
+  };
 
   @override
   void initState() {
@@ -187,10 +187,10 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> {
         titleSpacing: 0,
         title: const Row(
           children: [
-            SizedBox(
-              width: 32,
-              height: 32,
-              child: Center(child: Tooth3D(height: 26)),
+            CircleAvatar(
+              radius: 17,
+              backgroundColor: Color(0xFFDDF4EC),
+              backgroundImage: AssetImage('assets/images/nora/idle.png'),
             ),
             SizedBox(width: 10),
             Expanded(
@@ -198,11 +198,11 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Receptionist',
-                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+                    'Nora',
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: Colors.white),
                   ),
                   Text(
-                    'AI assistant · 8 languages',
+                    'AI · 8 languages',
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(fontSize: 12, color: Color(0xFFA9DCD1)),
                   ),
@@ -212,6 +212,14 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> {
           ],
         ),
         actions: [
+          IconButton(
+            key: const Key('open-voice'),
+            tooltip: 'Talk to Nora',
+            icon: const Icon(Icons.graphic_eq_rounded),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => VoiceScreen(language: _language)),
+            ),
+          ),
           TextButton.icon(
             key: const Key('pick-language'),
             onPressed: _pickLanguage,
@@ -246,9 +254,10 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> {
                       spacing: 8,
                       runSpacing: 8,
                       children: [
-                        for (final s in _starters)
+                        for (final MapEntry(key: s, value: icon) in _starters.entries)
                           ActionChip(
                             key: Key('starter-$s'),
+                            avatar: Icon(icon),
                             label: Text(s),
                             onPressed: () => _send(s),
                           ),

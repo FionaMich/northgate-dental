@@ -255,4 +255,60 @@ void main() {
     await tapKey(tester, 'assistant-send');
     await shot(tester, '24-assistant-confirm');
   });
+
+  // The style audit: every remaining page, at normal and at large system text (1.3x).
+  for (final scale in [1.0, 1.3]) {
+    testWidgets('screenshots: audit at text ${scale}x', skip: !shots, (tester) async {
+      tester.platformDispatcher.textScaleFactorTestValue = scale;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      final tag = scale == 1.0 ? 'a' : 'b';
+      tester.view.physicalSize = const Size(720, 1600);
+      tester.view.devicePixelRatio = 2.0;
+      addTearDown(tester.view.reset);
+      final rich = richCare();
+      final care = FakeCareRepository({
+        'p-m': CareSummary(
+          upcoming: rich.upcoming,
+          plans: rich.plans,
+          documents: rich.documents,
+          visits: [
+            Visit(
+              id: 'v-x',
+              at: now.subtract(const Duration(hours: 4)),
+              kind: 'treatment',
+              location: 'Back Bay',
+              procedures: const [Procedure(service: 'Simple extraction', status: 'completed')],
+            ),
+            ...rich.visits,
+          ],
+        ),
+      });
+      await pumpApp(tester, FakeAccountRepository(patients: [michelle]), care: care,
+          voice: FakeVoiceEngine(), extra: [pdfViewProvider.overrideWithValue((_) => const SizedBox())]);
+      await signIn(tester);
+      await shot(tester, '30$tag-home');
+      await tapKey(tester, 'aftercare-card');
+      await shot(tester, '31$tag-aftercare');
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      await tapKey(tester, 'tab-appointments');
+      await shot(tester, '32$tag-appointments');
+      await tapKey(tester, 'tab-shop');
+      await shot(tester, '33$tag-shop');
+      await tapKey(tester, 'tab-profile');
+      await tapKey(tester, 'open-payments');
+      await shot(tester, '34$tag-payments');
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      await tapKey(tester, 'open-orders');
+      await shot(tester, '35$tag-orders');
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      await tapKey(tester, 'tab-home');
+      await tapKey(tester, 'open-assistant');
+      await shot(tester, '36$tag-chat');
+      await tapKey(tester, 'open-voice');
+      await shot(tester, '37$tag-nora');
+    });
+  }
 }
