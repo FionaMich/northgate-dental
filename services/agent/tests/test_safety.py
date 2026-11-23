@@ -53,4 +53,12 @@ def test_the_emergency_text_names_911_and_988_in_every_language():
 
 
 def test_unknown_languages_fall_back_to_english():
-    assert fixed("disclosure", "xx").startswith("Hi, I'm Northgate Dental's virtual receptionist")
+    assert fixed("disclosure", "xx").startswith("Hi, I'm Nora")
+
+
+def test_nora_introduces_herself_as_an_ai_in_every_language():
+    words = {"en": "AI", "fr": "intelligence artificielle", "nl": "AI", "de": "KI", "es": "inteligencia artificial",
+             "it": "intelligenza artificiale", "lt": "dirbtinio intelekto", "sv": "AI"}
+    for language in LANGUAGES:
+        text = fixed("disclosure", language)
+        assert "Nora" in text and words[language] in text, language
