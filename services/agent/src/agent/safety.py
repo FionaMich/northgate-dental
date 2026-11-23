@@ -9,38 +9,46 @@ from pathlib import Path
 
 import yaml
 
-LANGUAGES = ("en", "es", "pt", "ht", "zh-Hans", "zh-Hant", "vi", "ar", "fr", "ru", "ko", "tl")
+LANGUAGES = ("en", "fr", "nl", "de", "es", "lt", "sv")  # Fiona, 2026-11-23
 
-# One pattern per flag per language; all of them run on every message, whatever language it is in.
+# One or more patterns per flag per language; all of them run on every message, whatever language it is in.
 _RED_FLAGS: dict[str, list[str]] = {
     "breathing_or_swallowing": [
         r"(can.?t|cannot|hard to|trouble|difficult\w*)\s+(breath|swallow)", r"choking",
-        r"(no puedo|dificultad para|me cuesta)\s+(respirar|tragar)", r"(n[aã]o consigo|dificuldade (para|de))\s+(respirar|engolir)",
-        r"(pa ka|difikilte pou)\s+(respire|vale)", r"(呼吸|吞咽|吞嚥)困难|(呼吸|吞咽|吞嚥)困難", r"khó (thở|nuốt)",
-        r"صعوبة في (التنفس|البلع)|لا أستطيع (التنفس|البلع)", r"(du mal [àa]|n'arrive pas [àa]|ne peux pas)\s+(respirer|avaler)",
-        r"(трудно|не могу)\s+(дышать|глотать)", r"(숨쉬기|삼키기|숨을 쉬기|삼키기가)\s*(어렵|힘들)", r"(hirap|hindi makahinga|hindi makalunok)",
+        r"(du mal [àa]|n'arrive pas [àa]|ne peux pas)\s+(respirer|avaler)",
+        r"(moeite met|kan niet)\s+(ademen|slikken)|benauwd",
+        r"(kann nicht|schwer zu|probleme beim|schwierigkeiten beim)\s+(atmen|schlucken)|atemnot",
+        r"(no puedo|dificultad para|me cuesta)\s+(respirar|tragar)",
+        r"(sunku|negaliu)\s+(kvėpuoti|ryti)|dūstu",
+        r"(svårt att|kan inte)\s+(andas|svälja)|andnöd",
     ],
     "heavy_bleeding": [
-        r"bleed\w*.{0,30}(won.?t stop|not stop|heavy|a lot)", r"(sangrado|sangra).{0,30}(no (se )?(para|detiene)|mucho)",
-        r"(sangramento|sangrando|sangra).{0,30}(n[aã]o para|muito)", r"senyen.{0,30}(pa sispann|anpil)", r"(出血|流血).{0,10}(止不住|不停)",
-        r"chảy máu.{0,20}(không (cầm|ngừng)|nhiều)", r"نزيف.{0,20}(لا يتوقف|شديد)", r"saign\w*.{0,30}(ne s'arr[êe]te pas|beaucoup)",
-        r"кровотечение.{0,30}(не останавливается|сильное)|кровь не останавливается", r"(피가|출혈).{0,10}(멈추지|안 멈)", r"(pagdurugo|dumudugo).{0,30}(hindi tumitigil|marami)",
+        r"bleed\w*.{0,30}(won.?t stop|not stop|heavy|a lot)",
+        r"saign\w*.{0,30}(ne s'arr[êe]te pas|beaucoup)",
+        r"bloed\w*.{0,30}(stopt niet|houdt niet op|veel|erg)",
+        r"blut\w*.{0,30}(h[öo]rt nicht auf|stark|viel)",
+        r"(sangrado|sangra).{0,30}(no (se )?(para|detiene)|mucho)",
+        r"kraujav\w*.{0,30}(nesiliauja|nesustoja|stipr)",
+        r"blöd\w*.{0,30}(slutar inte|kraftig|mycket)",
     ],
     "spreading_swelling": [
-        r"swell\w*.{0,40}(eye|throat|neck|spread)", r"hinchaz[oó]n.{0,40}(ojo|garganta|cuello|extiende)",
-        r"incha\w*.{0,40}(olho|garganta|pesco[cç]o|espalha)", r"anfle\w*.{0,40}(je|gòj|kou|gaye)", r"肿.{0,10}(眼|喉|脖子|蔓延)|腫.{0,10}(眼|喉|脖子|蔓延)",
-        r"sưng.{0,30}(mắt|cổ họng|cổ|lan)", r"تورم.{0,30}(العين|الحلق|الرقبة|يمتد)", r"gonfl\w*.{0,40}([œo]eil|gorge|cou|s'[ée]tend)",
-        r"от[её]к.{0,40}(глаз|горл|ше[ия]|распространя)", r"(붓기|부기|부어).{0,20}(눈|목|퍼)", r"(maga|pamamaga).{0,40}(mata|lalamunan|leeg|kumakalat)",
+        r"swell\w*.{0,40}(eye|throat|neck|spread)",
+        r"gonfl\w*.{0,40}([œo]eil|gorge|cou|s'[ée]tend)",
+        r"zwel\w*.{0,40}(oog|keel|nek|verspreid)",
+        r"schwell\w*.{0,40}(auge|hals|rachen|breitet)",
+        r"hinchaz[oó]n.{0,40}(ojo|garganta|cuello|extiende)",
+        r"tin\w*.{0,40}(akį|akies|gerkl|kakl|plinta)",
+        r"svull\w*.{0,40}(öga|ögat|hals|sprider)",
     ],
     "chest_pain": [
-        r"chest pain|pain in (my )?chest", r"dolor (en el|de) pecho", r"dor no peito", r"doulè nan pwatrin", r"胸痛|胸口痛",
-        r"đau ngực", r"ألم في الصدر", r"douleur (à la|dans la) poitrine", r"боль в груди", r"가슴 통증|가슴이 아파", r"sakit sa dibdib",
+        r"chest pain|pain in (my )?chest", r"douleur (à la|dans la) poitrine", r"pijn (op|in) de borst",
+        r"brustschmerz|schmerzen in der brust", r"dolor (en el|de) pecho", r"skauda krūtin|krūtinės skausm",
+        r"ont i bröstet|bröstsmärt",
     ],
     "self_harm": [
-        r"(kill|hurt|harm)\w*\s+(myself|me)|suicid|end my life", r"(matarme|hacerme daño|suicid)", r"(me matar|me machucar|suic[ií]d)",
-        r"(touye tèt mwen|fè tèt mwen mal)", r"自杀|自殺|伤害自己|傷害自己", r"tự tử|tự làm hại", r"(أقتل نفسي|انتحار|أؤذي نفسي)",
-        r"(me tuer|me faire du mal|suicid)", r"(убить себя|покончить с собой|суицид|навредить себе)", r"(자살|죽고 싶|자해)",
-        r"(magpakamatay|saktan ang sarili)",
+        r"(kill|hurt|harm)\w*\s+(myself|me)|suicid|end my life", r"(me tuer|me faire du mal|suicid)",
+        r"(zelfmoord|mezelf (iets )?aandoen|een eind aan mijn leven)", r"(mich umbringen|mir etwas antun|suizid|selbstmord)",
+        r"(matarme|hacerme daño|suicid)", r"(nusižudyti|save sužaloti|savižudyb)", r"(ta livet av mig|skada mig själv|självmord)",
     ],
 }
 _COMPILED = {flag: [re.compile(p, re.IGNORECASE) for p in patterns] for flag, patterns in _RED_FLAGS.items()}

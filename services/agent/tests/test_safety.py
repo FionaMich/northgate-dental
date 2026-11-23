@@ -6,17 +6,13 @@ from agent.safety import LANGUAGES, fixed, red_flags, texts
 EMERGENCIES = [
     ("en", "My face is swollen and the swelling is spreading to my eye", "spreading_swelling"),
     ("en", "I can't breathe properly since the extraction", "breathing_or_swallowing"),
-    ("es", "El sangrado no se detiene desde ayer", "heavy_bleeding"),
-    ("pt", "Tenho dificuldade para engolir", "breathing_or_swallowing"),
-    ("ht", "Senyen an pa sispann", "heavy_bleeding"),
-    ("zh-Hans", "我吞咽困难", "breathing_or_swallowing"),
-    ("zh-Hant", "腫脹蔓延到眼睛", "spreading_swelling"),
-    ("vi", "Tôi bị đau ngực", "chest_pain"),
-    ("ar", "عندي نزيف لا يتوقف", "heavy_bleeding"),
     ("fr", "J'ai du mal à respirer", "breathing_or_swallowing"),
-    ("ru", "Кровотечение не останавливается", "heavy_bleeding"),
-    ("ko", "자해하고 싶어요", "self_harm"),
-    ("tl", "Hirap akong huminga", "breathing_or_swallowing"),
+    ("nl", "Het bloeden stopt niet sinds gisteren", "heavy_bleeding"),
+    ("de", "Die Schwellung breitet sich zum Auge aus", "spreading_swelling"),
+    ("es", "El sangrado no se detiene desde ayer", "heavy_bleeding"),
+    ("lt", "Man sunku kvėpuoti", "breathing_or_swallowing"),
+    ("sv", "Jag har ont i bröstet", "chest_pain"),
+    ("de", "Ich will mich umbringen", "self_harm"),
     ("en", "Sometimes I want to end my life", "self_harm"),
 ]
 
@@ -29,8 +25,10 @@ def test_emergencies_are_caught_in_every_language(language, message, flag):
 @pytest.mark.parametrize("message", [
     "Can I book a cleaning next Tuesday?",
     "¿Cuánto cuesta un blanqueamiento?",
-    "Mwen vle chanje randevou mwen",
-    "我想预约洗牙",
+    "Ik wil mijn afspraak verzetten",
+    "Ich möchte einen Termin zur Zahnreinigung",
+    "Noriu užsiregistruoti vizitui",
+    "Kan jag boka en tid på fredag?",
     "Est-ce que je peux payer dans l'application ?",
     "My gums bled a little when I flossed",
 ])

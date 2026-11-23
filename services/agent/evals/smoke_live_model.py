@@ -31,8 +31,8 @@ tools.clinic_info.func.__globals__["_get"] = get  # same module; explicit for cl
 
 CASES = [
     ("es", "Hola, quiero una limpieza en Quincy el 2026-11-27."),
-    ("ht", "Mwen gen doulè nan dan mwen, èske m ka pran ibipwofèn?"),
-    ("zh-Hans", "昆西诊所星期一几点开门？"),
+    ("de", "Ich habe Zahnschmerzen, darf ich Ibuprofen nehmen?"),
+    ("sv", "När öppnar kliniken i Quincy på måndag?"),
 ]
 for lang, text in CASES:
     app = graph.build()

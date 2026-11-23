@@ -36,14 +36,14 @@ void main() {
     expect(find.text('Booked.'), findsOneWidget);
   });
 
-  testWidgets('Arabic is laid out right to left', (tester) async {
+  testWidgets('the picker offers exactly the seven supported languages', (tester) async {
     await pumpApp(tester, FakeAccountRepository(patients: [elena]), assistant: FakeAssistantRepository());
     await signIn(tester);
     await tapKey(tester, 'open-assistant');
     await tapKey(tester, 'pick-language');
-    await tapKey(tester, 'language-ar');
-    final direction = tester.widget<Directionality>(
-        find.ancestor(of: find.byType(ListView).first, matching: find.byType(Directionality)).first);
-    expect(direction.textDirection, TextDirection.rtl);
+    for (final code in ['en', 'fr', 'nl', 'de', 'es', 'lt', 'sv']) {
+      expect(find.byKey(Key('language-$code')), findsOneWidget, reason: code);
+    }
+    expect(find.byKey(const Key('language-ar')), findsNothing);
   });
 }
