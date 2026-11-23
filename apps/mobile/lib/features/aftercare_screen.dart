@@ -8,7 +8,12 @@ import 'care_widgets.dart';
 
 /// Aftercare for one visit: right now, today and this week, each ticked off as its time passes.
 class AftercareScreen extends StatelessWidget {
-  const AftercareScreen({super.key, required this.visit, required this.sheet, this.now});
+  const AftercareScreen({
+    super.key,
+    required this.visit,
+    required this.sheet,
+    this.now,
+  });
   final Visit visit;
   final AftercareSheet sheet;
   final DateTime? now;
@@ -47,12 +52,20 @@ class AftercareScreen extends StatelessWidget {
                         children: [
                           Text(
                             sheet.title,
-                            style: const TextStyle(fontSize: 28, height: 1.15, fontWeight: FontWeight.w700, color: Colors.white),
+                            style: const TextStyle(
+                              fontSize: 28,
+                              height: 1.15,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
                           ),
                           const SizedBox(height: 6),
                           Text(
                             '${visitTitle(visit.kind)} on ${weekday(visit.at)} ${dayMonth(visit.at)} at ${visit.location}',
-                            style: const TextStyle(fontSize: 15, color: Color(0xFFCDEFE7)),
+                            style: const TextStyle(
+                              fontSize: 15,
+                              color: Color(0xFFCDEFE7),
+                            ),
                           ),
                         ],
                       ),
@@ -79,7 +92,14 @@ class AftercareScreen extends StatelessWidget {
                       const TintIcon(Icons.call_rounded, Tint.rose),
                       const SizedBox(width: 14),
                       Expanded(
-                        child: Text(AftercareSheet.callUs, style: const TextStyle(fontSize: 14.5, height: 1.5, color: Palette.deepSea)),
+                        child: Text(
+                          AftercareSheet.callUs,
+                          style: const TextStyle(
+                            fontSize: 14.5,
+                            height: 1.5,
+                            color: Palette.deepSea,
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -107,7 +127,13 @@ class _Phase extends StatelessWidget {
       title: over ? '$title  ·  done' : title,
       rows: [
         for (final s in steps)
-          GroupRow(icon: over ? Icons.check_rounded : Icons.radio_button_unchecked_rounded, tint: over ? Tint.teal : tint, title: s),
+          GroupRow(
+            icon: over
+                ? Icons.check_rounded
+                : Icons.radio_button_unchecked_rounded,
+            tint: over ? Tint.teal : tint,
+            title: s,
+          ),
       ],
     ),
   );

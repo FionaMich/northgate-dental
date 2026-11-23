@@ -44,13 +44,20 @@ const shopCategories = {
 };
 
 class BagLine {
-  const BagLine({required this.product, this.quantity = 1, this.refill = false});
+  const BagLine({
+    required this.product,
+    this.quantity = 1,
+    this.refill = false,
+  });
   final ShopProduct product;
   final int quantity;
   final bool refill;
   int get cents => product.priceCents * quantity;
-  BagLine copyWith({int? quantity, bool? refill}) =>
-      BagLine(product: product, quantity: quantity ?? this.quantity, refill: refill ?? this.refill);
+  BagLine copyWith({int? quantity, bool? refill}) => BagLine(
+    product: product,
+    quantity: quantity ?? this.quantity,
+    refill: refill ?? this.refill,
+  );
 }
 
 class ShopOrder {
@@ -85,7 +92,11 @@ abstract class ShopRepository {
   Future<List<ShopProduct>> products();
 
   /// Places the order (the server prices and checks every line) and returns a single-use link to Stripe Checkout.
-  Future<Uri> checkout(List<BagLine> lines, {required String fulfilment, required String clinicId});
+  Future<Uri> checkout(
+    List<BagLine> lines, {
+    required String fulfilment,
+    required String clinicId,
+  });
   Future<List<ShopOrder>> orders();
 }
 
@@ -98,7 +109,9 @@ class SupabaseShopRepository implements ShopRepository {
     final results = await Future.wait([
       _db
           .from('shop_products')
-          .select('id, name, category, summary, description, tags, price_cents, refill_interval_months, rule, image_key')
+          .select(
+            'id, name, category, summary, description, tags, price_cents, refill_interval_months, rule, image_key',
+          )
           .eq('active', true)
           .order('sort'),
       _db.from('shop_approvals').select('product_id, expires_on'),
@@ -106,7 +119,8 @@ class SupabaseShopRepository implements ShopRepository {
     final today = DateTime.now();
     final approved = {
       for (final a in results[1])
-        if (DateTime.parse(a['expires_on'] as String).isAfter(today)) a['product_id'] as String,
+        if (DateTime.parse(a['expires_on'] as String).isAfter(today))
+          a['product_id'] as String,
     };
     return [
       for (final r in results[0])
@@ -127,18 +141,39 @@ class SupabaseShopRepository implements ShopRepository {
   }
 
   @override
-  Future<Uri> checkout(List<BagLine> lines, {required String fulfilment, required String clinicId}) async {
+  Future<Uri> checkout(
+    List<BagLine> lines, {
+    required String fulfilment,
+    required String clinicId,
+  }) async {
     try {
-      final orderId = await _db.rpc('create_shop_order', params: {
-        'items': [for (final l in lines) {'product_id': l.product.id, 'quantity': l.quantity, 'refill': l.refill}],
-        'fulfilment': fulfilment,
-        'location': clinicId,
-      }) as String;
-      final token = await _db.rpc('shop_order_pay_link', params: {'order_id': orderId}) as String;
+      final orderId = await _db.rpc(
+        'create_shop_order',
+        params: {
+          'items': [
+            for (final l in lines)
+              {
+                'product_id': l.product.id,
+                'quantity': l.quantity,
+                'refill': l.refill,
+              },
+          ],
+          'fulfilment': fulfilment,
+          'location': clinicId,
+        },
+      ) as String;
+      final token = await _db.rpc(
+        'shop_order_pay_link',
+        params: {'order_id': orderId},
+      ) as String;
       return Uri.parse('$linkBase/shop?t=$token');
     } on PostgrestException catch (e) {
       // The server's own words for a refused rule (approval, exam, stock) are written for patients.
-      throw ShopError(e.code == '42501' || e.code == '22023' ? e.message : 'We could not place the order. Please try again.');
+      throw ShopError(
+        e.code == '42501' || e.code == '22023'
+            ? e.message
+            : 'We could not place the order. Please try again.',
+      );
     }
   }
 
@@ -146,8 +181,10 @@ class SupabaseShopRepository implements ShopRepository {
   Future<List<ShopOrder>> orders() async {
     final rows = await _db
         .from('shop_orders')
-        .select('id, status, fulfilment, total_cents, created_at, parent_order_id, locations(name), '
-            'shop_order_items(quantity, shop_products(name))')
+        .select(
+          'id, status, fulfilment, total_cents, created_at, parent_order_id, locations(name), '
+          'shop_order_items(quantity, shop_products(name))',
+        )
         .neq('status', 'expired')
         .neq('status', 'pending')
         .order('created_at', ascending: false);
@@ -157,7 +194,9 @@ class SupabaseShopRepository implements ShopRepository {
           id: r['id'] as String,
           status: r['status'] as String,
           fulfilment: r['fulfilment'] as String,
-          clinic: clinicLabel((r['locations'] as Map?)?['name'] as String? ?? 'Northgate Dental'),
+          clinic: clinicLabel(
+            (r['locations'] as Map?)?['name'] as String? ?? 'Northgate Dental',
+          ),
           createdAt: DateTime.parse(r['created_at'] as String).toLocal(),
           totalCents: r['total_cents'] as int?,
           isRefill: r['parent_order_id'] != null,

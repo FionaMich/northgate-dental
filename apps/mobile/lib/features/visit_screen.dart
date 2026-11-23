@@ -29,7 +29,9 @@ final pdfBytesLoaderProvider = Provider<Future<Uint8List> Function(String url)>(
     final client = HttpClient();
     try {
       final res = await (await client.getUrl(Uri.parse(url))).close();
-      if (res.statusCode != 200) throw const HttpException('document not available');
+      if (res.statusCode != 200) {
+        throw const HttpException('document not available');
+      }
       final bytes = BytesBuilder(copy: false);
       await for (final chunk in res) {
         bytes.add(chunk);
@@ -57,7 +59,9 @@ class _PdfPages extends StatefulWidget {
 }
 
 class _PdfPagesState extends State<_PdfPages> {
-  late final _controller = PdfControllerPinch(document: PdfDocument.openData(widget.bytes));
+  late final _controller = PdfControllerPinch(
+    document: PdfDocument.openData(widget.bytes),
+  );
 
   @override
   void dispose() {
@@ -66,7 +70,8 @@ class _PdfPagesState extends State<_PdfPages> {
   }
 
   @override
-  Widget build(BuildContext context) => PdfViewPinch(controller: _controller, padding: 12);
+  Widget build(BuildContext context) =>
+      PdfViewPinch(controller: _controller, padding: 12);
 }
 
 /// One visit in full: who, where, why, a tooth chart, what was done with fees, findings and shared documents.
@@ -76,7 +81,9 @@ class VisitScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final docs = (ref.watch(careSummaryProvider).value?.documents ?? const []).where((d) => d.encounterId == visit.id).toList();
+    final docs = (ref.watch(careSummaryProvider).value?.documents ?? const [])
+        .where((d) => d.encounterId == visit.id)
+        .toList();
     final v = visit;
     return Scaffold(
       backgroundColor: Palette.mist,
@@ -109,12 +116,20 @@ class VisitScreen extends ConsumerWidget {
                         children: [
                           Text(
                             visitTitle(v.kind),
-                            style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w700, letterSpacing: -0.8, color: Colors.white),
+                            style: const TextStyle(
+                              fontSize: 30,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: -0.8,
+                              color: Colors.white,
+                            ),
                           ),
                           const SizedBox(height: 4),
                           Text(
                             '${weekday(v.at)} ${dayMonthYear(v.at)} · ${clock(v.at)}',
-                            style: const TextStyle(fontSize: 15, color: Color(0xFFCDEFE7)),
+                            style: const TextStyle(
+                              fontSize: 15,
+                              color: Color(0xFFCDEFE7),
+                            ),
                           ),
                           const SizedBox(height: 16),
                           Wrap(
@@ -122,7 +137,8 @@ class VisitScreen extends ConsumerWidget {
                             runSpacing: 8,
                             children: [
                               _Chip(Icons.location_on_rounded, v.location),
-                              if (v.dentist != null) _Chip(Icons.person_rounded, v.dentist!),
+                              if (v.dentist != null)
+                                _Chip(Icons.person_rounded, v.dentist!),
                             ],
                           ),
                         ],
@@ -144,10 +160,20 @@ class VisitScreen extends ConsumerWidget {
                     padding: const EdgeInsets.all(16),
                     child: Row(
                       children: [
-                        const TintIcon(Icons.chat_bubble_outline_rounded, Tint.sky),
+                        const TintIcon(
+                          Icons.chat_bubble_outline_rounded,
+                          Tint.sky,
+                        ),
                         const SizedBox(width: 14),
                         Expanded(
-                          child: Text(v.reason!, style: const TextStyle(fontSize: 15, height: 1.45, color: Palette.deepSea)),
+                          child: Text(
+                            v.reason!,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              height: 1.45,
+                              color: Palette.deepSea,
+                            ),
+                          ),
                         ),
                       ],
                     ),
@@ -156,7 +182,10 @@ class VisitScreen extends ConsumerWidget {
                 ],
                 const SectionTitle('Your teeth at this visit'),
                 Panel(
-                  child: ToothChart(procedures: v.procedures, findings: v.findings),
+                  child: ToothChart(
+                    procedures: v.procedures,
+                    findings: v.findings,
+                  ),
                 ),
                 const SizedBox(height: 22),
                 const SectionTitle('What was done'),
@@ -165,7 +194,10 @@ class VisitScreen extends ConsumerWidget {
                   child: v.procedures.isEmpty
                       ? const Padding(
                           padding: EdgeInsets.symmetric(vertical: 10),
-                          child: Text('No procedures were recorded at this visit.', style: TextStyle(color: Palette.muted)),
+                          child: Text(
+                            'No procedures were recorded at this visit.',
+                            style: TextStyle(color: Palette.muted),
+                          ),
                         )
                       : Column(
                           children: [
@@ -177,7 +209,10 @@ class VisitScreen extends ConsumerWidget {
                                     const SizedBox(width: 10),
                                     Text(
                                       dollars(p.feeCents!),
-                                      style: const TextStyle(fontWeight: FontWeight.w700, color: Palette.deepSea),
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                        color: Palette.deepSea,
+                                      ),
                                     ),
                                   ],
                                 ],
@@ -188,12 +223,19 @@ class VisitScreen extends ConsumerWidget {
                                 const Expanded(
                                   child: Text(
                                     'Total before insurance',
-                                    style: TextStyle(fontWeight: FontWeight.w700, color: Palette.muted),
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      color: Palette.muted,
+                                    ),
                                   ),
                                 ),
                                 Text(
                                   dollars(v.totalCents),
-                                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Palette.deepSea),
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                    color: Palette.deepSea,
+                                  ),
                                 ),
                               ],
                             ),
@@ -204,7 +246,10 @@ class VisitScreen extends ConsumerWidget {
                   const SizedBox(height: 22),
                   const SectionTitle('What the dentist noted'),
                   Panel(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 6,
+                    ),
                     child: Column(
                       children: [
                         for (final f in v.findings)
@@ -215,14 +260,23 @@ class VisitScreen extends ConsumerWidget {
                               backgroundColor: const Color(0xFFFFF1E4),
                               child: Text(
                                 f.tooth,
-                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFFB35F1E)),
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFFB35F1E),
+                                ),
                               ),
                             ),
                             title: Text(
                               conditionLabel(f.condition),
-                              style: const TextStyle(fontWeight: FontWeight.w700, color: Palette.deepSea),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                color: Palette.deepSea,
+                              ),
                             ),
-                            subtitle: Text('Tooth ${f.tooth}${f.surface == null ? '' : ', ${surfaceLabel(f.surface!)}'}'),
+                            subtitle: Text(
+                              'Tooth ${f.tooth}${f.surface == null ? '' : ', ${surfaceLabel(f.surface!)}'}',
+                            ),
                           ),
                       ],
                     ),
@@ -241,7 +295,8 @@ class VisitScreen extends ConsumerWidget {
                         detail: 'Right now, today and this week',
                         onTap: () => Navigator.of(context).push(
                           MaterialPageRoute(
-                            builder: (_) => AftercareScreen(visit: v, sheet: sheet),
+                            builder: (_) =>
+                                AftercareScreen(visit: v, sheet: sheet),
                           ),
                         ),
                       ),
@@ -270,7 +325,10 @@ class _Chip extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-    decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(999)),
+    decoration: BoxDecoration(
+      color: Colors.white.withValues(alpha: 0.14),
+      borderRadius: BorderRadius.circular(999),
+    ),
     child: Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -278,13 +336,15 @@ class _Chip extends StatelessWidget {
         const SizedBox(width: 6),
         Text(
           label,
-          style: const TextStyle(fontWeight: FontWeight.w700, color: Colors.white),
+          style: const TextStyle(
+            fontWeight: FontWeight.w700,
+            color: Colors.white,
+          ),
         ),
       ],
     ),
   );
 }
-
 
 /// A shared document: X-rays and PDFs both open inside the app, through a 5-minute link; downloading is optional.
 class DocumentTile extends ConsumerStatefulWidget {
@@ -309,11 +369,16 @@ class _DocumentTileState extends ConsumerState<DocumentTile> {
       if (!mounted) return;
       await Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (_) => d.isImage ? _ImageViewer(title: d.title, url: url) : _PdfScreen(title: d.title, url: url),
+          builder: (_) => d.isImage
+              ? _ImageViewer(title: d.title, url: url)
+              : _PdfScreen(title: d.title, url: url),
         ),
       );
     } on CoverageError catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -343,18 +408,36 @@ class _DocumentTileState extends ConsumerState<DocumentTile> {
               children: [
                 Row(
                   children: [
-                    TintIcon(d.isImage ? Icons.image_outlined : Icons.picture_as_pdf_outlined, tint, size: 44),
+                    TintIcon(
+                      d.isImage
+                          ? Icons.image_outlined
+                          : Icons.picture_as_pdf_outlined,
+                      tint,
+                      size: 44,
+                    ),
                     const Spacer(),
                     _busy
-                        ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                        : Icon(Icons.north_east_rounded, size: 18, color: tint.ink),
+                        ? const SizedBox.square(
+                            dimension: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Icon(
+                            Icons.north_east_rounded,
+                            size: 18,
+                            color: tint.ink,
+                          ),
                   ],
                 ),
                 const SizedBox(height: 14),
                 Text(
                   d.isImage ? 'IMAGE' : 'PDF',
                   maxLines: 1,
-                  style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, letterSpacing: 1, color: tint.ink),
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1,
+                    color: tint.ink,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Expanded(
@@ -363,11 +446,20 @@ class _DocumentTileState extends ConsumerState<DocumentTile> {
                     d.title,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 15, height: 1.3, fontWeight: FontWeight.w700, color: Palette.deepSea),
+                    style: const TextStyle(
+                      fontSize: 15,
+                      height: 1.3,
+                      fontWeight: FontWeight.w700,
+                      color: Palette.deepSea,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 4),
-                Text(dayMonthYear(d.sharedAt), maxLines: 1, style: const TextStyle(fontSize: 12.5, color: Palette.muted)),
+                Text(
+                  dayMonthYear(d.sharedAt),
+                  maxLines: 1,
+                  style: const TextStyle(fontSize: 12.5, color: Palette.muted),
+                ),
               ],
             ),
           ),
@@ -382,7 +474,10 @@ class _DocumentTileState extends ConsumerState<DocumentTile> {
         child: Row(
           key: Key('doc-${d.id}'),
           children: [
-            IconTile(d.isImage ? Icons.image_outlined : Icons.picture_as_pdf_outlined, size: 44),
+            IconTile(
+              d.isImage ? Icons.image_outlined : Icons.picture_as_pdf_outlined,
+              size: 44,
+            ),
             const SizedBox(width: 14),
             Expanded(
               child: Column(
@@ -390,18 +485,28 @@ class _DocumentTileState extends ConsumerState<DocumentTile> {
                 children: [
                   Text(
                     d.title,
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Palette.deepSea),
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: Palette.deepSea,
+                    ),
                   ),
-                  Text(switch (d.kind) {
-                    'xray' => 'X-ray image',
-                    'visit_summary' => 'Visit summary (PDF)',
-                    _ => d.isImage ? 'Image' : 'Letter (PDF)',
-                  }, style: const TextStyle(fontSize: 13, color: Palette.muted)),
+                  Text(
+                    switch (d.kind) {
+                      'xray' => 'X-ray image',
+                      'visit_summary' => 'Visit summary (PDF)',
+                      _ => d.isImage ? 'Image' : 'Letter (PDF)',
+                    },
+                    style: const TextStyle(fontSize: 13, color: Palette.muted),
+                  ),
                 ],
               ),
             ),
             _busy
-                ? const SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                ? const SizedBox.square(
+                    dimension: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
                 : const Icon(Icons.chevron_right_rounded, color: Palette.teal),
           ],
         ),
@@ -422,7 +527,11 @@ class _ImageViewer extends ConsumerWidget {
       foregroundColor: Colors.white,
       title: Text(title, style: const TextStyle(fontSize: 16)),
       actions: [
-        IconButton(tooltip: 'Download', icon: const Icon(Icons.download_rounded), onPressed: () => ref.read(documentOpenerProvider)(url)),
+        IconButton(
+          tooltip: 'Download',
+          icon: const Icon(Icons.download_rounded),
+          onPressed: () => ref.read(documentOpenerProvider)(url),
+        ),
       ],
     ),
     body: InteractiveViewer(
@@ -430,7 +539,10 @@ class _ImageViewer extends ConsumerWidget {
       child: Center(
         child: Image.network(
           url,
-          errorBuilder: (_, _, _) => const Text('Could not load the image.', style: TextStyle(color: Colors.white70)),
+          errorBuilder: (_, _, _) => const Text(
+            'Could not load the image.',
+            style: TextStyle(color: Colors.white70),
+          ),
         ),
       ),
     ),
@@ -447,7 +559,9 @@ class _PdfScreen extends ConsumerStatefulWidget {
 }
 
 class _PdfScreenState extends ConsumerState<_PdfScreen> {
-  late final Future<Uint8List> _bytes = ref.read(pdfBytesLoaderProvider)(widget.url);
+  late final Future<Uint8List> _bytes = ref.read(pdfBytesLoaderProvider)(
+    widget.url,
+  );
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -471,11 +585,18 @@ class _PdfScreenState extends ConsumerState<_PdfScreen> {
           return const Center(
             child: Padding(
               padding: EdgeInsets.all(24),
-              child: Text('We could not open this document. Check your connection and try again.', textAlign: TextAlign.center),
+              child: Text(
+                'We could not open this document. Check your connection and try again.',
+                textAlign: TextAlign.center,
+              ),
             ),
           );
         }
-        if (!snap.hasData) return const Center(child: CircularProgressIndicator(strokeWidth: 2.5));
+        if (!snap.hasData) {
+          return const Center(
+            child: CircularProgressIndicator(strokeWidth: 2.5),
+          );
+        }
         return ref.read(pdfViewProvider)(snap.data!);
       },
     ),

@@ -33,7 +33,11 @@ class _NorthgateAppState extends State<NorthgateApp> {
     theme: northgateTheme(),
     routerConfig: _router,
     // The intro shows once per cold start, then hands over to the sign-in or home gate.
-    builder: (context, child) => LightStatusBar(child: _introDone ? child! : IntroScreen(onDone: () => setState(() => _introDone = true))),
+    builder: (context, child) => LightStatusBar(
+      child: _introDone
+          ? child!
+          : IntroScreen(onDone: () => setState(() => _introDone = true)),
+    ),
   );
 }
 
@@ -43,7 +47,10 @@ class LightStatusBar extends StatelessWidget {
   final Widget child;
 
   @override
-  Widget build(BuildContext context) => AnnotatedRegion<SystemUiOverlayStyle>(value: SystemUiOverlayStyle.light, child: child);
+  Widget build(BuildContext context) => AnnotatedRegion<SystemUiOverlayStyle>(
+    value: SystemUiOverlayStyle.light,
+    child: child,
+  );
 }
 
 /// Sends the person to sign-in, linking, their clinic and address, or home, depending on where they are.
@@ -77,7 +84,10 @@ class Gate extends ConsumerWidget {
     }
     if (!verified.hasValue || verified.isLoading) return loading;
     if (verified.value == false) {
-      return CodeScreen(email: ref.read(accountRepositoryProvider).currentEmail ?? '', purpose: CodePurpose.signIn);
+      return CodeScreen(
+        email: ref.read(accountRepositoryProvider).currentEmail ?? '',
+        purpose: CodePurpose.signIn,
+      );
     }
     return ref
         .watch(linkedPatientsProvider)
@@ -87,15 +97,21 @@ class Gate extends ConsumerWidget {
             body: Center(
               child: TextButton(
                 onPressed: () => ref.invalidate(linkedPatientsProvider),
-                child: const Text('Could not load your record. Tap to try again.'),
+                child: const Text(
+                  'Could not load your record. Tap to try again.',
+                ),
               ),
             ),
           ),
           data: (people) {
             if (people.isEmpty) return const LinkCodeScreen();
             // Asked once after linking: the account holder's clinic and address.
-            final unconfirmed = people.where((p) => p.isSelf && !p.detailsConfirmed).firstOrNull;
-            return unconfirmed == null ? const AppShell() : DetailsScreen(patient: unconfirmed);
+            final unconfirmed = people
+                .where((p) => p.isSelf && !p.detailsConfirmed)
+                .firstOrNull;
+            return unconfirmed == null
+                ? const AppShell()
+                : DetailsScreen(patient: unconfirmed);
           },
         );
   }

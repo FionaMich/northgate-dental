@@ -12,7 +12,15 @@ import 'care_widgets.dart';
 import 'dentist_screen.dart';
 import 'visit_screen.dart' show documentOpenerProvider;
 
-const _weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const _weekdays = [
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+  'Sunday',
+];
 
 /// Now, in the clinic's own time zone (so "Open now" is right even when the phone is elsewhere).
 DateTime clinicNow(String timeZone) {
@@ -22,11 +30,19 @@ DateTime clinicNow(String timeZone) {
 
 /// Whether the clinic is open at [now] (clinic local time), from its weekly hours.
 bool isOpen(Clinic c, DateTime now) {
-  final hhmm = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
-  return c.hours.any((h) => h.$1 == now.weekday && h.$2.compareTo(hhmm) <= 0 && hhmm.compareTo(h.$3) < 0);
+  final hhmm =
+      '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+  return c.hours.any(
+    (h) =>
+        h.$1 == now.weekday &&
+        h.$2.compareTo(hhmm) <= 0 &&
+        hhmm.compareTo(h.$3) < 0,
+  );
 }
 
-String _photoFor(Clinic c) => c.photoKey == null ? 'assets/images/intro_clinic.jpg' : 'assets/images/clinics/${c.photoKey}.jpg';
+String _photoFor(Clinic c) => c.photoKey == null
+    ? 'assets/images/intro_clinic.jpg'
+    : 'assets/images/clinics/${c.photoKey}.jpg';
 
 /// One clinic: photo, Directions and Call, opening hours with "Open now", services, the team there, and Book.
 class ClinicScreen extends ConsumerWidget {
@@ -41,7 +57,8 @@ class ClinicScreen extends ConsumerWidget {
     final c = clinic;
     final local = now ?? clinicNow(c.timeZone);
     final open = isOpen(c, local);
-    final services = ref.watch(bookableServicesProvider(c.id)).value ?? const [];
+    final services =
+        ref.watch(bookableServicesProvider(c.id)).value ?? const [];
     final team = [
       for (final d in ref.watch(dentistsProvider).value ?? const [])
         if (d.clinics.containsKey(c.id)) d,
@@ -62,14 +79,21 @@ class ClinicScreen extends ConsumerWidget {
                   _photoFor(c),
                   fit: BoxFit.cover,
                   excludeFromSemantics: true,
-                  errorBuilder: (_, _, _) => Image.asset('assets/images/intro_clinic.jpg', fit: BoxFit.cover),
+                  errorBuilder: (_, _, _) => Image.asset(
+                    'assets/images/intro_clinic.jpg',
+                    fit: BoxFit.cover,
+                  ),
                 ),
                 const DecoratedBox(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
-                      colors: [Color(0x66072B29), Color(0x00072B29), Color(0xE6072B29)],
+                      colors: [
+                        Color(0x66072B29),
+                        Color(0x00072B29),
+                        Color(0xE6072B29),
+                      ],
                       stops: [0, 0.4, 1],
                     ),
                   ),
@@ -94,19 +118,33 @@ class ClinicScreen extends ConsumerWidget {
                             children: [
                               Text(
                                 'Northgate Dental, ${c.name}',
-                                style: const TextStyle(fontSize: 26, height: 1.15, fontWeight: FontWeight.w700, color: Colors.white),
+                                style: const TextStyle(
+                                  fontSize: 26,
+                                  height: 1.15,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                ),
                               ),
                               const SizedBox(height: 8),
                               Container(
                                 key: const Key('open-badge'),
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 5,
+                                ),
                                 decoration: BoxDecoration(
-                                  color: open ? const Color(0xFF1FBFA2) : Colors.white.withValues(alpha: 0.2),
+                                  color: open
+                                      ? const Color(0xFF1FBFA2)
+                                      : Colors.white.withValues(alpha: 0.2),
                                   borderRadius: BorderRadius.circular(999),
                                 ),
                                 child: Text(
                                   open ? 'Open now' : 'Closed now',
-                                  style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: Colors.white),
+                                  style: const TextStyle(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white,
+                                  ),
                                 ),
                               ),
                             ],
@@ -131,7 +169,9 @@ class ClinicScreen extends ConsumerWidget {
                         key: const Key('clinic-directions'),
                         icon: Icons.directions_rounded,
                         label: 'Directions',
-                        onTap: () => opener('https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(c.address)}'),
+                        onTap: () => opener(
+                          'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(c.address)}',
+                        ),
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -149,7 +189,13 @@ class ClinicScreen extends ConsumerWidget {
                 const SizedBox(height: 22),
                 RowGroup(
                   title: 'Address',
-                  rows: [GroupRow(icon: Icons.location_on_rounded, tint: Tint.teal, title: c.address)],
+                  rows: [
+                    GroupRow(
+                      icon: Icons.location_on_rounded,
+                      tint: Tint.teal,
+                      title: c.address,
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 22),
                 RowGroup(
@@ -172,7 +218,12 @@ class ClinicScreen extends ConsumerWidget {
                     title: 'Services here',
                     rows: [
                       for (final sv in services)
-                        GroupRow(icon: Icons.medical_services_outlined, tint: Tint.sky, title: sv.name, detail: '${sv.minutes} minutes'),
+                        GroupRow(
+                          icon: Icons.medical_services_outlined,
+                          tint: Tint.sky,
+                          title: sv.name,
+                          detail: '${sv.minutes} minutes',
+                        ),
                     ],
                   ),
                 ],
@@ -185,15 +236,34 @@ class ClinicScreen extends ConsumerWidget {
                         Material(
                           type: MaterialType.transparency,
                           child: ListTile(
-                            contentPadding: const EdgeInsets.fromLTRB(16, 6, 12, 6),
-                            leading: DentistAvatar(name: d.name, asset: d.photoAsset, size: 44),
+                            contentPadding: const EdgeInsets.fromLTRB(
+                              16,
+                              6,
+                              12,
+                              6,
+                            ),
+                            leading: DentistAvatar(
+                              name: d.name,
+                              asset: d.photoAsset,
+                              size: 44,
+                            ),
                             title: Text(
                               d.name,
-                              style: const TextStyle(fontWeight: FontWeight.w700, color: Palette.deepSea),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                color: Palette.deepSea,
+                              ),
                             ),
                             subtitle: Text(d.title),
-                            trailing: const Icon(Icons.chevron_right_rounded, color: Color(0xFF9DB3AF)),
-                            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => DentistScreen(dentist: d))),
+                            trailing: const Icon(
+                              Icons.chevron_right_rounded,
+                              color: Color(0xFF9DB3AF),
+                            ),
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => DentistScreen(dentist: d),
+                              ),
+                            ),
                           ),
                         ),
                     ],
@@ -206,7 +276,8 @@ class ClinicScreen extends ConsumerWidget {
                     label: 'Book at ${c.name}',
                     onPressed: () => Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (_) => BookingScreen(patient: person, clinicId: c.id),
+                        builder: (_) =>
+                            BookingScreen(patient: person, clinicId: c.id),
                       ),
                     ),
                   ),
@@ -220,7 +291,12 @@ class ClinicScreen extends ConsumerWidget {
 }
 
 class _Action extends StatelessWidget {
-  const _Action({super.key, required this.icon, required this.label, required this.onTap});
+  const _Action({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
   final IconData icon;
   final String label;
   final VoidCallback onTap;
@@ -239,7 +315,11 @@ class _Action extends StatelessWidget {
 }
 
 class _HoursRow extends StatelessWidget {
-  const _HoursRow({required this.day, required this.hours, required this.today});
+  const _HoursRow({
+    required this.day,
+    required this.hours,
+    required this.today,
+  });
   final String day;
   final List<String> hours;
   final bool today;
@@ -252,7 +332,11 @@ class _HoursRow extends StatelessWidget {
         Expanded(
           child: Text(
             today ? '$day (today)' : day,
-            style: TextStyle(fontSize: 15, fontWeight: today ? FontWeight.w700 : FontWeight.w500, color: Palette.deepSea),
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: today ? FontWeight.w700 : FontWeight.w500,
+              color: Palette.deepSea,
+            ),
           ),
         ),
         Text(

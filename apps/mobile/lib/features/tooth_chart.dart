@@ -10,15 +10,33 @@ import '../design/tokens.dart';
 /// cusps and their grooves, premolars with two, pointed canines and flat incisors, shaded like enamel. What happened is
 /// painted on the surface it happened to (the top, front, back, cheek or tongue side); tap a tooth for its story.
 class ToothChart extends StatelessWidget {
-  const ToothChart({super.key, required this.procedures, required this.findings});
+  const ToothChart({
+    super.key,
+    required this.procedures,
+    required this.findings,
+  });
   final List<Procedure> procedures;
   final List<Finding> findings;
 
   // One side of an arch, back to front: three molars, two premolars, canine, lateral and central incisor.
-  static const _types = [_Kind.molar, _Kind.molar, _Kind.molar, _Kind.premolar, _Kind.premolar, _Kind.canine, _Kind.incisor, _Kind.incisor];
+  static const _types = [
+    _Kind.molar,
+    _Kind.molar,
+    _Kind.molar,
+    _Kind.premolar,
+    _Kind.premolar,
+    _Kind.canine,
+    _Kind.incisor,
+    _Kind.incisor,
+  ];
   static const _sideWidths = [1.30, 1.34, 1.38, 0.98, 0.98, 0.92, 0.80, 0.92];
   static const _open = 0.26; // radians left open at the back of each arch
-  static const _depth = {_Kind.molar: 1.18, _Kind.premolar: 1.02, _Kind.canine: 0.92, _Kind.incisor: 0.62};
+  static const _depth = {
+    _Kind.molar: 1.18,
+    _Kind.premolar: 1.02,
+    _Kind.canine: 0.92,
+    _Kind.incisor: 0.62,
+  };
 
   @override
   Widget build(BuildContext context) => Column(
@@ -40,8 +58,11 @@ class ToothChart extends StatelessWidget {
               final mid = (run + widths[k] / 2) / total;
               run += widths[k];
               // The two arches are U shapes that stop short of meeting, like real jaws seen from above.
-              final theta = upper ? math.pi + _open + mid * (math.pi - 2 * _open) : math.pi - _open - mid * (math.pi - 2 * _open);
-              final x = cx + rx * math.cos(theta), y = cy + ry * math.sin(theta);
+              final theta = upper
+                  ? math.pi + _open + mid * (math.pi - 2 * _open)
+                  : math.pi - _open - mid * (math.pi - 2 * _open);
+              final x = cx + rx * math.cos(theta),
+                  y = cy + ry * math.sin(theta);
               final number = upper ? '${k + 1}' : '${32 - k}';
               final tw = unit * widths[k], th = unit * _depth[kinds[k]]! * 1.12;
               // Mesial (towards the middle of the face): screen right on the patient's right side, mirrored on the left;
@@ -58,8 +79,12 @@ class ToothChart extends StatelessWidget {
                       kind: kinds[k],
                       size: Size(tw, th),
                       mesial: mesial,
-                      procedures: procedures.where((p) => p.tooth == number).toList(),
-                      findings: findings.where((f) => f.tooth == number).toList(),
+                      procedures: procedures
+                          .where((p) => p.tooth == number)
+                          .toList(),
+                      findings: findings
+                          .where((f) => f.tooth == number)
+                          .toList(),
                     ),
                   ),
                 ),
@@ -75,19 +100,47 @@ class ToothChart extends StatelessWidget {
                 ...teeth,
                 Align(
                   alignment: const Alignment(0, -0.1),
-                  child: Text('UPPER', style: TextStyle(fontSize: 10.5, letterSpacing: 2, fontWeight: FontWeight.w700, color: Palette.muted.withValues(alpha: 0.7))),
+                  child: Text(
+                    'UPPER',
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      letterSpacing: 2,
+                      fontWeight: FontWeight.w700,
+                      color: Palette.muted.withValues(alpha: 0.7),
+                    ),
+                  ),
                 ),
                 Align(
                   alignment: const Alignment(0, 0.1),
-                  child: Text('LOWER', style: TextStyle(fontSize: 10.5, letterSpacing: 2, fontWeight: FontWeight.w700, color: Palette.muted.withValues(alpha: 0.7))),
+                  child: Text(
+                    'LOWER',
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      letterSpacing: 2,
+                      fontWeight: FontWeight.w700,
+                      color: Palette.muted.withValues(alpha: 0.7),
+                    ),
+                  ),
                 ),
                 Align(
                   alignment: const Alignment(-1, 0),
-                  child: Text('Right', style: TextStyle(fontSize: 11, color: Palette.muted.withValues(alpha: 0.7))),
+                  child: Text(
+                    'Right',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Palette.muted.withValues(alpha: 0.7),
+                    ),
+                  ),
                 ),
                 Align(
                   alignment: const Alignment(1, 0),
-                  child: Text('Left', style: TextStyle(fontSize: 11, color: Palette.muted.withValues(alpha: 0.7))),
+                  child: Text(
+                    'Left',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Palette.muted.withValues(alpha: 0.7),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -108,14 +161,22 @@ class ToothChart extends StatelessWidget {
         ],
       ),
       const SizedBox(height: 6),
-      const Text('Tap a tooth to see what was done', style: TextStyle(fontSize: 12, color: Palette.muted)),
+      const Text(
+        'Tap a tooth to see what was done',
+        style: TextStyle(fontSize: 12, color: Palette.muted),
+      ),
     ],
   );
 }
 
 enum _Kind { molar, premolar, canine, incisor }
 
-const _kindNames = {_Kind.molar: 'molar', _Kind.premolar: 'premolar', _Kind.canine: 'canine', _Kind.incisor: 'incisor'};
+const _kindNames = {
+  _Kind.molar: 'molar',
+  _Kind.premolar: 'premolar',
+  _Kind.canine: 'canine',
+  _Kind.incisor: 'incisor',
+};
 
 /// "Upper left first molar" for Universal tooth numbers 1 to 32.
 String toothName(String number) {
@@ -123,14 +184,33 @@ String toothName(String number) {
   if (n == null || n < 1 || n > 32) return 'Tooth $number';
   final upper = n <= 16;
   final side = (upper ? n <= 8 : n >= 25) ? 'right' : 'left';
-  final fromBack = upper ? (n <= 8 ? n : 17 - n) : (n >= 25 ? 33 - n : n - 16); // 1 = third molar ... 8 = central incisor
-  const names = ['third molar', 'second molar', 'first molar', 'second premolar', 'first premolar', 'canine', 'lateral incisor', 'central incisor'];
+  final fromBack = upper
+      ? (n <= 8 ? n : 17 - n)
+      : (n >= 25 ? 33 - n : n - 16); // 1 = third molar ... 8 = central incisor
+  const names = [
+    'third molar',
+    'second molar',
+    'first molar',
+    'second premolar',
+    'first premolar',
+    'canine',
+    'lateral incisor',
+    'central incisor',
+  ];
   return '${upper ? 'Upper' : 'Lower'} $side ${names[fromBack - 1]}';
 }
 
 String _surfaceWords(String? surface) {
   if (surface == null || surface.isEmpty) return '';
-  const words = {'O': 'biting surface', 'I': 'biting edge', 'M': 'front side', 'D': 'back side', 'B': 'cheek side', 'F': 'lip side', 'L': 'tongue side'};
+  const words = {
+    'O': 'biting surface',
+    'I': 'biting edge',
+    'M': 'front side',
+    'D': 'back side',
+    'B': 'cheek side',
+    'F': 'lip side',
+    'L': 'tongue side',
+  };
   return ' (${surface.split('').map((c) => words[c] ?? c).join(', ')})';
 }
 
@@ -164,11 +244,18 @@ class _ToothButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final done = procedures.any((p) => p.done), planned = procedures.any((p) => !p.done);
+    final done = procedures.any((p) => p.done),
+        planned = procedures.any((p) => !p.done);
     final noted = findings.isNotEmpty;
-    final states = [if (done) 'treated', if (planned) 'treatment planned', if (noted) 'finding'];
+    final states = [
+      if (done) 'treated',
+      if (planned) 'treatment planned',
+      if (noted) 'finding',
+    ];
     return Semantics(
-      label: states.isEmpty ? 'Tooth $number' : 'Tooth $number: ${states.join(', ')}',
+      label: states.isEmpty
+          ? 'Tooth $number'
+          : 'Tooth $number: ${states.join(', ')}',
       button: true,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
@@ -176,7 +263,12 @@ class _ToothButton extends StatelessWidget {
         child: ExcludeSemantics(
           child: CustomPaint(
             size: size,
-            painter: _ToothPainter(kind: kind, mesial: mesial, procedures: procedures, findings: findings),
+            painter: _ToothPainter(
+              kind: kind,
+              mesial: mesial,
+              procedures: procedures,
+              findings: findings,
+            ),
           ),
         ),
       ),
@@ -185,8 +277,16 @@ class _ToothButton extends StatelessWidget {
 
   void _showTooth(BuildContext context) {
     final lines = [
-      for (final p in procedures) (p.done ? Palette.teal : Palette.apricot, '${p.done ? 'Done' : 'Planned'}: ${p.service}${_surfaceWords(p.surface)}'),
-      for (final f in findings) (const Color(0xFFB35F1E), '${_conditionWords(f.condition)}${_surfaceWords(f.surface)}'),
+      for (final p in procedures)
+        (
+          p.done ? Palette.teal : Palette.apricot,
+          '${p.done ? 'Done' : 'Planned'}: ${p.service}${_surfaceWords(p.surface)}',
+        ),
+      for (final f in findings)
+        (
+          const Color(0xFFB35F1E),
+          '${_conditionWords(f.condition)}${_surfaceWords(f.surface)}',
+        ),
     ];
     showModalBottomSheet<void>(
       context: context,
@@ -206,7 +306,12 @@ class _ToothButton extends StatelessWidget {
                   child: Center(
                     child: CustomPaint(
                       size: Size(size.width * 1.9, size.height * 1.9),
-                      painter: _ToothPainter(kind: kind, mesial: 1, procedures: procedures, findings: findings),
+                      painter: _ToothPainter(
+                        kind: kind,
+                        mesial: 1,
+                        procedures: procedures,
+                        findings: findings,
+                      ),
                     ),
                   ),
                 ),
@@ -215,8 +320,21 @@ class _ToothButton extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(toothName(number), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Palette.deepSea)),
-                      Text('Tooth $number · ${_kindNames[kind]}', style: const TextStyle(fontSize: 13, color: Palette.muted)),
+                      Text(
+                        toothName(number),
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: Palette.deepSea,
+                        ),
+                      ),
+                      Text(
+                        'Tooth $number · ${_kindNames[kind]}',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Palette.muted,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -224,7 +342,10 @@ class _ToothButton extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             if (lines.isEmpty)
-              const Text('Nothing recorded on this tooth at this visit.', style: TextStyle(color: Palette.muted))
+              const Text(
+                'Nothing recorded on this tooth at this visit.',
+                style: TextStyle(color: Palette.muted),
+              )
             else
               for (final (color, text) in lines)
                 Padding(
@@ -232,9 +353,26 @@ class _ToothButton extends StatelessWidget {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(width: 10, height: 10, margin: const EdgeInsets.only(top: 5), decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+                      Container(
+                        width: 10,
+                        height: 10,
+                        margin: const EdgeInsets.only(top: 5),
+                        decoration: BoxDecoration(
+                          color: color,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
                       const SizedBox(width: 10),
-                      Expanded(child: Text(text, style: const TextStyle(fontSize: 15, height: 1.35, color: Palette.deepSea))),
+                      Expanded(
+                        child: Text(
+                          text,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            height: 1.35,
+                            color: Palette.deepSea,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -248,7 +386,12 @@ class _ToothButton extends StatelessWidget {
 /// One tooth from above. Local axes: up (negative y) is the cheek or lip side, the mesial side is towards +x times
 /// [mesial]. Light comes from the top left of the screen.
 class _ToothPainter extends CustomPainter {
-  _ToothPainter({required this.kind, required this.mesial, required this.procedures, required this.findings});
+  _ToothPainter({
+    required this.kind,
+    required this.mesial,
+    required this.procedures,
+    required this.findings,
+  });
   final _Kind kind;
   final double mesial;
   final List<Procedure> procedures;
@@ -272,7 +415,12 @@ class _ToothPainter extends CustomPainter {
           ..quadraticBezierTo(-w * 0.02, h * 0.18, w * 0.18, h * 0.06)
           ..close();
       case _Kind.premolar:
-        return Path()..addRRect(RRect.fromRectAndRadius(r.deflate(w * 0.03), Radius.elliptical(w * 0.46, h * 0.42)));
+        return Path()..addRRect(
+          RRect.fromRectAndRadius(
+            r.deflate(w * 0.03),
+            Radius.elliptical(w * 0.46, h * 0.42),
+          ),
+        );
       case _Kind.canine:
         // Broader on the cheek side, coming to a soft point: the cusp tip.
         return Path()
@@ -298,19 +446,35 @@ class _ToothPainter extends CustomPainter {
     final w = s.width, h = s.height;
     final mesialRight = mesial > 0;
     final rect = switch (letter) {
-      'O' || 'I' => Rect.fromCenter(center: Offset(w / 2, h / 2), width: w * 0.56, height: h * 0.5),
+      'O' || 'I' => Rect.fromCenter(
+        center: Offset(w / 2, h / 2),
+        width: w * 0.56,
+        height: h * 0.5,
+      ),
       'B' || 'F' => Rect.fromLTWH(0, 0, w, h * 0.3),
       'L' => Rect.fromLTWH(0, h * 0.7, w, h * 0.3),
-      'M' => mesialRight ? Rect.fromLTWH(w * 0.72, 0, w * 0.28, h) : Rect.fromLTWH(0, 0, w * 0.28, h),
-      'D' => mesialRight ? Rect.fromLTWH(0, 0, w * 0.28, h) : Rect.fromLTWH(w * 0.72, 0, w * 0.28, h),
+      'M' =>
+        mesialRight
+            ? Rect.fromLTWH(w * 0.72, 0, w * 0.28, h)
+            : Rect.fromLTWH(0, 0, w * 0.28, h),
+      'D' =>
+        mesialRight
+            ? Rect.fromLTWH(0, 0, w * 0.28, h)
+            : Rect.fromLTWH(w * 0.72, 0, w * 0.28, h),
       _ => Rect.fromLTWH(0, 0, w, h),
     };
-    return Path.combine(PathOperation.intersect, _outline(s), Path()..addRRect(RRect.fromRectAndRadius(rect, Radius.circular(w * 0.2))));
+    return Path.combine(
+      PathOperation.intersect,
+      _outline(s),
+      Path()..addRRect(RRect.fromRectAndRadius(rect, Radius.circular(w * 0.2))),
+    );
   }
 
   void _paintMarks(Canvas canvas, Size s, String? surface, Color color) {
     final paint = Paint()..color = color.withValues(alpha: 0.88);
-    final letters = (surface == null || surface.isEmpty) ? ['O'] : surface.split('');
+    final letters = (surface == null || surface.isEmpty)
+        ? ['O']
+        : surface.split('');
     for (final l in letters) {
       canvas.drawPath(_surface(s, l), paint);
     }
@@ -370,16 +534,37 @@ class _ToothPainter extends CustomPainter {
     List<Offset> cusps;
     switch (kind) {
       case _Kind.molar:
-        canvas.drawLine(Offset(w * 0.2, h * 0.5), Offset(w * 0.8, h * 0.5), groove);
-        canvas.drawLine(Offset(w * 0.5, h * 0.2), Offset(w * 0.5, h * 0.8), groove);
-        cusps = [Offset(w * 0.3, h * 0.3), Offset(w * 0.7, h * 0.3), Offset(w * 0.3, h * 0.7), Offset(w * 0.7, h * 0.7)];
+        canvas.drawLine(
+          Offset(w * 0.2, h * 0.5),
+          Offset(w * 0.8, h * 0.5),
+          groove,
+        );
+        canvas.drawLine(
+          Offset(w * 0.5, h * 0.2),
+          Offset(w * 0.5, h * 0.8),
+          groove,
+        );
+        cusps = [
+          Offset(w * 0.3, h * 0.3),
+          Offset(w * 0.7, h * 0.3),
+          Offset(w * 0.3, h * 0.7),
+          Offset(w * 0.7, h * 0.7),
+        ];
       case _Kind.premolar:
-        canvas.drawLine(Offset(w * 0.22, h * 0.5), Offset(w * 0.78, h * 0.5), groove);
+        canvas.drawLine(
+          Offset(w * 0.22, h * 0.5),
+          Offset(w * 0.78, h * 0.5),
+          groove,
+        );
         cusps = [Offset(w * 0.5, h * 0.3), Offset(w * 0.5, h * 0.72)];
       case _Kind.canine:
         cusps = [Offset(w * 0.5, h * 0.45)];
       case _Kind.incisor:
-        canvas.drawLine(Offset(w * 0.2, h * 0.42), Offset(w * 0.8, h * 0.42), groove..strokeWidth = math.max(0.6, w * 0.03));
+        canvas.drawLine(
+          Offset(w * 0.2, h * 0.42),
+          Offset(w * 0.8, h * 0.42),
+          groove..strokeWidth = math.max(0.6, w * 0.03),
+        );
         cusps = [Offset(w * 0.5, h * 0.55)];
     }
     if (!crown && !implant) {
@@ -388,15 +573,34 @@ class _ToothPainter extends CustomPainter {
           c,
           w * (kind == _Kind.molar ? 0.2 : 0.24),
           Paint()
-            ..shader = RadialGradient(colors: [Colors.white.withValues(alpha: 0.95), Colors.white.withValues(alpha: 0)])
-                .createShader(Rect.fromCircle(center: c.translate(-w * 0.04, -h * 0.04), radius: w * 0.24)),
+            ..shader =
+                RadialGradient(
+                  colors: [
+                    Colors.white.withValues(alpha: 0.95),
+                    Colors.white.withValues(alpha: 0),
+                  ],
+                ).createShader(
+                  Rect.fromCircle(
+                    center: c.translate(-w * 0.04, -h * 0.04),
+                    radius: w * 0.24,
+                  ),
+                ),
         );
       }
     }
 
     // Existing fillings and sealants, then this visit's treatment: planned in apricot, done in teal.
-    for (final f in findings.where((f) => f.condition == 'filled' || f.condition == 'sealant')) {
-      _paintMarks(canvas, s, f.surface, f.condition == 'filled' ? const Color(0xFFAAB5BA) : const Color(0xFFDDEFF0));
+    for (final f in findings.where(
+      (f) => f.condition == 'filled' || f.condition == 'sealant',
+    )) {
+      _paintMarks(
+        canvas,
+        s,
+        f.surface,
+        f.condition == 'filled'
+            ? const Color(0xFFAAB5BA)
+            : const Color(0xFFDDEFF0),
+      );
     }
     for (final p in procedures.where((p) => !p.done)) {
       _paintMarks(canvas, s, p.surface, Palette.apricot);
@@ -406,10 +610,16 @@ class _ToothPainter extends CustomPainter {
     }
     // Decay as a dark spot, a crack as a line, a root canal as a small dot.
     for (final f in findings) {
-      final at = f.surface == null || f.surface!.isEmpty ? Offset(w / 2, h / 2) : _surface(s, f.surface![0]).getBounds().center;
+      final at = f.surface == null || f.surface!.isEmpty
+          ? Offset(w / 2, h / 2)
+          : _surface(s, f.surface![0]).getBounds().center;
       switch (f.condition) {
         case 'caries':
-          canvas.drawCircle(at, w * 0.11, Paint()..color = const Color(0xFF5A3A1E).withValues(alpha: 0.85));
+          canvas.drawCircle(
+            at,
+            w * 0.11,
+            Paint()..color = const Color(0xFF5A3A1E).withValues(alpha: 0.85),
+          );
         case 'fractured':
           canvas.drawPath(
             Path()
@@ -423,7 +633,11 @@ class _ToothPainter extends CustomPainter {
               ..strokeWidth = math.max(1, w * 0.05),
           );
         case 'root_canal':
-          canvas.drawCircle(Offset(w / 2, h / 2), w * 0.08, Paint()..color = const Color(0xFFC0392B).withValues(alpha: 0.75));
+          canvas.drawCircle(
+            Offset(w / 2, h / 2),
+            w * 0.08,
+            Paint()..color = const Color(0xFFC0392B).withValues(alpha: 0.75),
+          );
       }
     }
 
@@ -436,7 +650,9 @@ class _ToothPainter extends CustomPainter {
         ..strokeWidth = 0.8,
     );
     // The dentist's ring marks what needs attention, not long-standing work such as a crown or an old filling.
-    if (findings.any((f) => const {'caries', 'fractured', 'root_canal'}.contains(f.condition))) {
+    if (findings.any(
+      (f) => const {'caries', 'fractured', 'root_canal'}.contains(f.condition),
+    )) {
       canvas.drawPath(
         _outline(s),
         Paint()
@@ -448,7 +664,10 @@ class _ToothPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_ToothPainter old) => old.procedures != procedures || old.findings != findings || old.kind != kind;
+  bool shouldRepaint(_ToothPainter old) =>
+      old.procedures != procedures ||
+      old.findings != findings ||
+      old.kind != kind;
 }
 
 /// The gums: two soft pink horseshoes the teeth sit in, with a lighter rim and a little depth.
@@ -458,8 +677,14 @@ class _GumsPainter extends CustomPainter {
     final w = size.width, h = size.height;
     for (final upper in [true, false]) {
       final cy = upper ? h * 0.45 : h * 0.55;
-      final oval = Rect.fromCenter(center: Offset(w / 2, cy), width: w * 0.84, height: h * 0.80);
-      final start = upper ? math.pi + ToothChart._open - 0.05 : ToothChart._open - 0.05;
+      final oval = Rect.fromCenter(
+        center: Offset(w / 2, cy),
+        width: w * 0.84,
+        height: h * 0.80,
+      );
+      final start = upper
+          ? math.pi + ToothChart._open - 0.05
+          : ToothChart._open - 0.05;
       const sweep = math.pi - 2 * ToothChart._open + 0.1;
       final band = Paint()
         ..style = PaintingStyle.stroke
@@ -468,7 +693,11 @@ class _GumsPainter extends CustomPainter {
         ..shader = RadialGradient(
           center: Alignment(0, upper ? -0.2 : 0.2),
           radius: 0.7,
-          colors: const [Color(0xFFF7C9C6), Color(0xFFEFA9A8), Color(0xFFE39593)],
+          colors: const [
+            Color(0xFFF7C9C6),
+            Color(0xFFEFA9A8),
+            Color(0xFFE39593),
+          ],
           stops: const [0, 0.7, 1],
         ).createShader(oval.inflate(w * 0.06));
       canvas.drawArc(oval, start, sweep, false, band);
@@ -504,7 +733,9 @@ class _Key extends StatelessWidget {
         decoration: BoxDecoration(
           color: color ?? Colors.white,
           borderRadius: BorderRadius.circular(5),
-          border: color == null ? Border.all(color: const Color(0xFFB35F1E), width: 2) : null,
+          border: color == null
+              ? Border.all(color: const Color(0xFFB35F1E), width: 2)
+              : null,
         ),
       ),
       const SizedBox(width: 6),

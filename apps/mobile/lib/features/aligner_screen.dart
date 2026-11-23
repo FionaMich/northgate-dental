@@ -19,7 +19,9 @@ final clockProvider = Provider<DateTime Function()>((ref) => DateTime.now);
 final wearStoreProvider = Provider<WearStore>((ref) => SecureWearStore());
 
 /// Phone reminders to put aligners back in, replaceable in tests.
-final alignerRemindersProvider = Provider<AlignerReminders>((ref) => LocalAlignerReminders());
+final alignerRemindersProvider = Provider<AlignerReminders>(
+  (ref) => LocalAlignerReminders(),
+);
 
 String hoursMinutes(Duration d) => '${d.inHours}h ${d.inMinutes % 60}m';
 
@@ -105,7 +107,12 @@ class _AlignerScreenState extends ConsumerState<AlignerScreen> {
                       padding: EdgeInsets.fromLTRB(12, 4, 12, 20),
                       child: Text(
                         'Aligner timer',
-                        style: TextStyle(fontSize: 30, fontWeight: FontWeight.w700, letterSpacing: -0.8, color: Colors.white),
+                        style: TextStyle(
+                          fontSize: 30,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.8,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                     Center(
@@ -121,9 +128,19 @@ class _AlignerScreenState extends ConsumerState<AlignerScreen> {
                                 children: [
                                   Text(
                                     hoursMinutes(today),
-                                    style: const TextStyle(fontSize: 38, fontWeight: FontWeight.w700, color: Colors.white),
+                                    style: const TextStyle(
+                                      fontSize: 38,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.white,
+                                    ),
                                   ),
-                                  const Text('of 22h today', style: TextStyle(fontSize: 15, color: Color(0xFFCDEFE7))),
+                                  const Text(
+                                    'of 22h today',
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      color: Color(0xFFCDEFE7),
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),
@@ -139,28 +156,45 @@ class _AlignerScreenState extends ConsumerState<AlignerScreen> {
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 22, 20, 40),
             child: log == null
-                ? const Center(child: CircularProgressIndicator(strokeWidth: 2.5))
+                ? const Center(
+                    child: CircularProgressIndicator(strokeWidth: 2.5),
+                  )
                 : Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Panel(
                         child: Row(
                           children: [
-                            IconTile(log.wearing ? Icons.sentiment_satisfied_rounded : Icons.do_not_disturb_on_outlined, size: 48),
+                            IconTile(
+                              log.wearing
+                                  ? Icons.sentiment_satisfied_rounded
+                                  : Icons.do_not_disturb_on_outlined,
+                              size: 48,
+                            ),
                             const SizedBox(width: 14),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    log.wearing ? 'Aligners in' : 'Aligners out',
-                                    style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: Palette.deepSea),
+                                    log.wearing
+                                        ? 'Aligners in'
+                                        : 'Aligners out',
+                                    style: const TextStyle(
+                                      fontSize: 17,
+                                      fontWeight: FontWeight.w700,
+                                      color: Palette.deepSea,
+                                    ),
                                   ),
                                   Text(
                                     log.wearing
                                         ? 'Since ${clock(log.sessions.last.$1)}. Take them out only to eat, drink anything but water, and brush.'
                                         : 'Put them back in after eating and brushing. We will remind you after 30 minutes.',
-                                    style: const TextStyle(fontSize: 14, height: 1.4, color: Palette.muted),
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      height: 1.4,
+                                      color: Palette.muted,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -171,7 +205,9 @@ class _AlignerScreenState extends ConsumerState<AlignerScreen> {
                       const SizedBox(height: 16),
                       PrimaryButton(
                         key: const Key('wear-toggle'),
-                        label: log.wearing ? 'Take aligners out' : 'Put aligners in',
+                        label: log.wearing
+                            ? 'Take aligners out'
+                            : 'Put aligners in',
                         onPressed: _toggle,
                       ),
                       const SizedBox(height: 26),
@@ -182,12 +218,19 @@ class _AlignerScreenState extends ConsumerState<AlignerScreen> {
                       const SizedBox(height: 16),
                       const Row(
                         children: [
-                          Icon(Icons.lock_outline_rounded, size: 16, color: Palette.muted),
+                          Icon(
+                            Icons.lock_outline_rounded,
+                            size: 16,
+                            color: Palette.muted,
+                          ),
                           SizedBox(width: 6),
                           Expanded(
                             child: Text(
                               'Kept only on this phone, encrypted, and removed when you sign out.',
-                              style: TextStyle(fontSize: 13, color: Palette.muted),
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Palette.muted,
+                              ),
                             ),
                           ),
                         ],
@@ -231,7 +274,9 @@ class _Ring extends CustomPainter {
           ..style = PaintingStyle.stroke
           ..strokeWidth = stroke
           ..strokeCap = StrokeCap.round
-          ..shader = const SweepGradient(colors: [Palette.shine, Color(0xFF8FE3C8), Palette.shine]).createShader(rect),
+          ..shader = const SweepGradient(
+            colors: [Palette.shine, Color(0xFF8FE3C8), Palette.shine],
+          ).createShader(rect),
       );
     }
   }
@@ -247,7 +292,9 @@ class _Week extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final days = [for (var i = 6; i >= 0; i--) DateTime(now.year, now.month, now.day - i)];
+    final days = [
+      for (var i = 6; i >= 0; i--) DateTime(now.year, now.month, now.day - i),
+    ];
     return SizedBox(
       height: 130,
       child: Row(
@@ -258,7 +305,10 @@ class _Week extends StatelessWidget {
               child: Builder(
                 builder: (_) {
                   final worn = log.wornOn(d, now: now);
-                  final share = (worn.inMinutes / WearLog.goal.inMinutes).clamp(0.0, 1.0);
+                  final share = (worn.inMinutes / WearLog.goal.inMinutes).clamp(
+                    0.0,
+                    1.0,
+                  );
                   final met = worn >= WearLog.goal;
                   return Semantics(
                     label: '${weekday(d)}: ${hoursMinutes(worn)}',
@@ -266,20 +316,32 @@ class _Week extends StatelessWidget {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
-                          Text('${worn.inHours}h', style: const TextStyle(fontSize: 11, color: Palette.muted)),
+                          Text(
+                            '${worn.inHours}h',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Palette.muted,
+                            ),
+                          ),
                           const SizedBox(height: 4),
                           Container(
                             width: 22,
                             height: 4 + 76 * share,
                             decoration: BoxDecoration(
-                              color: met ? Palette.teal : const Color(0xFFB9DDD5),
+                              color: met
+                                  ? Palette.teal
+                                  : const Color(0xFFB9DDD5),
                               borderRadius: BorderRadius.circular(8),
                             ),
                           ),
                           const SizedBox(height: 6),
                           Text(
                             weekday(d).substring(0, 1),
-                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Palette.deepSea),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: Palette.deepSea,
+                            ),
                           ),
                         ],
                       ),

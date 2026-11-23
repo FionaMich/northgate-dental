@@ -28,8 +28,13 @@ class RecordsScreen extends ConsumerWidget {
             title: 'Records',
             subtitle: 'Visits, X-rays and summaries for $name.',
             facts: [
-              if (c != null) (Icons.event_note_rounded, '${c.visits.length} ${c.visits.length == 1 ? 'visit' : 'visits'}'),
-              if (c != null && c.documents.isNotEmpty) (Icons.folder_open_rounded, '${c.documents.length} documents'),
+              if (c != null)
+                (
+                  Icons.event_note_rounded,
+                  '${c.visits.length} ${c.visits.length == 1 ? 'visit' : 'visits'}',
+                ),
+              if (c != null && c.documents.isNotEmpty)
+                (Icons.folder_open_rounded, '${c.documents.length} documents'),
             ],
           ),
           OverHero(
@@ -42,7 +47,9 @@ class RecordsScreen extends ConsumerWidget {
                   error: (_, _) => [
                     Panel(
                       onTap: () => ref.invalidate(careSummaryProvider),
-                      child: const Text('Could not load your records. Tap to try again.'),
+                      child: const Text(
+                        'Could not load your records. Tap to try again.',
+                      ),
                     ),
                   ],
                   data: (c) => [
@@ -51,7 +58,12 @@ class RecordsScreen extends ConsumerWidget {
                         padding: EdgeInsets.fromLTRB(6, 0, 6, 10),
                         child: Text(
                           'DOCUMENTS',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1.1, color: Color(0xFFA9DCD1)),
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1.1,
+                            color: Color(0xFFA9DCD1),
+                          ),
                         ),
                       ),
                       SizedBox(
@@ -63,7 +75,10 @@ class RecordsScreen extends ConsumerWidget {
                           separatorBuilder: (_, _) => const SizedBox(width: 12),
                           itemBuilder: (_, i) => Reveal(
                             order: i,
-                            child: DocumentTile(document: c.documents[i], card: true),
+                            child: DocumentTile(
+                              document: c.documents[i],
+                              card: true,
+                            ),
                           ),
                         ),
                       ),
@@ -78,10 +93,14 @@ class RecordsScreen extends ConsumerWidget {
                     else ...[
                       const SectionTitle('Your visits'),
                       for (final (i, v) in c.visits.indexed) ...[
-                        if (i == 0 || c.visits[i - 1].at.year != v.at.year) _YearMark(v.at.year),
+                        if (i == 0 || c.visits[i - 1].at.year != v.at.year)
+                          _YearMark(v.at.year),
                         Reveal(
                           order: i,
-                          child: _TimelineVisit(visit: v, last: i == c.visits.length - 1),
+                          child: _TimelineVisit(
+                            visit: v,
+                            last: i == c.visits.length - 1,
+                          ),
                         ),
                       ],
                     ],
@@ -105,7 +124,12 @@ class _YearMark extends StatelessWidget {
     padding: const EdgeInsets.fromLTRB(4, 6, 0, 10),
     child: Text(
       '$year',
-      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, letterSpacing: 1, color: Palette.muted),
+      style: const TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 1,
+        color: Palette.muted,
+      ),
     ),
   );
 }
@@ -140,11 +164,20 @@ class _TimelineVisit extends StatelessWidget {
                 const SizedBox(height: 16),
                 Text(
                   shortMonth(v.at),
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Palette.muted),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: Palette.muted,
+                  ),
                 ),
                 Text(
                   '${v.at.day}',
-                  style: const TextStyle(fontSize: 22, height: 1.1, fontWeight: FontWeight.w700, color: Palette.deepSea),
+                  style: const TextStyle(
+                    fontSize: 22,
+                    height: 1.1,
+                    fontWeight: FontWeight.w700,
+                    color: Palette.deepSea,
+                  ),
                 ),
               ],
             ),
@@ -163,7 +196,10 @@ class _TimelineVisit extends StatelessWidget {
                     border: Border.all(color: tint.wash, width: 3),
                   ),
                 ),
-                if (!last) Expanded(child: Container(width: 2, color: const Color(0xFFD9E6E3))),
+                if (!last)
+                  Expanded(
+                    child: Container(width: 2, color: const Color(0xFFD9E6E3)),
+                  ),
               ],
             ),
           ),
@@ -182,25 +218,48 @@ class _TimelineVisit extends StatelessWidget {
                         Expanded(
                           child: Text(
                             visitTitle(v.kind),
-                            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: Palette.deepSea),
+                            style: const TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700,
+                              color: Palette.deepSea,
+                            ),
                           ),
                         ),
                         if (planned > 0)
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                            decoration: BoxDecoration(color: Tint.apricot.wash, borderRadius: BorderRadius.circular(999)),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 9,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Tint.apricot.wash,
+                              borderRadius: BorderRadius.circular(999),
+                            ),
                             child: Text(
                               '$planned planned',
-                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Tint.apricot.ink),
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: Tint.apricot.ink,
+                              ),
                             ),
                           ),
-                        const Icon(Icons.chevron_right_rounded, color: Color(0xFF9DB3AF)),
+                        const Icon(
+                          Icons.chevron_right_rounded,
+                          color: Color(0xFF9DB3AF),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      [v.location, if (v.dentist != null) v.dentist!].join('  ·  '),
-                      style: const TextStyle(fontSize: 13.5, color: Palette.muted),
+                      [
+                        v.location,
+                        if (v.dentist != null) v.dentist!,
+                      ].join('  ·  '),
+                      style: const TextStyle(
+                        fontSize: 13.5,
+                        color: Palette.muted,
+                      ),
                     ),
                     if (names.isNotEmpty) ...[
                       const SizedBox(height: 10),
@@ -209,7 +268,8 @@ class _TimelineVisit extends StatelessWidget {
                         runSpacing: 6,
                         children: [
                           for (final n in names.take(2)) _Chip(n, tint),
-                          if (names.length > 2) _Chip('+${names.length - 2} more', tint),
+                          if (names.length > 2)
+                            _Chip('+${names.length - 2} more', tint),
                         ],
                       ),
                     ],
@@ -233,12 +293,19 @@ class _Chip extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     constraints: const BoxConstraints(maxWidth: 220),
     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-    decoration: BoxDecoration(color: tint.wash, borderRadius: BorderRadius.circular(10)),
+    decoration: BoxDecoration(
+      color: tint.wash,
+      borderRadius: BorderRadius.circular(10),
+    ),
     child: Text(
       label,
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
-      style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: tint.ink),
+      style: TextStyle(
+        fontSize: 12.5,
+        fontWeight: FontWeight.w700,
+        color: tint.ink,
+      ),
     ),
   );
 }
