@@ -9,7 +9,7 @@ from pathlib import Path
 
 import yaml
 
-LANGUAGES = ("en", "fr", "nl", "de", "es", "lt", "sv")  # Fiona, 2026-11-23
+LANGUAGES = ("en", "fr", "nl", "de", "es", "it", "lt", "sv")  # Fiona, 2026-11-23 (Italian added the same day)
 
 # One or more patterns per flag per language; all of them run on every message, whatever language it is in.
 _RED_FLAGS: dict[str, list[str]] = {
@@ -19,6 +19,7 @@ _RED_FLAGS: dict[str, list[str]] = {
         r"(moeite met|kan niet)\s+(ademen|slikken)|benauwd",
         r"(kann nicht|schwer zu|probleme beim|schwierigkeiten beim)\s+(atmen|schlucken)|atemnot",
         r"(no puedo|dificultad para|me cuesta)\s+(respirar|tragar)",
+        r"(non riesco a|difficoltà a|fatico a)\s+(respirare|deglutire|ingoiare)",
         r"(sunku|negaliu)\s+(kvėpuoti|ryti)|dūstu",
         r"(svårt att|kan inte)\s+(andas|svälja)|andnöd",
     ],
@@ -28,6 +29,7 @@ _RED_FLAGS: dict[str, list[str]] = {
         r"bloed\w*.{0,30}(stopt niet|houdt niet op|veel|erg)",
         r"blut\w*.{0,30}(h[öo]rt nicht auf|stark|viel)",
         r"(sangrado|sangra).{0,30}(no (se )?(para|detiene)|mucho)",
+        r"sanguin\w*.{0,30}(non si ferma|non smette|tanto|molto)",
         r"kraujav\w*.{0,30}(nesiliauja|nesustoja|stipr)",
         r"blöd\w*.{0,30}(slutar inte|kraftig|mycket)",
     ],
@@ -37,18 +39,19 @@ _RED_FLAGS: dict[str, list[str]] = {
         r"zwel\w*.{0,40}(oog|keel|nek|verspreid)",
         r"schwell\w*.{0,40}(auge|hals|rachen|breitet)",
         r"hinchaz[oó]n.{0,40}(ojo|garganta|cuello|extiende)",
+        r"gonfi\w*.{0,40}(occhio|gola|collo|si estende|si allarga)",
         r"tin\w*.{0,40}(akį|akies|gerkl|kakl|plinta)",
         r"svull\w*.{0,40}(öga|ögat|hals|sprider)",
     ],
     "chest_pain": [
         r"chest pain|pain in (my )?chest", r"douleur (à la|dans la) poitrine", r"pijn (op|in) de borst",
-        r"brustschmerz|schmerzen in der brust", r"dolor (en el|de) pecho", r"skauda krūtin|krūtinės skausm",
+        r"brustschmerz|schmerzen in der brust", r"dolor (en el|de) pecho", r"dolore al petto", r"skauda krūtin|krūtinės skausm",
         r"ont i bröstet|bröstsmärt",
     ],
     "self_harm": [
         r"(kill|hurt|harm)\w*\s+(myself|me)|suicid|end my life", r"(me tuer|me faire du mal|suicid)",
         r"(zelfmoord|mezelf (iets )?aandoen|een eind aan mijn leven)", r"(mich umbringen|mir etwas antun|suizid|selbstmord)",
-        r"(matarme|hacerme daño|suicid)", r"(nusižudyti|save sužaloti|savižudyb)", r"(ta livet av mig|skada mig själv|självmord)",
+        r"(matarme|hacerme daño|suicid)", r"(uccidermi|farmi del male|togliermi la vita)", r"(nusižudyti|save sužaloti|savižudyb)", r"(ta livet av mig|skada mig själv|självmord)",
     ],
 }
 _COMPILED = {flag: [re.compile(p, re.IGNORECASE) for p in patterns] for flag, patterns in _RED_FLAGS.items()}

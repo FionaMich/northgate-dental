@@ -350,7 +350,7 @@ A small shop inside the patient app for the products our dentists and hygienists
 </details>
 
 <details>
-<summary><b>The receptionist assistant: LangGraph, 7 languages, safety first</b></summary>
+<summary><b>The receptionist assistant: LangGraph, 8 languages, safety first</b></summary>
 
 A virtual receptionist in the patient app, benchmarked on OralSync's "Lisa" (the leading AI receptionist for Dutch dental practices), without the phone line. It books, moves and cancels visits, answers questions about the clinics, payments and the shop, and hands anything else to the team with a written summary.
 
@@ -362,7 +362,7 @@ A virtual receptionist in the patient app, benchmarked on OralSync's "Lisa" (the
 
 ```mermaid
 flowchart TD
-  msg[Patient message, any of 7 languages] --> gate{Safety gate<br/>red-flag rules in all seven languages}
+  msg[Patient message, any of 8 languages] --> gate{Safety gate<br/>red-flag rules in all eight languages}
   gate -->|red flag| emergency[Fixed emergency text: 911, 988, the clinic<br/>urgent handover with the flags, not the words]
   gate -->|safe| model[Assistant model<br/>Gemma 4 on Ollama]
   model -->|tool call| tools[Tools act as the signed-in patient<br/>row level security applies]
@@ -396,7 +396,7 @@ flowchart TD
 | Nothing is booked or cancelled without the patient | LangGraph pauses (`interrupt`) until the patient presses Confirm; declining books nothing (tested) |
 | No invented prices or times | A grounding check replaces a reply whose price or time no tool returned, and really hands it over |
 
-**Languages:** English, French, Dutch, German, Spanish, Lithuanian and Swedish (Fiona's choice, 23 November 2026). Every non-English safety text is marked draft until a native speaker reviews it, as health messaging requires.
+**Languages:** English, French, Dutch, German, Spanish, Italian, Lithuanian and Swedish (Fiona's choice, 23 November 2026). Every non-English safety text is marked draft until a native speaker reviews it, as health messaging requires.
 
 **Model:** `model_for(role)` picks the model from one setting. The demo runs Gemma 4 on Ollama, so nothing leaves our own machines. On a CPU a reply takes 30 to 60 seconds, so the app says so while it waits; Amazon Bedrock is one setting away if speed matters more than keeping everything in-house.
 
@@ -608,7 +608,7 @@ Each principle below comes from a well-known software engineering book, and each
   - directions and a call button;
   - the services offered and the team at that clinic.
 - **Visit records:** the reason for the visit, a sculpted tooth chart (tap any tooth), what was done, the findings and the treatment plan.
-- **Receptionist assistant:** chat in 7 languages to book, move, cancel or pay, with confirm buttons, and a handover to the team for anything else.
+- **Receptionist assistant:** chat in 8 languages to book, move, cancel or pay, with confirm buttons, and a handover to the team for anything else.
 - **Documents from the practice:** visit summaries and X-rays, opened in an in-app PDF viewer.
 - **Reminders and recall:** visit reminders the evening before and on the day, check-up recall, and aftercare sheets after treatment.
 - **Clear aligner timer** with in-app notifications.
@@ -633,7 +633,7 @@ Each principle below comes from a well-known software engineering book, and each
 **Not yet live:** the assistant on the VM. Gemma needs about 6 GB of memory and the VM has about 4 GB free; it goes live on the free Ampere A1 (24 GB) as soon as Oracle has capacity, or sooner with more memory on the current VM.
 
 **How it was proved:**
-- 28 assistant tests: emergencies caught in all seven languages, ordinary questions left alone, the model never called on a red flag, clinical questions handed over, bookings waiting for the button, invented prices refused;
+- 28 assistant tests: emergencies caught in all eight languages, ordinary questions left alone, the model never called on a red flag, clinical questions handed over, bookings waiting for the button, invented prices refused;
 - 457 database tests, 72 app tests;
 - Gemma 4 on the laptop called the booking tool correctly from Spanish (and, before the language change, Haitian Creole).
 
@@ -949,7 +949,7 @@ infra/scripts/restore-test.sh s3://<bucket>/nightly/<file>.dump.age ~/.config/no
 | `infra/` | The server: Compose stack, Nginx configuration, certificate, backup, restore and hardening scripts, and their tests |
 | `services/worker/` | Notification worker: reads Supabase Queues, sends confirmations and reminders (Python, psycopg, Resend) |
 | `infra/terraform/oci/`, `infra/terraform/aws/` | Oracle network, load balancer, bastion and VM; AWS audit trail and account baseline |
-| `services/agent/` | The receptionist assistant: LangGraph graph, safety gate, tools, fixed texts in 7 languages, FastAPI |
+| `services/agent/` | The receptionist assistant: LangGraph graph, safety gate, tools, fixed texts in 8 languages, FastAPI |
 | `n8n/` | n8n workflows: SDK source (`sdk/`), exported JSON (`workflows/`) and the notes script |
 | `services/synthdata/` | Test data generator |
 | `scripts/` | Local helpers: database tests, canary scan, guards, mobile toolchain setup |

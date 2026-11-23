@@ -912,7 +912,7 @@ class _OurServices extends ConsumerWidget {
   );
 }
 
-/// Opens the receptionist chat: an AI assistant that answers in 7 languages and hands over to the team.
+/// Opens the receptionist chat: an AI assistant that answers in 8 languages and hands over to the team.
 class _AskReceptionist extends StatelessWidget {
   const _AskReceptionist();
 
@@ -946,7 +946,7 @@ class _AskReceptionist extends StatelessWidget {
                   ),
                   SizedBox(height: 2),
                   Text(
-                    'Book, change or pay, any time, in 7 languages',
+                    'Book, change or pay, any time, in 8 languages',
                     style: TextStyle(fontSize: 13, color: Color(0xFFA9DCD1)),
                   ),
                 ],

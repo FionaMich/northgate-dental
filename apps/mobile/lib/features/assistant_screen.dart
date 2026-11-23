@@ -202,7 +202,7 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> {
                     style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
                   ),
                   Text(
-                    'AI assistant · 7 languages',
+                    'AI assistant · 8 languages',
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(fontSize: 12, color: Color(0xFFA9DCD1)),
                   ),

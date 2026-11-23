@@ -36,12 +36,12 @@ void main() {
     expect(find.text('Booked.'), findsOneWidget);
   });
 
-  testWidgets('the picker offers exactly the seven supported languages', (tester) async {
+  testWidgets('the picker offers exactly the eight supported languages', (tester) async {
     await pumpApp(tester, FakeAccountRepository(patients: [elena]), assistant: FakeAssistantRepository());
     await signIn(tester);
     await tapKey(tester, 'open-assistant');
     await tapKey(tester, 'pick-language');
-    for (final code in ['en', 'fr', 'nl', 'de', 'es', 'lt', 'sv']) {
+    for (final code in ['en', 'fr', 'nl', 'de', 'es', 'it', 'lt', 'sv']) {
       expect(find.byKey(Key('language-$code')), findsOneWidget, reason: code);
     }
     expect(find.byKey(const Key('language-ar')), findsNothing);

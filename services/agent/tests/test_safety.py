@@ -10,6 +10,8 @@ EMERGENCIES = [
     ("nl", "Het bloeden stopt niet sinds gisteren", "heavy_bleeding"),
     ("de", "Die Schwellung breitet sich zum Auge aus", "spreading_swelling"),
     ("es", "El sangrado no se detiene desde ayer", "heavy_bleeding"),
+    ("it", "Il sanguinamento non si ferma", "heavy_bleeding"),
+    ("it", "Non riesco a respirare bene", "breathing_or_swallowing"),
     ("lt", "Man sunku kvėpuoti", "breathing_or_swallowing"),
     ("sv", "Jag har ont i bröstet", "chest_pain"),
     ("de", "Ich will mich umbringen", "self_harm"),
@@ -29,6 +31,7 @@ def test_emergencies_are_caught_in_every_language(language, message, flag):
     "Ich möchte einen Termin zur Zahnreinigung",
     "Noriu užsiregistruoti vizitui",
     "Kan jag boka en tid på fredag?",
+    "Vorrei prenotare una pulizia dei denti",
     "Est-ce que je peux payer dans l'application ?",
     "My gums bled a little when I flossed",
 ])

@@ -1,5 +1,5 @@
 # Fixed, reviewed text: the model never writes these. {phone} is the clinic's number from the database.
-# Languages (Fiona, 2026-11-23): English, French, Dutch, German, Spanish, Lithuanian, Swedish.
+# Languages (Fiona, 2026-11-23): English, French, Dutch, German, Spanish, Italian, Lithuanian, Swedish.
 # Status per language: "draft" until a native speaker has reviewed it (AGENTS 14.1); the release check refuses drafts.
 en:
   status: reviewed
@@ -61,6 +61,18 @@ es:
   yes_book: Confirmar
   yes_cancel: Cancelar cita
   not_now: Ahora no
+it:
+  status: draft
+  name: Italiano
+  disclosure: Salve, sono la receptionist virtuale di Northgate Dental, un'assistente di intelligenza artificiale. Posso aiutarla con appuntamenti, pagamenti, il negozio e domande sullo studio. Non posso dare consigli medici. Può chiedere di parlare con una persona in qualsiasi momento.
+  emergency: Sembra urgente. Se ha difficoltà a respirare o deglutire, un sanguinamento che non si ferma o un gonfiore che si estende verso l'occhio o la gola, chiami subito il 911 o vada al pronto soccorso più vicino. Per un'urgenza dentale, ci chiami al {phone}. Se sta pensando di farsi del male, chiami o invii un messaggio al 988. Ho avvisato anche lo studio.
+  cannot_advise: Non posso dare consigli medici. Ho inoltrato la sua domanda al nostro team clinico, che la contatterà. Se è urgente, chiami il {phone}, o il 911 in caso di emergenza.
+  handover: Ho passato la richiesta al nostro team con un riepilogo, così non dovrà ripetere nulla. Qualcuno la ricontatterà durante l'orario di apertura.
+  confirm_book: Prenotare questo appuntamento?
+  confirm_cancel: Annullare questo appuntamento?
+  yes_book: Conferma
+  yes_cancel: Annulla appuntamento
+  not_now: Non ora
 lt:
   status: draft
   name: Lietuvių
