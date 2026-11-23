@@ -570,8 +570,13 @@ class FakeAssistantRepository implements AssistantRepository {
 
 /// Hears whatever the test queues and records what Nora says; no microphone or speaker.
 class FakeVoiceEngine implements VoiceEngine {
-  FakeVoiceEngine({this.available = true});
+  FakeVoiceEngine({this.available = true, this.packMissing = false, this.longSpeech = false});
   final bool available;
+  final bool packMissing;
+
+  /// Nora's speech lasts until stopSpeaking(), so a test can interrupt her.
+  final bool longSpeech;
+  Completer<void>? _talking;
   final heard = <String>[];
   final spoken = <String>[];
 
@@ -580,6 +585,7 @@ class FakeVoiceEngine implements VoiceEngine {
 
   @override
   Future<String> listen(String language, void Function(String words) onWords) async {
+    if (packMissing) throw const VoiceUnavailable();
     final words = heard.isEmpty ? '' : heard.removeAt(0);
     onWords(words);
     return words;
@@ -589,8 +595,13 @@ class FakeVoiceEngine implements VoiceEngine {
   Future<void> stopListening() async {}
 
   @override
-  Future<void> speak(String text, String language) async => spoken.add('$language:$text');
+  Future<void> speak(String text, String language) async {
+    spoken.add('$language:$text');
+    if (longSpeech) await (_talking = Completer<void>()).future;
+  }
 
   @override
-  Future<void> stopSpeaking() async {}
+  Future<void> stopSpeaking() async {
+    if (_talking?.isCompleted == false) _talking!.complete();
+  }
 }

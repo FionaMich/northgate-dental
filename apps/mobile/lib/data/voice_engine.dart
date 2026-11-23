@@ -23,6 +23,11 @@ abstract class VoiceEngine {
   Future<void> stopSpeaking();
 }
 
+/// The phone cannot recognise this language on the device (for example the offline language pack is not downloaded).
+class VoiceUnavailable implements Exception {
+  const VoiceUnavailable();
+}
+
 /// The locale each assistant language is spoken and recognised in.
 const voiceLocales = {
   'en': 'en-US',
@@ -55,7 +60,13 @@ class DeviceVoiceEngine implements VoiceEngine {
     final done = Completer<String>();
     var last = '';
     _speech.statusListener = (status) {
-      if ((status == 'done' || status == 'notListening') && !done.isCompleted) done.complete(last);
+      // Not 'notListening': on-device recognisers deliver the final words after listening stops (seen on a Galaxy A12).
+      if (status == 'done' && !done.isCompleted) done.complete(last);
+    };
+    // locales() lists languages the recogniser knows online; on-device use can still fail for want of a pack.
+    _speech.errorListener = (e) {
+      final noPack = e.errorMsg == 'error_language_unavailable' || e.errorMsg == 'error_language_not_supported';
+      if (noPack && !done.isCompleted) done.completeError(const VoiceUnavailable());
     };
     await _speech.listen(
       listenOptions: SpeechListenOptions(
@@ -63,11 +74,11 @@ class DeviceVoiceEngine implements VoiceEngine {
         onDevice: true, // the patient's voice stays on the phone
         partialResults: true,
         cancelOnError: true,
-        pauseFor: const Duration(seconds: 2),
+        pauseFor: const Duration(seconds: 3), // offline packs send no partial words, so the pause timer runs from the start
         listenFor: const Duration(seconds: 30),
       ),
       onResult: (SpeechRecognitionResult r) {
-        last = r.recognizedWords;
+        if (r.recognizedWords.isNotEmpty) last = r.recognizedWords; // an empty final result must not wipe out the words heard
         onWords(last);
         if (r.finalResult && !done.isCompleted) done.complete(last);
       },

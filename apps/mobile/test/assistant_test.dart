@@ -54,9 +54,7 @@ void main() {
     await signIn(tester);
     await tapKey(tester, 'open-assistant');
     await tapKey(tester, 'open-voice');
-    expect(voice.spoken.last, 'en:Hi, I am an AI assistant.', reason: 'the AI disclosure is spoken first');
-
-    await tapKey(tester, 'voice-mic');
+    expect(voice.spoken.first, 'en:Hi, I am an AI assistant.', reason: 'the AI disclosure is spoken first');
     expect(assistant.sent.last, 'en:What time does Quincy open?');
     expect(voice.spoken.last, 'en:Quincy opens at 07:00 on Mondays.');
     expect(find.text('Quincy opens at 07:00 on Mondays.'), findsOneWidget, reason: 'captions for every spoken reply');
@@ -82,5 +80,40 @@ void main() {
     await tapKey(tester, 'open-assistant');
     await tapKey(tester, 'open-voice');
     expect(find.textContaining('Voice is not available'), findsOneWidget);
+  });
+
+  testWidgets('turn-taking: after Nora answers she listens again without another tap', (tester) async {
+    final assistant = FakeAssistantRepository();
+    final voice = FakeVoiceEngine()..heard.addAll(['What time does Quincy open?', 'And on Saturday?']);
+    await pumpApp(tester, FakeAccountRepository(patients: [elena]), assistant: assistant, voice: voice);
+    await signIn(tester);
+    await tapKey(tester, 'open-assistant');
+    await tapKey(tester, 'open-voice');
+    expect(assistant.sent, ['en:What time does Quincy open?', 'en:And on Saturday?']);
+    expect(find.text('Tap the microphone and speak'), findsOneWidget, reason: 'silence ends the loop');
+  });
+
+  testWidgets('turn-taking: tapping the microphone while Nora speaks interrupts her and listens', (tester) async {
+    final assistant = FakeAssistantRepository();
+    final voice = FakeVoiceEngine(longSpeech: true)..heard.add('What time does Quincy open?');
+    await pumpApp(tester, FakeAccountRepository(patients: [elena]), assistant: assistant, voice: voice);
+    await signIn(tester);
+    await tapKey(tester, 'open-assistant');
+    await tapKey(tester, 'open-voice'); // Nora is still reading the AI notice
+    await tapKey(tester, 'voice-mic');
+    expect(assistant.sent, ['en:What time does Quincy open?']);
+  });
+
+  testWidgets('a language pack missing on the phone turns the microphone off instead of failing silently', (tester) async {
+    // Seen on a Galaxy A12: the language is listed, but on-device recognition fails with LANGUAGE_PACK_ERROR (13).
+    final assistant = FakeAssistantRepository();
+    final voice = FakeVoiceEngine(packMissing: true);
+    await pumpApp(tester, FakeAccountRepository(patients: [elena]), assistant: assistant, voice: voice);
+    await signIn(tester);
+    await tapKey(tester, 'open-assistant');
+    await tapKey(tester, 'open-voice');
+    await tapKey(tester, 'voice-mic');
+    expect(find.textContaining('Voice is not available'), findsOneWidget);
+    expect(assistant.sent, isEmpty, reason: 'nothing reaches Nora');
   });
 }

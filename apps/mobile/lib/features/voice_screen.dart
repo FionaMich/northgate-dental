@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -61,8 +62,9 @@ class _VoiceScreenState extends ConsumerState<VoiceScreen> with TickerProviderSt
     super.dispose();
   }
 
-  Future<void> _say(String text) async {
-    if (!mounted) return;
+  /// Speaks [text]; true when Nora finished without being interrupted.
+  Future<bool> _say(String text) async {
+    if (!mounted) return false;
     setState(() {
       _caption = text;
       _mood = NoraMood.speaking;
@@ -70,14 +72,21 @@ class _VoiceScreenState extends ConsumerState<VoiceScreen> with TickerProviderSt
     try {
       await _voice.speak(text, _language);
     } finally {
-      if (mounted) setState(() => _mood = NoraMood.idle);
+      // Only settle if nothing else (listening after an interruption) has taken over.
+      if (mounted && _mood == NoraMood.speaking) setState(() => _mood = NoraMood.idle);
     }
+    return mounted && _mood == NoraMood.idle;
+  }
+
+  /// Turn-taking: once Nora has finished speaking, listen for the patient's reply without another tap.
+  Future<void> _sayThenListen(String text) async {
+    if (await _say(text) && _voiceAvailable && _confirm == null) await _listen();
   }
 
   Future<void> _greet() async {
     try {
       _voiceAvailable = await _voice.canListen(_language);
-      await _say(await ref.read(assistantRepositoryProvider).hello(_language));
+      await _sayThenListen(await ref.read(assistantRepositoryProvider).hello(_language));
     } on Exception {
       if (mounted) setState(() => _caption = 'Nora is unavailable right now. Please call your clinic.');
     }
@@ -92,7 +101,7 @@ class _VoiceScreenState extends ConsumerState<VoiceScreen> with TickerProviderSt
       if (turn.confirm != null) {
         await _say('${turn.confirm!['title']} ${turn.confirm!['detail'] ?? ''}');
       } else if (turn.reply != null) {
-        await _say(turn.reply!);
+        await _sayThenListen(turn.reply!);
       } else {
         setState(() => _mood = NoraMood.idle);
       }
@@ -113,12 +122,23 @@ class _VoiceScreenState extends ConsumerState<VoiceScreen> with TickerProviderSt
 
   Future<void> _listen() async {
     final voice = _voice;
-    await voice.stopSpeaking();
+    unawaited(voice.stopSpeaking()); // some phone voices never complete stop(); the patient must not wait for it
     setState(() {
       _mood = NoraMood.listening;
       _heard = '';
     });
-    final words = await voice.listen(_language, (w) => mounted ? setState(() => _heard = w) : null);
+    final String words;
+    try {
+      words = await voice.listen(_language, (w) => mounted ? setState(() => _heard = w) : null);
+    } on VoiceUnavailable {
+      if (mounted) {
+        setState(() {
+          _voiceAvailable = false;
+          _mood = NoraMood.idle;
+        });
+      }
+      return;
+    }
     if (!mounted) return;
     if (words.trim().isEmpty) {
       setState(() => _mood = NoraMood.idle);

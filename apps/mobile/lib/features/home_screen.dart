@@ -937,7 +937,7 @@ class _AskReceptionist extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Ask Nora, our receptionist',
+                    'Ask Nora, our AI receptionist',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,

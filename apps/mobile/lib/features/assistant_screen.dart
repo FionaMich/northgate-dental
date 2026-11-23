@@ -39,7 +39,7 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> {
     'Book a cleaning': Icons.event_available_rounded,
     'Opening hours': Icons.schedule_rounded,
     'Pay my bill': Icons.credit_card_rounded,
-    'Talk to a person': Icons.support_agent_rounded,
+    'Talk to a member of our team': Icons.support_agent_rounded,
   };
 
   @override
