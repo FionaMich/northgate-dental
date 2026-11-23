@@ -101,7 +101,9 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
                   (Icons.local_shipping_rounded, 'Free delivery from \$50'),
                 ],
               ),
-              OverHero(
+              Padding(
+                // Below the header, not over its curve: the chips scroll and tap exactly where they are drawn.
+                padding: const EdgeInsets.only(top: 18),
                 child: products.when(
                   loading: () => const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 20),
@@ -124,28 +126,45 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                        const Padding(
+                          padding: EdgeInsets.fromLTRB(20, 0, 20, 10),
+                          child: Text(
+                            'Shop by need',
+                            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: Palette.deepSea),
+                          ),
+                        ),
                         SizedBox(
-                          height: 40,
-                          child: ListView(
-                            scrollDirection: Axis.horizontal,
-                            padding: const EdgeInsets.symmetric(horizontal: 20),
-                            children: [
-                              _Chip(
-                                label: 'All',
-                                selected: _category == null,
-                                onTap: () => setState(() => _category = null),
-                              ),
-                              for (final MapEntry(:key, :value)
-                                  in shopCategories.entries)
-                                if (present.contains(key))
-                                  _Chip(
-                                    key: Key('category-$key'),
-                                    label: value,
-                                    selected: _category == key,
-                                    onTap: () =>
-                                        setState(() => _category = key),
-                                  ),
-                            ],
+                          height: 58, // room for the selected chip's glow
+                          // Fades at the right edge, so it is clear there are more categories to swipe to.
+                          child: ShaderMask(
+                            shaderCallback: (r) => const LinearGradient(
+                              colors: [Colors.white, Colors.white, Color(0x00FFFFFF)],
+                              stops: [0, 0.88, 1],
+                            ).createShader(r),
+                            blendMode: BlendMode.dstIn,
+                            child: ListView(
+                              key: const Key('shop-categories'),
+                              scrollDirection: Axis.horizontal,
+                              physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                              padding: const EdgeInsets.fromLTRB(20, 4, 36, 10),
+                              children: [
+                                _Chip(
+                                  label: 'All',
+                                  icon: Icons.apps_rounded,
+                                  selected: _category == null,
+                                  onTap: () => setState(() => _category = null),
+                                ),
+                                for (final MapEntry(:key, :value) in shopCategories.entries)
+                                  if (present.contains(key))
+                                    _Chip(
+                                      key: Key('category-$key'),
+                                      label: value,
+                                      icon: _categoryIcons[key] ?? Icons.spa_rounded,
+                                      selected: _category == key,
+                                      onTap: () => setState(() => _category = key),
+                                    ),
+                              ],
+                            ),
                           ),
                         ),
                         const SizedBox(height: 18),
@@ -241,41 +260,58 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
   }
 }
 
+const _categoryIcons = {
+  'brush': Icons.brush_rounded,
+  'clean_between': Icons.cleaning_services_rounded,
+  'paste_and_rinse': Icons.water_drop_rounded,
+  'aligners': Icons.mood_rounded,
+  'kids': Icons.child_care_rounded,
+  'whitening': Icons.auto_awesome_rounded,
+  'prescription': Icons.verified_user_rounded,
+};
+
 class _Chip extends StatelessWidget {
-  const _Chip({
-    super.key,
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
+  const _Chip({super.key, required this.label, required this.icon, required this.selected, required this.onTap});
   final String label;
+  final IconData icon;
   final bool selected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(right: 8),
-    child: Material(
-      color: selected ? Palette.deepSea : Colors.white,
-      borderRadius: BorderRadius.circular(999),
-      child: InkWell(
+    padding: const EdgeInsets.only(right: 10),
+    child: AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOut,
+      decoration: BoxDecoration(
+        color: selected ? Palette.teal : Colors.white,
         borderRadius: BorderRadius.circular(999),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(
-              color: selected ? Palette.deepSea : Palette.line,
-            ),
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 13.5,
-              fontWeight: FontWeight.w600,
-              color: selected ? Colors.white : Palette.deepSea,
+        border: Border.all(color: selected ? Palette.teal : Palette.line),
+        boxShadow: selected
+            ? [BoxShadow(color: Palette.teal.withValues(alpha: 0.28), blurRadius: 12, offset: const Offset(0, 4))]
+            : [BoxShadow(color: Palette.deepSea.withValues(alpha: 0.05), blurRadius: 6, offset: const Offset(0, 2))],
+      ),
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(999),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 18, color: selected ? Colors.white : Palette.teal),
+                const SizedBox(width: 8),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: selected ? Colors.white : Palette.deepSea,
+                  ),
+                ),
+              ],
             ),
           ),
         ),

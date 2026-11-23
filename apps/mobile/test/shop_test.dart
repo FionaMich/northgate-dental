@@ -1,3 +1,4 @@
+import 'package:dental/data/shop_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -38,5 +39,32 @@ void main() {
     await tapKey(tester, 'product-fluoride');
     expect(find.text('Ask your dentist'), findsOneWidget);
     expect(tester.widget<FilledButton>(find.byKey(const Key('add-to-bag'))).onPressed, isNull);
+  });
+
+  testWidgets('the category row scrolls sideways and its chips filter the shop', (tester) async {
+    tester.view.physicalSize = const Size(720, 1560);
+    tester.view.devicePixelRatio = 2.0;
+    addTearDown(tester.view.reset);
+    const items = [
+      ShopProduct(id: 'b', name: 'Brush', category: 'brush', summary: 's', description: 'd', priceCents: 100, imageKey: 'x'),
+      ShopProduct(id: 'f', name: 'Floss', category: 'clean_between', summary: 's', description: 'd', priceCents: 100, imageKey: 'x'),
+      ShopProduct(id: 'p', name: 'Paste', category: 'paste_and_rinse', summary: 's', description: 'd', priceCents: 100, imageKey: 'x'),
+      ShopProduct(id: 'a', name: 'Chewies', category: 'aligners', summary: 's', description: 'd', priceCents: 100, imageKey: 'x'),
+      ShopProduct(id: 'k', name: 'Kids kit', category: 'kids', summary: 's', description: 'd', priceCents: 100, imageKey: 'x'),
+      ShopProduct(id: 'w', name: 'Whitening kit', category: 'whitening', summary: 's', description: 'd', priceCents: 100, imageKey: 'x'),
+    ];
+    await pumpApp(tester, FakeAccountRepository(patients: [elena]), shop: FakeShopRepository(items: items));
+    await signIn(tester);
+    await tapKey(tester, 'tab-shop');
+    final whitening = find.byKey(const Key('category-whitening'));
+    expect(whitening, findsNothing, reason: 'the last chips start off-screen, beyond the right edge');
+    await tester.scrollUntilVisible(whitening, 120,
+        scrollable: find.descendant(of: find.byKey(const Key('shop-categories')), matching: find.byType(Scrollable)));
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(whitening).dx, lessThan(360), reason: 'swiping the row brings it into view');
+    await tester.tap(whitening);
+    await tester.pumpAndSettle();
+    expect(find.text('Whitening kit'), findsOneWidget);
+    expect(find.text('Brush'), findsNothing, reason: 'the chip filters the products');
   });
 }
