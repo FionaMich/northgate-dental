@@ -525,7 +525,10 @@ class _ImageViewer extends ConsumerWidget {
     appBar: AppBar(
       backgroundColor: Colors.black,
       foregroundColor: Colors.white,
-      title: Text(title, style: const TextStyle(fontSize: 16, color: Colors.white)),
+      title: Text(
+        title,
+        style: const TextStyle(fontSize: 16, color: Colors.white),
+      ),
       actions: [
         IconButton(
           tooltip: 'Download',
@@ -569,7 +572,10 @@ class _PdfScreenState extends ConsumerState<_PdfScreen> {
     appBar: AppBar(
       backgroundColor: Palette.heroMid,
       foregroundColor: Colors.white,
-      title: Text(widget.title, style: const TextStyle(fontSize: 16, color: Colors.white)),
+      title: Text(
+        widget.title,
+        style: const TextStyle(fontSize: 16, color: Colors.white),
+      ),
       actions: [
         IconButton(
           tooltip: 'Download',

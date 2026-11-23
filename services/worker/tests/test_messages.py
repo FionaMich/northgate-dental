@@ -1,6 +1,11 @@
 from datetime import datetime, timezone
 
-from worker.messages import Context, decide, render
+import re
+from dataclasses import replace
+
+from worker.messages import Context, Promotion, decide, render, render_promotion
+
+EMAIL = re.compile(r"[\w.+-]+@[\w-]+\.[a-z]{2,}")
 
 CTX = Context("Ana", datetime(2027, 3, 10, 15, 0, tzinfo=timezone.utc), "America/New_York", "Quincy", "+16175550130",
               "Cleaning and exam")
@@ -29,8 +34,9 @@ def test_messages_carry_the_minimum():
     for kind in ["confirmation", "cancellation", "reminder:72h", "reminder:24h", "reminder:6h"]:
         message = render(kind, CTX)
         assert "Ana" in message.text and "Quincy" in message.text
-        for never in ["synthetic", "NG0", "@"]:
+        for never in ["synthetic", "NG0"]:
             assert never not in message.text and never not in message.html
+        assert not EMAIL.search(message.text) and not EMAIL.search(message.html), "no email address in the body"
 
 
 def test_names_are_escaped_in_html():
@@ -41,23 +47,23 @@ def test_names_are_escaped_in_html():
 def test_a_receipt_shows_the_amount_in_dollars_and_nothing_about_cancelling():
     from dataclasses import replace
     message = render("receipt", replace(CTX, amount_cents=123456))
-    assert message.subject == "Payment received"
+    assert message.subject == "Receipt: $1,234.56 paid to Northgate Dental"
     assert "$1,234.56" in message.text and "cancel" not in message.text
 
 
 def test_confirmations_and_reminders_carry_a_cancel_link_when_there_is_one():
     from dataclasses import replace
     message = render("reminder:24h", replace(CTX, link="https://n8n.example/webhook/visit?t=abc"))
-    assert "Need to cancel? Use this link: https://n8n.example/webhook/visit?t=abc" in message.text
+    assert "Change or cancel: https://n8n.example/webhook/visit?t=abc" in message.text
     assert '<a href="https://n8n.example/webhook/visit?t=abc"' in message.html
 
 
 def test_a_check_in_asks_how_the_patient_is_and_gives_the_emergency_path():
     from dataclasses import replace
     message = render("checkin:1d", replace(CTX, link="https://n8n.example/webhook/checkin?t=abc"))
-    assert message.subject == "How are you feeling?"
+    assert message.subject == "How are you feeling, Ana?"
     assert "https://n8n.example/webhook/checkin?t=abc" in message.text and "911" in message.text
-    assert "+16175550130" in message.text
+    assert "(617) 555-0130" in message.text, "the clinic number, readable"
 
 
 def test_a_statement_shows_the_balance_and_a_pay_link():
@@ -92,3 +98,29 @@ def test_an_order_email_lists_the_products_and_how_it_arrives():
                            "collect", "Quincy", "(617) 555-0130", False)
     assert message.subject == "Thank you for your order"
     assert "Sonic electric toothbrush" in message.text and "$106.69" in message.text and "Quincy" in message.text
+
+
+def test_a_moved_visit_is_one_email_with_the_old_and_the_new_time():
+    moved = replace(CTX, previous_starts_at=datetime(2027, 3, 9, 14, 0, tzinfo=timezone.utc), link="https://n8n.example/webhook/visit?t=abc")
+    message = render("reschedule", moved)
+    assert message.subject == "Your visit has moved to Wednesday 10 March at 10:00"
+    assert "Tuesday 9 March at 09:00" in message.text and "Wednesday 10 March at 10:00" in message.text
+    assert "visit?t=abc" in message.html
+
+
+def test_every_patient_email_has_an_inbox_preview_and_a_tap_to_call_number():
+    for kind in ["confirmation", "cancellation", "reminder:24h"]:
+        html = render(kind, CTX).html
+        assert 'style="display:none' in html.split("<table", 1)[0], "preview text sits before the layout"
+        assert 'href="tel:+16175550130"' in html
+
+
+def test_a_promotion_names_no_visit_and_always_carries_unsubscribe():
+    promo = Promotion(subject="Brighter by spring: 20% off whitening", preheader="Take-home whitening, fitted at your next visit.",
+                      headline="Your brightest smile, ready by spring", body="Book a whitening consultation this month.",
+                      offer="20% off take-home whitening", cta_label="Book a consultation", cta_link="https://example.org/book",
+                      ends="31 March")
+    message = render_promotion("Ana", promo, unsubscribe="https://n8n.example/webhook/unsubscribe?t=xyz")
+    assert message.subject == promo.subject and "Ana" in message.text
+    assert "unsubscribe?t=xyz" in message.text and "unsubscribe?t=xyz" in message.html
+    assert "Cleaning and exam" not in message.html, "marketing never mentions anyone's treatment"

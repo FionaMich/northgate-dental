@@ -273,11 +273,17 @@ class _BagRow extends ConsumerWidget {
                       Expanded(
                         child: Text(
                           dollars(line.cents),
-                          style: const TextStyle(fontWeight: FontWeight.w800, color: Palette.deepSea),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            color: Palette.deepSea,
+                          ),
                         ),
                       ),
                       DecoratedBox(
-                        decoration: BoxDecoration(color: Palette.mist, borderRadius: BorderRadius.circular(999)),
+                        decoration: BoxDecoration(
+                          color: Palette.mist,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -285,15 +291,30 @@ class _BagRow extends ConsumerWidget {
                               tooltip: line.quantity == 1 ? 'Remove' : 'Fewer',
                               visualDensity: VisualDensity.compact,
                               iconSize: 20,
-                              onPressed: () => bag.setQuantity(p.id, line.quantity - 1),
-                              icon: Icon(line.quantity == 1 ? Icons.delete_outline_rounded : Icons.remove_rounded),
+                              onPressed: () =>
+                                  bag.setQuantity(p.id, line.quantity - 1),
+                              icon: Icon(
+                                line.quantity == 1
+                                    ? Icons.delete_outline_rounded
+                                    : Icons.remove_rounded,
+                              ),
                             ),
-                            Text('${line.quantity}', style: const TextStyle(fontWeight: FontWeight.w800)),
+                            Text(
+                              '${line.quantity}',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
                             IconButton(
                               tooltip: 'More',
                               visualDensity: VisualDensity.compact,
                               iconSize: 20,
-                              onPressed: line.quantity >= 10 ? null : () => bag.setQuantity(p.id, line.quantity + 1),
+                              onPressed: line.quantity >= 10
+                                  ? null
+                                  : () => bag.setQuantity(
+                                      p.id,
+                                      line.quantity + 1,
+                                    ),
                               icon: const Icon(Icons.add_rounded),
                             ),
                           ],

@@ -11,42 +11,66 @@ Future<void> enterCode(WidgetTester tester, String code) async {
 }
 
 void main() {
-  testWidgets('the sign-up screen shows no synthetic data label (decision 2026-11-19)', (tester) async {
-    await pumpApp(tester, FakeAccountRepository());
-    await tapKey(tester, 'go-sign-up');
-    expect(find.textContaining(RegExp('synthetic data|not a real practice', caseSensitive: false)), findsNothing);
-  });
+  testWidgets(
+    'the sign-up screen shows no synthetic data label (decision 2026-11-19)',
+    (tester) async {
+      await pumpApp(tester, FakeAccountRepository());
+      await tapKey(tester, 'go-sign-up');
+      expect(
+        find.textContaining(
+          RegExp('synthetic data|not a real practice', caseSensitive: false),
+        ),
+        findsNothing,
+      );
+    },
+  );
 
-  testWidgets('a new patient signs up, confirms the emailed code and is asked to link a record (E34)', (tester) async {
+  testWidgets(
+    'a new patient signs up, confirms the emailed code and is asked to link a record (E34)',
+    (tester) async {
+      final repo = await pumpApp(tester, FakeAccountRepository());
+      await tapKey(tester, 'go-sign-up');
+      await tester.enterText(find.byKey(const Key('name')), 'Jordan Lee');
+      await tester.enterText(
+        find.byKey(const Key('email')),
+        'jordan@northgate.synthetic',
+      );
+      await tester.enterText(find.byKey(const Key('password')), 'Synthetic123');
+      await tester.pumpAndSettle();
+      await tapKey(tester, 'create-account');
+      expect(repo.sent, ['signup:jordan@northgate.synthetic']);
+      expect(find.textContaining('jordan@northgate.synthetic'), findsOneWidget);
+      await enterCode(tester, '123456');
+      expect(find.text('Find your record'), findsOneWidget);
+    },
+  );
+
+  testWidgets('a weak password keeps Create account switched off', (
+    tester,
+  ) async {
     final repo = await pumpApp(tester, FakeAccountRepository());
     await tapKey(tester, 'go-sign-up');
     await tester.enterText(find.byKey(const Key('name')), 'Jordan Lee');
-    await tester.enterText(find.byKey(const Key('email')), 'jordan@northgate.synthetic');
-    await tester.enterText(find.byKey(const Key('password')), 'Synthetic123');
-    await tester.pumpAndSettle();
-    await tapKey(tester, 'create-account');
-    expect(repo.sent, ['signup:jordan@northgate.synthetic']);
-    expect(find.textContaining('jordan@northgate.synthetic'), findsOneWidget);
-    await enterCode(tester, '123456');
-    expect(find.text('Find your record'), findsOneWidget);
-  });
-
-  testWidgets('a weak password keeps Create account switched off', (tester) async {
-    final repo = await pumpApp(tester, FakeAccountRepository());
-    await tapKey(tester, 'go-sign-up');
-    await tester.enterText(find.byKey(const Key('name')), 'Jordan Lee');
-    await tester.enterText(find.byKey(const Key('email')), 'jordan@northgate.synthetic');
+    await tester.enterText(
+      find.byKey(const Key('email')),
+      'jordan@northgate.synthetic',
+    );
     await tester.enterText(find.byKey(const Key('password')), 'short');
     await tester.pumpAndSettle();
     await tapKey(tester, 'create-account');
     expect(repo.sent, isEmpty);
   });
 
-  testWidgets('a wrong code is refused and resend waits 60 seconds (E41)', (tester) async {
+  testWidgets('a wrong code is refused and resend waits 60 seconds (E41)', (
+    tester,
+  ) async {
     final repo = await pumpApp(tester, FakeAccountRepository());
     await tapKey(tester, 'go-sign-up');
     await tester.enterText(find.byKey(const Key('name')), 'Jordan Lee');
-    await tester.enterText(find.byKey(const Key('email')), 'jordan@northgate.synthetic');
+    await tester.enterText(
+      find.byKey(const Key('email')),
+      'jordan@northgate.synthetic',
+    );
     await tester.enterText(find.byKey(const Key('password')), 'Synthetic123');
     await tester.pumpAndSettle();
     await tapKey(tester, 'create-account');
@@ -58,39 +82,60 @@ void main() {
     expect(repo.sent.last, 'resend:jordan@northgate.synthetic');
   });
 
-  testWidgets('forgot password: same answer for any email, then code, then a new password signs in', (tester) async {
-    final repo = await pumpApp(tester, FakeAccountRepository());
-    await tapKey(tester, 'go-reset');
-    await tester.enterText(find.byKey(const Key('email')), 'whoever@northgate.synthetic');
-    await tapKey(tester, 'send-reset');
-    expect(find.textContaining('If an account uses whoever@northgate.synthetic'), findsOneWidget);
-    await enterCode(tester, '123456');
-    await tester.enterText(find.byKey(const Key('password')), 'NewSynthetic9');
-    await tester.pumpAndSettle();
-    await tapKey(tester, 'save-password');
-    expect(repo.newPassword, 'NewSynthetic9');
-    expect(
-      find.text('Password saved. Sign in with your new password.'),
-      findsOneWidget,
-      reason: 'a reset proves the inbox only; signing in adds the password step and a code',
-    );
-    expect(find.byKey(const Key('sign-in')), findsOneWidget);
-  });
+  testWidgets(
+    'forgot password: same answer for any email, then code, then a new password signs in',
+    (tester) async {
+      final repo = await pumpApp(tester, FakeAccountRepository());
+      await tapKey(tester, 'go-reset');
+      await tester.enterText(
+        find.byKey(const Key('email')),
+        'whoever@northgate.synthetic',
+      );
+      await tapKey(tester, 'send-reset');
+      expect(
+        find.textContaining('If an account uses whoever@northgate.synthetic'),
+        findsOneWidget,
+      );
+      await enterCode(tester, '123456');
+      await tester.enterText(
+        find.byKey(const Key('password')),
+        'NewSynthetic9',
+      );
+      await tester.pumpAndSettle();
+      await tapKey(tester, 'save-password');
+      expect(repo.newPassword, 'NewSynthetic9');
+      expect(
+        find.text('Password saved. Sign in with your new password.'),
+        findsOneWidget,
+        reason: 'a reset proves the inbox only; signing in adds the password step and a code',
+      );
+      expect(find.byKey(const Key('sign-in')), findsOneWidget);
+    },
+  );
 
-  testWidgets('too many requests shows a calm wait message (E42)', (tester) async {
+  testWidgets('too many requests shows a calm wait message (E42)', (
+    tester,
+  ) async {
     final repo = FakeAccountRepository()..rateLimited = true;
     await pumpApp(tester, repo);
     await tapKey(tester, 'go-reset');
-    await tester.enterText(find.byKey(const Key('email')), 'elena@northgate.synthetic');
+    await tester.enterText(
+      find.byKey(const Key('email')),
+      'elena@northgate.synthetic',
+    );
     await tapKey(tester, 'send-reset');
     expect(find.text(tooManyError), findsOneWidget);
   });
 
-  testWidgets('sign-out asks first; Cancel keeps you signed in', (tester) async {
+  testWidgets('sign-out asks first; Cancel keeps you signed in', (
+    tester,
+  ) async {
     final repo = await pumpApp(
       tester,
       FakeAccountRepository(
-        patients: const [LinkedPatient(id: 'p-elena', name: 'Elena Marsh', isSelf: true)],
+        patients: const [
+          LinkedPatient(id: 'p-elena', name: 'Elena Marsh', isSelf: true),
+        ],
       ),
     );
     await signIn(tester);
@@ -101,28 +146,43 @@ void main() {
     expect(find.text('Profile'), findsWidgets);
   });
 
-  testWidgets('sign-in needs the password and then the emailed code (two factors)', (tester) async {
-    final repo = await pumpApp(
-      tester,
-      FakeAccountRepository(
-        patients: const [LinkedPatient(id: 'p-elena', name: 'Elena Marsh', isSelf: true)],
-      ),
-    );
-    await tester.enterText(find.byKey(const Key('email')), 'elena@northgate.synthetic');
-    await tester.enterText(find.byKey(const Key('password')), 'right');
-    await tapKey(tester, 'sign-in');
-    expect(repo.sent, ['signin:elena@northgate.synthetic']);
-    expect(find.text('Enter your sign-in code'), findsOneWidget);
-    expect(find.text('Hello, Elena'), findsNothing, reason: 'no patient data before the code');
-    await enterCode(tester, '000000');
-    expect(find.text(codeError), findsOneWidget);
-    await enterCode(tester, '123456');
-    expect(find.text('Hello, Elena'), findsOneWidget);
-  });
+  testWidgets(
+    'sign-in needs the password and then the emailed code (two factors)',
+    (tester) async {
+      final repo = await pumpApp(
+        tester,
+        FakeAccountRepository(
+          patients: const [
+            LinkedPatient(id: 'p-elena', name: 'Elena Marsh', isSelf: true),
+          ],
+        ),
+      );
+      await tester.enterText(
+        find.byKey(const Key('email')),
+        'elena@northgate.synthetic',
+      );
+      await tester.enterText(find.byKey(const Key('password')), 'right');
+      await tapKey(tester, 'sign-in');
+      expect(repo.sent, ['signin:elena@northgate.synthetic']);
+      expect(find.text('Enter your sign-in code'), findsOneWidget);
+      expect(
+        find.text('Hello, Elena'),
+        findsNothing,
+        reason: 'no patient data before the code',
+      );
+      await enterCode(tester, '000000');
+      expect(find.text(codeError), findsOneWidget);
+      await enterCode(tester, '123456');
+      expect(find.text('Hello, Elena'), findsOneWidget);
+    },
+  );
 
   testWidgets('"Not you?" on the code screen signs out', (tester) async {
     final repo = await pumpApp(tester, FakeAccountRepository());
-    await tester.enterText(find.byKey(const Key('email')), 'elena@northgate.synthetic');
+    await tester.enterText(
+      find.byKey(const Key('email')),
+      'elena@northgate.synthetic',
+    );
     await tester.enterText(find.byKey(const Key('password')), 'right');
     await tapKey(tester, 'sign-in');
     await tapKey(tester, 'code-sign-out');

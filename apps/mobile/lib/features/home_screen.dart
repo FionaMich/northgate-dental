@@ -462,40 +462,44 @@ class _NextVisit extends ConsumerWidget {
         const SizedBox(height: 14),
         const Divider(height: 1, color: Color(0xFFE8EFEE)),
         const SizedBox(height: 10),
-        Row(
+        // Side by side when both fit; on narrow phones or large text the button moves under the dentist, never "Cancel vi...".
+        OverflowBar(
+          alignment: appointment.dentist == null
+              ? MainAxisAlignment.end
+              : MainAxisAlignment.spaceBetween,
+          overflowSpacing: 10,
           children: [
-            if (appointment.dentist != null) ...[
-              DentistAvatar(
-                name: appointment.dentist!,
-                asset: appointment.dentistPhoto == null
-                    ? null
-                    : 'assets/images/team/${appointment.dentistPhoto}.jpg',
-                size: 38,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'With ${appointment.dentist}',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: Palette.deepSea,
+            if (appointment.dentist != null)
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  DentistAvatar(
+                    name: appointment.dentist!,
+                    asset: appointment.dentistPhoto == null
+                        ? null
+                        : 'assets/images/team/${appointment.dentistPhoto}.jpg',
+                    size: 38,
                   ),
-                ),
+                  const SizedBox(width: 10),
+                  Flexible(
+                    child: Text(
+                      'With ${appointment.dentist}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: Palette.deepSea,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ] else
-              const Spacer(),
-            Flexible(
-              child: OutlinedButton(
-                key: const Key('cancel-visit'),
-                onPressed: () => confirmCancelVisit(context, ref, appointment),
-                style: dangerOutline,
-                child: const Text(
-                  'Cancel visit',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
+            OutlinedButton(
+              key: const Key('cancel-visit'),
+              onPressed: () => confirmCancelVisit(context, ref, appointment),
+              style: dangerOutline,
+              child: const Text('Cancel visit', maxLines: 1, softWrap: false),
             ),
           ],
         ),
@@ -917,43 +921,47 @@ class _AskReceptionist extends StatelessWidget {
   const _AskReceptionist();
 
   @override
-  Widget build(BuildContext context) => Material(
-    color: Palette.deepSea,
-    borderRadius: BorderRadius.circular(22),
-    child: InkWell(
-      key: const Key('open-assistant'),
+  // A button of its own for screen readers (it was merged into the visit card above it).
+  Widget build(BuildContext context) => Semantics(
+    container: true,
+    button: true,
+    child: Material(
+      color: Palette.deepSea,
       borderRadius: BorderRadius.circular(22),
-      onTap: () =>
-          Navigator.of(context)
-              .push(MaterialPageRoute(builder: (_) => const AssistantScreen())),
-      child: const Padding(
-        padding: EdgeInsets.all(18),
-        child: Row(
-          children: [
-            Icon(Icons.forum_rounded, color: Palette.shine, size: 30),
-            SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Ask Nora, our AI receptionist',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
+      child: InkWell(
+        key: const Key('open-assistant'),
+        borderRadius: BorderRadius.circular(22),
+        onTap: () => Navigator.of(context)
+            .push(MaterialPageRoute(builder: (_) => const AssistantScreen())),
+        child: const Padding(
+          padding: EdgeInsets.all(18),
+          child: Row(
+            children: [
+              Icon(Icons.forum_rounded, color: Palette.shine, size: 30),
+              SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Ask Nora, our AI receptionist',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
                     ),
-                  ),
-                  SizedBox(height: 2),
-                  Text(
-                    'Book, change or pay, any time, in 8 languages',
-                    style: TextStyle(fontSize: 13, color: Color(0xFFA9DCD1)),
-                  ),
-                ],
+                    SizedBox(height: 2),
+                    Text(
+                      'Book, change or pay, any time, in 8 languages',
+                      style: TextStyle(fontSize: 13, color: Color(0xFFA9DCD1)),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            Icon(Icons.chevron_right_rounded, color: Colors.white),
-          ],
+              Icon(Icons.chevron_right_rounded, color: Colors.white),
+            ],
+          ),
         ),
       ),
     ),

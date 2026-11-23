@@ -22,13 +22,26 @@ class VoiceScreen extends ConsumerStatefulWidget {
 
 enum NoraMood { idle, listening, thinking, speaking }
 
-class _VoiceScreenState extends ConsumerState<VoiceScreen> with TickerProviderStateMixin {
-  late final _breath = AnimationController(vsync: this, duration: const Duration(milliseconds: 3200));
-  late final _pulse = AnimationController(vsync: this, duration: const Duration(milliseconds: 1400));
-  late final String _thread = List.generate(24, (_) => Random.secure().nextInt(16).toRadixString(16)).join();
+class _VoiceScreenState extends ConsumerState<VoiceScreen>
+    with TickerProviderStateMixin {
+  late final _breath = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 3200),
+  );
+  late final _pulse = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1400),
+  );
+  late final String _thread = List.generate(
+    24,
+    (_) => Random.secure().nextInt(16).toRadixString(16),
+  ).join();
   late String _language = widget.language;
   NoraMood _mood = NoraMood.idle;
   String _caption = '';
+  String _youSaid =
+      ''; // the exact words sent to Nora, shown so the patient can check them
+  final _captionScroll = ScrollController();
   String _heard = '';
   Map<String, dynamic>? _confirm;
   bool _voiceAvailable = true;
@@ -58,6 +71,7 @@ class _VoiceScreenState extends ConsumerState<VoiceScreen> with TickerProviderSt
     _voice.stopListening();
     _voice.stopSpeaking();
     _breath.dispose();
+    _captionScroll.dispose();
     _pulse.dispose();
     super.dispose();
   }
@@ -73,22 +87,33 @@ class _VoiceScreenState extends ConsumerState<VoiceScreen> with TickerProviderSt
       await _voice.speak(text, _language);
     } finally {
       // Only settle if nothing else (listening after an interruption) has taken over.
-      if (mounted && _mood == NoraMood.speaking) setState(() => _mood = NoraMood.idle);
+      if (mounted && _mood == NoraMood.speaking) {
+        setState(() => _mood = NoraMood.idle);
+      }
     }
     return mounted && _mood == NoraMood.idle;
   }
 
   /// Turn-taking: once Nora has finished speaking, listen for the patient's reply without another tap.
   Future<void> _sayThenListen(String text) async {
-    if (await _say(text) && _voiceAvailable && _confirm == null) await _listen();
+    if (await _say(text) && _voiceAvailable && _confirm == null) {
+      await _listen();
+    }
   }
 
   Future<void> _greet() async {
     try {
       _voiceAvailable = await _voice.canListen(_language);
-      await _sayThenListen(await ref.read(assistantRepositoryProvider).hello(_language));
+      await _sayThenListen(
+        await ref.read(assistantRepositoryProvider).hello(_language),
+      );
     } on Exception {
-      if (mounted) setState(() => _caption = 'Nora is unavailable right now. Please call your clinic.');
+      if (mounted) {
+        setState(
+          () => _caption =
+              'Nora is unavailable right now. Please call your clinic.',
+        );
+      }
     }
   }
 
@@ -99,7 +124,9 @@ class _VoiceScreenState extends ConsumerState<VoiceScreen> with TickerProviderSt
       if (!mounted) return;
       setState(() => _confirm = turn.confirm);
       if (turn.confirm != null) {
-        await _say('${turn.confirm!['title']} ${turn.confirm!['detail'] ?? ''}');
+        await _say(
+          '${turn.confirm!['title']} ${turn.confirm!['detail'] ?? ''}',
+        );
       } else if (turn.reply != null) {
         await _sayThenListen(turn.reply!);
       } else {
@@ -129,7 +156,10 @@ class _VoiceScreenState extends ConsumerState<VoiceScreen> with TickerProviderSt
     });
     final String words;
     try {
-      words = await voice.listen(_language, (w) => mounted ? setState(() => _heard = w) : null);
+      words = await voice.listen(
+        _language,
+        (w) => mounted ? setState(() => _heard = w) : null,
+      );
     } on VoiceUnavailable {
       if (mounted) {
         setState(() {
@@ -144,12 +174,20 @@ class _VoiceScreenState extends ConsumerState<VoiceScreen> with TickerProviderSt
       setState(() => _mood = NoraMood.idle);
       return;
     }
-    await _run(() => ref.read(assistantRepositoryProvider).send(_thread, words, _language));
+    setState(() => _youSaid = words.trim());
+    await _run(
+      () =>
+          ref.read(assistantRepositoryProvider).send(_thread, words, _language),
+    );
   }
 
   void _answer(bool accept) {
     setState(() => _confirm = null);
-    _run(() => ref.read(assistantRepositoryProvider).confirm(_thread, accept, _language));
+    _run(
+      () => ref
+          .read(assistantRepositoryProvider)
+          .confirm(_thread, accept, _language),
+    );
   }
 
   @override
@@ -172,7 +210,11 @@ class _VoiceScreenState extends ConsumerState<VoiceScreen> with TickerProviderSt
                   const Expanded(
                     child: Text(
                       'Nora',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Colors.white),
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
                   TextButton(
@@ -185,8 +227,12 @@ class _VoiceScreenState extends ConsumerState<VoiceScreen> with TickerProviderSt
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              for (final MapEntry(:key, :value) in assistantLanguages.entries)
-                                ListTile(title: Text(value), onTap: () => Navigator.of(context).pop(key)),
+                              for (final MapEntry(:key, :value)
+                                  in assistantLanguages.entries)
+                                ListTile(
+                                  title: Text(value),
+                                  onTap: () => Navigator.of(context).pop(key),
+                                ),
                             ],
                           ),
                         ),
@@ -196,7 +242,10 @@ class _VoiceScreenState extends ConsumerState<VoiceScreen> with TickerProviderSt
                         _greet();
                       }
                     },
-                    child: Text(assistantLanguages[_language]!, style: const TextStyle(color: Colors.white)),
+                    child: Text(
+                      assistantLanguages[_language]!,
+                      style: const TextStyle(color: Colors.white),
+                    ),
                   ),
                 ],
               ),
@@ -212,7 +261,12 @@ class _VoiceScreenState extends ConsumerState<VoiceScreen> with TickerProviderSt
                             AnimatedBuilder(
                               animation: Listenable.merge([_breath, _pulse]),
                               builder: (_, _) {
-                                final breathe = 1 + 0.018 * Curves.easeInOut.transform(_breath.value);
+                                final breathe =
+                                    1 +
+                                    0.018 *
+                                        Curves.easeInOut.transform(
+                                          _breath.value,
+                                        );
                                 return SizedBox(
                                   width: 300,
                                   height: 300,
@@ -222,37 +276,77 @@ class _VoiceScreenState extends ConsumerState<VoiceScreen> with TickerProviderSt
                                       if (_mood == NoraMood.listening)
                                         for (final offset in [0.0, 0.5])
                                           Opacity(
-                                            opacity: (1 - ((_pulse.value + offset) % 1)).clamp(0, 1) * 0.5,
+                                            opacity:
+                                                (1 -
+                                                        ((_pulse.value +
+                                                                offset) %
+                                                            1))
+                                                    .clamp(0, 1) *
+                                                0.5,
                                             child: Container(
-                                              width: 220 + 80 * ((_pulse.value + offset) % 1),
-                                              height: 220 + 80 * ((_pulse.value + offset) % 1),
+                                              width:
+                                                  220 +
+                                                  80 *
+                                                      ((_pulse.value + offset) %
+                                                          1),
+                                              height:
+                                                  220 +
+                                                  80 *
+                                                      ((_pulse.value + offset) %
+                                                          1),
                                               decoration: BoxDecoration(
                                                 shape: BoxShape.circle,
-                                                border: Border.all(color: Palette.shine, width: 3),
+                                                border: Border.all(
+                                                  color: Palette.shine,
+                                                  width: 3,
+                                                ),
                                               ),
                                             ),
                                           ),
                                       Transform.scale(
-                                        scale: _mood == NoraMood.speaking ? breathe * 1.02 : breathe,
+                                        scale: _mood == NoraMood.speaking
+                                            ? breathe * 1.02
+                                            : breathe,
                                         child: Container(
                                           width: 220,
                                           height: 220,
                                           decoration: BoxDecoration(
                                             shape: BoxShape.circle,
                                             color: const Color(0xFFDDF4EC),
-                                            border: Border.all(color: Colors.white, width: 5),
+                                            border: Border.all(
+                                              color: Colors.white,
+                                              width: 5,
+                                            ),
                                             boxShadow: [
                                               BoxShadow(
-                                                color: (_mood == NoraMood.speaking ? Palette.shine : Colors.black)
-                                                    .withValues(alpha: _mood == NoraMood.speaking ? 0.55 : 0.25),
-                                                blurRadius: _mood == NoraMood.speaking ? 40 : 24,
-                                                spreadRadius: _mood == NoraMood.speaking ? 4 : 0,
+                                                color:
+                                                    (_mood == NoraMood.speaking
+                                                            ? Palette.shine
+                                                            : Colors.black)
+                                                        .withValues(
+                                                          alpha:
+                                                              _mood ==
+                                                                  NoraMood
+                                                                      .speaking
+                                                              ? 0.55
+                                                              : 0.25,
+                                                        ),
+                                                blurRadius:
+                                                    _mood == NoraMood.speaking
+                                                    ? 40
+                                                    : 24,
+                                                spreadRadius:
+                                                    _mood == NoraMood.speaking
+                                                    ? 4
+                                                    : 0,
                                               ),
                                             ],
                                           ),
                                           child: ClipOval(
                                             child: AnimatedSwitcher(
-                                              duration: const Duration(milliseconds: 220),
+                                              duration: const Duration(
+                                                milliseconds: 220,
+                                              ),
                                               child: Image.asset(
                                                 'assets/images/nora/$pose.png',
                                                 key: ValueKey(pose),
@@ -273,43 +367,78 @@ class _VoiceScreenState extends ConsumerState<VoiceScreen> with TickerProviderSt
                     Text(
                       switch (_mood) {
                         NoraMood.listening => 'Listening…',
-                        NoraMood.thinking => 'Nora is thinking… this can take up to a minute',
+                        NoraMood.thinking =>
+                          'Nora is thinking… this can take up to a minute',
                         NoraMood.speaking => 'Nora is speaking',
                         NoraMood.idle =>
-                          _voiceAvailable
-                              ? 'Tap the microphone and speak'
-                              : 'Voice is not available on this phone in this language',
+                          _voiceAvailable ? 'Tap the microphone and speak' : 'Voice is not available on this phone in this language',
                       },
                       key: const Key('voice-status'),
                       textAlign: TextAlign.center,
-                      style: const TextStyle(color: Color(0xFFA9DCD1), fontSize: 13.5),
+                      style: const TextStyle(
+                        color: Color(0xFFA9DCD1),
+                        fontSize: 13.5,
+                      ),
                     ),
                   ],
                 ),
               ),
+              if (_youSaid.isNotEmpty && _mood != NoraMood.listening)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(22, 0, 22, 10),
+                  child: Text(
+                    'You said: “$_youSaid”',
+                    key: const Key('voice-you-said'),
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Color(0xFFA9DCD1),
+                      fontSize: 14,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 22),
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 200),
-                  child: Container(
-                    key: ValueKey(_mood == NoraMood.listening ? _heard : _caption),
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(18),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    constraints: const BoxConstraints(maxHeight: 180),
+                // One scroll view; only the words fade, so the scrollbar has a single position to follow.
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  // Long answers used to be cut at 180 px with no sign of more; the portrait above shrinks to make room.
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.sizeOf(context).height * 0.3,
+                  ),
+                  child: Scrollbar(
+                    controller: _captionScroll,
+                    thumbVisibility: true,
                     child: SingleChildScrollView(
-                      child: Text(
-                        _mood == NoraMood.listening ? (_heard.isEmpty ? '…' : _heard) : _caption,
-                        key: const Key('voice-caption'),
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 17,
-                          height: 1.45,
-                          fontStyle: _mood == NoraMood.listening ? FontStyle.italic : FontStyle.normal,
+                      controller: _captionScroll,
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 200),
+                        child: KeyedSubtree(
+                          key: ValueKey(
+                            _mood == NoraMood.listening ? _heard : _caption,
+                          ),
+                          child: Text(
+                            _mood == NoraMood.listening
+                                ? (_heard.isEmpty ? '…' : _heard)
+                                : _caption,
+                            key: const Key('voice-caption'),
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 17,
+                              height: 1.45,
+                              fontStyle: _mood == NoraMood.listening
+                                  ? FontStyle.italic
+                                  : FontStyle.normal,
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -352,25 +481,48 @@ class _VoiceScreenState extends ConsumerState<VoiceScreen> with TickerProviderSt
               const SizedBox(height: 22),
               Semantics(
                 button: true,
-                label: _mood == NoraMood.listening ? 'Stop listening' : 'Speak to Nora',
+                enabled: _voiceAvailable,
+                label: _mood == NoraMood.listening
+                    ? 'Stop listening'
+                    : 'Speak to Nora',
                 child: GestureDetector(
                   key: const Key('voice-mic'),
-                  onTap: !_voiceAvailable || _mood == NoraMood.thinking || _confirm != null
+                  onTap:
+                      !_voiceAvailable ||
+                          _mood == NoraMood.thinking ||
+                          _confirm != null
                       ? null
-                      : (_mood == NoraMood.listening ? () => _voice.stopListening() : _listen),
+                      : (_mood == NoraMood.listening
+                            ? () => _voice.stopListening()
+                            : _listen),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
                     width: 84,
                     height: 84,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: _mood == NoraMood.listening ? Palette.error : Palette.shine,
-                      boxShadow: [BoxShadow(color: Palette.shine.withValues(alpha: 0.45), blurRadius: 24)],
+                      color: !_voiceAvailable
+                          ? Colors.white.withValues(alpha: 0.12)
+                          : (_mood == NoraMood.listening
+                                ? Palette.error
+                                : Palette.shine),
+                      boxShadow: _voiceAvailable
+                          ? [
+                              BoxShadow(
+                                color: Palette.shine.withValues(alpha: 0.45),
+                                blurRadius: 24,
+                              ),
+                            ]
+                          : null,
                     ),
                     child: Icon(
-                      _mood == NoraMood.listening ? Icons.stop_rounded : Icons.mic_rounded,
+                      !_voiceAvailable
+                          ? Icons.mic_off_rounded
+                          : (_mood == NoraMood.listening
+                                ? Icons.stop_rounded
+                                : Icons.mic_rounded),
                       size: 38,
-                      color: Palette.deepSea,
+                      color: _voiceAvailable ? Palette.deepSea : Colors.white54,
                     ),
                   ),
                 ),

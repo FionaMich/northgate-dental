@@ -9,12 +9,19 @@ void main() {
     expect(pubspec, contains('assets/fonts/PlusJakartaSans-Regular.ttf'));
     expect(pubspec, contains('assets/fonts/Lato-Black.ttf'));
     expect(pubspec, isNot(contains('google_fonts')));
-    for (final f in Directory('lib').listSync(recursive: true).whereType<File>()) {
+    for (final f in Directory(
+      'lib',
+    ).listSync(recursive: true).whereType<File>()) {
       final src = f.readAsStringSync();
       expect(src, isNot(contains('fonts.googleapis.com')), reason: f.path);
       expect(src, isNot(contains('fonts.gstatic.com')), reason: f.path);
     }
-    for (final font in ['PlusJakartaSans-Regular.ttf', 'Lato-Black.ttf', 'Lato-OFL.txt', 'PlusJakartaSans-OFL.txt']) {
+    for (final font in [
+      'PlusJakartaSans-Regular.ttf',
+      'Lato-Black.ttf',
+      'Lato-OFL.txt',
+      'PlusJakartaSans-OFL.txt',
+    ]) {
       expect(File('assets/fonts/$font').existsSync(), isTrue, reason: font);
     }
   });

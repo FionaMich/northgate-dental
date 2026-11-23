@@ -154,22 +154,47 @@ ThemeData northgateTheme() {
       selectedColor: Palette.teal,
       checkmarkColor: Colors.white,
       side: WidgetStateBorderSide.resolveWith(
-        (s) => BorderSide(color: s.contains(WidgetState.selected) ? Palette.teal : Palette.line),
+        (s) => BorderSide(
+          color: s.contains(WidgetState.selected) ? Palette.teal : Palette.line,
+        ),
       ),
       shape: const StadiumBorder(),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      labelStyle: const TextStyle(fontFamily: uiFont, fontSize: 14, fontWeight: FontWeight.w700, color: Palette.deepSea),
-      secondaryLabelStyle: const TextStyle(fontFamily: uiFont, fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white),
+      labelStyle: const TextStyle(
+        fontFamily: uiFont,
+        fontSize: 14,
+        fontWeight: FontWeight.w700,
+        color: Palette.deepSea,
+      ),
+      secondaryLabelStyle: const TextStyle(
+        fontFamily: uiFont,
+        fontSize: 14,
+        fontWeight: FontWeight.w700,
+        color: Colors.white,
+      ),
       iconTheme: const IconThemeData(color: Palette.teal, size: 18),
     ),
     segmentedButtonTheme: SegmentedButtonThemeData(
       style: ButtonStyle(
-        backgroundColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? Palette.teal : Colors.white),
-        foregroundColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? Colors.white : Palette.deepSea),
-        iconColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? Colors.white : Palette.teal),
+        backgroundColor: WidgetStateProperty.resolveWith(
+          (s) => s.contains(WidgetState.selected) ? Palette.teal : Colors.white,
+        ),
+        foregroundColor: WidgetStateProperty.resolveWith(
+          (s) =>
+              s.contains(WidgetState.selected) ? Colors.white : Palette.deepSea,
+        ),
+        iconColor: WidgetStateProperty.resolveWith(
+          (s) => s.contains(WidgetState.selected) ? Colors.white : Palette.teal,
+        ),
         side: const WidgetStatePropertyAll(BorderSide(color: Palette.line)),
         minimumSize: const WidgetStatePropertyAll(Size.fromHeight(48)),
-        textStyle: const WidgetStatePropertyAll(TextStyle(fontFamily: uiFont, fontSize: 15, fontWeight: FontWeight.w700)),
+        textStyle: const WidgetStatePropertyAll(
+          TextStyle(
+            fontFamily: uiFont,
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
       ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
@@ -178,7 +203,11 @@ ThemeData northgateTheme() {
         side: const BorderSide(color: Palette.line, width: 1.5),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         minimumSize: const Size(0, 48),
-        textStyle: const TextStyle(fontFamily: uiFont, fontSize: 15, fontWeight: FontWeight.w700),
+        textStyle: const TextStyle(
+          fontFamily: uiFont,
+          fontSize: 15,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     ),
     textButtonTheme: TextButtonThemeData(

@@ -20,8 +20,12 @@ Appointment priced(int days, String id) {
 }
 
 void main() {
-  testWidgets('a booked visit shows its price and a Pay now button', (tester) async {
-    final care = FakeCareRepository({'p-elena': CareSummary(upcoming: [priced(3, 'a-1')])});
+  testWidgets('a booked visit shows its price and a Pay now button', (
+    tester,
+  ) async {
+    final care = FakeCareRepository({
+      'p-elena': CareSummary(upcoming: [priced(3, 'a-1')]),
+    });
     await pumpApp(tester, FakeAccountRepository(patients: [elena]), care: care);
     await signIn(tester);
     await tapKey(tester, 'tab-appointments');
@@ -54,7 +58,9 @@ void main() {
     expect(find.text('Paid'), findsOneWidget);
   });
 
-  testWidgets('Profile opens Payments with what is due and the receipts', (tester) async {
+  testWidgets('Profile opens Payments with what is due and the receipts', (
+    tester,
+  ) async {
     final care = FakeCareRepository({
       'p-elena': CareSummary(
         upcoming: [priced(3, 'a-1')],

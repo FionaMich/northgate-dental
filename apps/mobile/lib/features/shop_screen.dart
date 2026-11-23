@@ -130,7 +130,11 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
                           padding: EdgeInsets.fromLTRB(20, 0, 20, 10),
                           child: Text(
                             'Shop by need',
-                            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: Palette.deepSea),
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w800,
+                              color: Palette.deepSea,
+                            ),
                           ),
                         ),
                         SizedBox(
@@ -138,14 +142,20 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
                           // Fades at the right edge, so it is clear there are more categories to swipe to.
                           child: ShaderMask(
                             shaderCallback: (r) => const LinearGradient(
-                              colors: [Colors.white, Colors.white, Color(0x00FFFFFF)],
+                              colors: [
+                                Colors.white,
+                                Colors.white,
+                                Color(0x00FFFFFF),
+                              ],
                               stops: [0, 0.88, 1],
                             ).createShader(r),
                             blendMode: BlendMode.dstIn,
                             child: ListView(
                               key: const Key('shop-categories'),
                               scrollDirection: Axis.horizontal,
-                              physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                              physics: const BouncingScrollPhysics(
+                                parent: AlwaysScrollableScrollPhysics(),
+                              ),
                               padding: const EdgeInsets.fromLTRB(20, 4, 36, 10),
                               children: [
                                 _Chip(
@@ -154,14 +164,18 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
                                   selected: _category == null,
                                   onTap: () => setState(() => _category = null),
                                 ),
-                                for (final MapEntry(:key, :value) in shopCategories.entries)
+                                for (final MapEntry(:key, :value)
+                                    in shopCategories.entries)
                                   if (present.contains(key))
                                     _Chip(
                                       key: Key('category-$key'),
                                       label: value,
-                                      icon: _categoryIcons[key] ?? Icons.spa_rounded,
+                                      icon:
+                                          _categoryIcons[key] ??
+                                          Icons.spa_rounded,
                                       selected: _category == key,
-                                      onTap: () => setState(() => _category = key),
+                                      onTap: () =>
+                                          setState(() => _category = key),
                                     ),
                               ],
                             ),
@@ -271,7 +285,13 @@ const _categoryIcons = {
 };
 
 class _Chip extends StatelessWidget {
-  const _Chip({super.key, required this.label, required this.icon, required this.selected, required this.onTap});
+  const _Chip({
+    super.key,
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
   final String label;
   final IconData icon;
   final bool selected;
@@ -288,8 +308,20 @@ class _Chip extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
         border: Border.all(color: selected ? Palette.teal : Palette.line),
         boxShadow: selected
-            ? [BoxShadow(color: Palette.teal.withValues(alpha: 0.28), blurRadius: 12, offset: const Offset(0, 4))]
-            : [BoxShadow(color: Palette.deepSea.withValues(alpha: 0.05), blurRadius: 6, offset: const Offset(0, 2))],
+            ? [
+                BoxShadow(
+                  color: Palette.teal.withValues(alpha: 0.28),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ]
+            : [
+                BoxShadow(
+                  color: Palette.deepSea.withValues(alpha: 0.05),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
       ),
       child: Material(
         type: MaterialType.transparency,
@@ -301,7 +333,11 @@ class _Chip extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(icon, size: 18, color: selected ? Colors.white : Palette.teal),
+                Icon(
+                  icon,
+                  size: 18,
+                  color: selected ? Colors.white : Palette.teal,
+                ),
                 const SizedBox(width: 8),
                 Text(
                   label,

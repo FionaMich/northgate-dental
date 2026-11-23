@@ -312,7 +312,9 @@ class _VisitCard extends StatelessWidget {
                   child: OutlinedButton(
                     key: Key('reschedule-${a.id}'),
                     onPressed: onReschedule,
-                    style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(46)),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(46),
+                    ),
                     child: const Text('Reschedule'),
                   ),
                 ),
@@ -321,7 +323,11 @@ class _VisitCard extends StatelessWidget {
                   child: OutlinedButton(
                     key: Key('cancel-${a.id}'),
                     onPressed: onCancel,
-                    style: dangerOutline.copyWith(minimumSize: const WidgetStatePropertyAll(Size.fromHeight(46))),
+                    style: dangerOutline.copyWith(
+                      minimumSize: const WidgetStatePropertyAll(
+                        Size.fromHeight(46),
+                      ),
+                    ),
                     child: const Text('Cancel'),
                   ),
                 ),

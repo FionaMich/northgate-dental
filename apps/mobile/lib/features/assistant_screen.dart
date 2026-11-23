@@ -199,7 +199,11 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> {
                 children: [
                   Text(
                     'Nora',
-                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: Colors.white),
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
                   ),
                   Text(
                     'AI · 8 languages',
@@ -217,7 +221,9 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> {
             tooltip: 'Talk to Nora',
             icon: const Icon(Icons.graphic_eq_rounded),
             onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => VoiceScreen(language: _language)),
+              MaterialPageRoute(
+                builder: (_) => VoiceScreen(language: _language),
+              ),
             ),
           ),
           TextButton.icon(
@@ -254,7 +260,8 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> {
                       spacing: 8,
                       runSpacing: 8,
                       children: [
-                        for (final MapEntry(key: s, value: icon) in _starters.entries)
+                        for (final MapEntry(key: s, value: icon)
+                            in _starters.entries)
                           ActionChip(
                             key: Key('starter-$s'),
                             avatar: Icon(icon),
@@ -278,19 +285,22 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> {
               child: Row(
                 children: [
                   Expanded(
-                    child: TextField(
-                      key: const Key('assistant-input'),
-                      controller: _input,
-                      enabled: _confirm == null,
-                      minLines: 1,
-                      maxLines: 4,
-                      maxLength: 2000,
-                      textInputAction: TextInputAction.send,
-                      onSubmitted: (_) => _send(),
-                      decoration: const InputDecoration(
-                        hintText: 'Type in any of our languages',
-                        counterText: '',
-                        border: InputBorder.none,
+                    child: Semantics(
+                      label: 'Message to Nora', // the hint alone is not read as the field's name by every screen reader
+                      child: TextField(
+                        key: const Key('assistant-input'),
+                        controller: _input,
+                        enabled: _confirm == null,
+                        minLines: 1,
+                        maxLines: 4,
+                        maxLength: 2000,
+                        textInputAction: TextInputAction.send,
+                        onSubmitted: (_) => _send(),
+                        decoration: const InputDecoration(
+                          hintText: 'Type in any of our languages',
+                          counterText: '',
+                          border: InputBorder.none,
+                        ),
                       ),
                     ),
                   ),

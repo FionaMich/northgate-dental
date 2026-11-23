@@ -16,6 +16,6 @@ def model_for(role: str = "assistant") -> BaseChatModel:
             base_url=os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434"),
             temperature=0,       # receptionist work: consistent, not creative
             num_ctx=8192,
-            keep_alive="30m",    # keep the model loaded between patients
-        )
+            reasoning=False,     # Gemma 4 thinks by default: 160 tokens and 137 s on the VM, versus 21 tokens and 4 s
+        )                        # no keep_alive here, so the server's OLLAMA_KEEP_ALIVE (24h) keeps Gemma loaded
     raise ValueError(f"MODEL_PROVIDER {provider!r} is not set up yet (Bedrock needs its call card and model access)")

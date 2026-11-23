@@ -347,8 +347,12 @@ class FakeCareRepository implements CareRepository {
   }
 
   @override
-  Future<void> confirm(String appointmentId) async {
-    calls.add('confirm:$appointmentId');
+  Future<void> confirm(String appointmentId, {String? replaces}) async {
+    calls.add(
+      replaces == null
+          ? 'confirm:$appointmentId'
+          : 'reschedule:$appointmentId replaces $replaces',
+    );
     final h = _held!;
     final before = byPatient[h.patient] ?? const CareSummary();
     byPatient[h.patient] = CareSummary(
@@ -570,7 +574,11 @@ class FakeAssistantRepository implements AssistantRepository {
 
 /// Hears whatever the test queues and records what Nora says; no microphone or speaker.
 class FakeVoiceEngine implements VoiceEngine {
-  FakeVoiceEngine({this.available = true, this.packMissing = false, this.longSpeech = false});
+  FakeVoiceEngine({
+    this.available = true,
+    this.packMissing = false,
+    this.longSpeech = false,
+  });
   final bool available;
   final bool packMissing;
 
@@ -584,7 +592,10 @@ class FakeVoiceEngine implements VoiceEngine {
   Future<bool> canListen(String language) async => available;
 
   @override
-  Future<String> listen(String language, void Function(String words) onWords) async {
+  Future<String> listen(
+    String language,
+    void Function(String words) onWords,
+  ) async {
     if (packMissing) throw const VoiceUnavailable();
     final words = heard.isEmpty ? '' : heard.removeAt(0);
     onWords(words);

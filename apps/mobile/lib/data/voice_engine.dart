@@ -52,11 +52,18 @@ class DeviceVoiceEngine implements VoiceEngine {
     if (!await _init()) return false;
     final wanted = voiceLocales[language]!.replaceAll('-', '_').toLowerCase();
     final locales = await _speech.locales();
-    return locales.any((l) => l.localeId.toLowerCase() == wanted || l.localeId.toLowerCase().startsWith(wanted.split('_').first));
+    return locales.any(
+      (l) =>
+          l.localeId.toLowerCase() == wanted ||
+          l.localeId.toLowerCase().startsWith(wanted.split('_').first),
+    );
   }
 
   @override
-  Future<String> listen(String language, void Function(String words) onWords) async {
+  Future<String> listen(
+    String language,
+    void Function(String words) onWords,
+  ) async {
     final done = Completer<String>();
     var last = '';
     _speech.statusListener = (status) {
@@ -65,8 +72,12 @@ class DeviceVoiceEngine implements VoiceEngine {
     };
     // locales() lists languages the recogniser knows online; on-device use can still fail for want of a pack.
     _speech.errorListener = (e) {
-      final noPack = e.errorMsg == 'error_language_unavailable' || e.errorMsg == 'error_language_not_supported';
-      if (noPack && !done.isCompleted) done.completeError(const VoiceUnavailable());
+      final noPack =
+          e.errorMsg == 'error_language_unavailable' ||
+          e.errorMsg == 'error_language_not_supported';
+      if (noPack && !done.isCompleted) {
+        done.completeError(const VoiceUnavailable());
+      }
     };
     await _speech.listen(
       listenOptions: SpeechListenOptions(

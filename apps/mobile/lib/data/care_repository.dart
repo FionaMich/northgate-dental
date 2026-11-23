@@ -1,8 +1,20 @@
 import 'dart:typed_data';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:timezone/data/latest.dart' as tzdata;
+import 'package:timezone/timezone.dart' as tz;
 
 import 'account_repository.dart' show clinicLabel;
+
+// shortcut: Northgate's three clinics share Boston's zone; read locations.time_zone when a clinic elsewhere opens.
+final _clinicZone = () {
+  tzdata.initializeTimeZones();
+  return tz.getLocation('America/New_York');
+}();
+
+/// A visit time in the clinic's own time, whatever zone the phone is in (a phone in Nairobi showed 18:00 for 10:00).
+DateTime clinicTime(String iso) =>
+    tz.TZDateTime.from(DateTime.parse(iso), _clinicZone);
 
 class Appointment {
   const Appointment({
@@ -316,7 +328,8 @@ abstract class CareRepository {
   });
 
   /// Turns a hold into a booking. Only the server's answer makes it confirmed.
-  Future<void> confirm(String appointmentId);
+  /// Books a held slot. With [replaces], moves that visit here in the same step (reschedule_booking).
+  Future<void> confirm(String appointmentId, {String? replaces});
   Future<void> cancel(String appointmentId);
 
   /// A single-use link to Stripe Checkout for one of the patient's own visits, at the price-list amount.
@@ -410,8 +423,8 @@ class SupabaseCareRepository implements CareRepository {
         for (final r in results[0])
           Appointment(
             id: r['id'] as String,
-            startsAt: DateTime.parse(r['starts_at'] as String).toLocal(),
-            endsAt: DateTime.parse(r['ends_at'] as String).toLocal(),
+            startsAt: clinicTime(r['starts_at'] as String),
+            endsAt: clinicTime(r['ends_at'] as String),
             service: _serviceName(r) ?? 'Appointment',
             location: clinicLabel(
               ((r['location_services'] as Map?)?['locations'] as Map?)?['name']
@@ -438,9 +451,9 @@ class SupabaseCareRepository implements CareRepository {
             paidAt: r['paid_at'] == null
                 ? null
                 : DateTime.parse(r['paid_at'] as String).toLocal(),
-            visitAt: DateTime.parse(
+            visitAt: clinicTime(
               (r['appointments'] as Map)['starts_at'] as String,
-            ).toLocal(),
+            ),
             service:
                 _serviceName(r['appointments'] as Map<String, dynamic>) ??
                 'Visit',
@@ -457,7 +470,7 @@ class SupabaseCareRepository implements CareRepository {
         for (final r in results[1])
           Visit(
             id: r['id'] as String,
-            at: DateTime.parse(r['occurred_at'] as String).toLocal(),
+            at: clinicTime(r['occurred_at'] as String),
             kind: r['kind'] as String,
             location: loc(r),
             dentist: (r['practitioners'] as Map?)?['public_name'] as String?,
@@ -586,8 +599,8 @@ class SupabaseCareRepository implements CareRepository {
         )))
           Slot(
             practitionerId: r['practitioner_id'] as String,
-            startsAt: DateTime.parse(r['starts_at'] as String).toLocal(),
-            endsAt: DateTime.parse(r['ends_at'] as String).toLocal(),
+            startsAt: clinicTime(r['starts_at'] as String),
+            endsAt: clinicTime(r['ends_at'] as String),
           ),
     ]..sort((a, b) => a.startsAt.compareTo(b.startsAt));
   }
@@ -647,9 +660,14 @@ class SupabaseCareRepository implements CareRepository {
   }
 
   @override
-  Future<void> confirm(String appointmentId) async {
+  Future<void> confirm(String appointmentId, {String? replaces}) async {
     try {
-      await _db.rpc('confirm_booking', params: {'appointment': appointmentId});
+      await (replaces == null
+          ? _db.rpc('confirm_booking', params: {'appointment': appointmentId})
+          : _db.rpc(
+              'reschedule_booking',
+              params: {'appointment': appointmentId, 'old': replaces},
+            ));
     } on PostgrestException catch (e) {
       _bookingError(e);
     }
