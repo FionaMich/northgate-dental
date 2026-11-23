@@ -34,7 +34,10 @@ class AssistantError implements Exception {
 }
 
 /// Where the assistant service lives (behind the WAF on the VM); a build can point elsewhere.
-const assistantBase = String.fromEnvironment('ASSISTANT_BASE', defaultValue: 'https://84-12-126-31.sslip.io');
+const assistantBase = String.fromEnvironment(
+  'ASSISTANT_BASE',
+  defaultValue: 'https://84-12-126-31.sslip.io',
+);
 
 abstract class AssistantRepository {
   Future<String> hello(String language);
@@ -48,34 +51,73 @@ class HttpAssistantRepository implements AssistantRepository {
   final GoTrueClient _auth;
   final _http = HttpClient()..connectionTimeout = const Duration(seconds: 15);
 
-  Future<Map<String, dynamic>> _call(String method, String path, String language, [Map<String, dynamic>? body]) async {
-    final request = await _http.openUrl(method, Uri.parse('$assistantBase$path'));
+  Future<Map<String, dynamic>> _call(
+    String method,
+    String path,
+    String language, [
+    Map<String, dynamic>? body,
+  ]) async {
+    final request = await _http.openUrl(
+      method,
+      Uri.parse('$assistantBase$path'),
+    );
     final token = _auth.currentSession?.accessToken;
-    if (token != null) request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $token');
+    if (token != null) {
+      request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $token');
+    }
     request.headers.set('X-Language', language);
     if (body != null) {
       request.headers.contentType = ContentType.json;
       request.write(jsonEncode(body));
     }
     // The model runs on a CPU server: allow a long reply rather than give up on a patient mid-sentence.
-    final response = await request.close().timeout(const Duration(seconds: 150));
+    final response = await request.close().timeout(
+      const Duration(seconds: 150),
+    );
     final text = await response.transform(utf8.decoder).join();
     if (response.statusCode != 200) {
-      throw AssistantError(response.statusCode == 401 ? 'Please sign in again.' : 'The receptionist is unavailable right now. Please try again or call your clinic.');
+      throw AssistantError(
+        response.statusCode == 401 ? 'Please sign in again.' : 'The receptionist is unavailable right now. Please try again or call your clinic.',
+      );
     }
     return jsonDecode(text) as Map<String, dynamic>;
   }
 
-  AssistantTurn _turn(Map<String, dynamic> j) => AssistantTurn(reply: j['reply'] as String?, confirm: j['confirm'] as Map<String, dynamic>?);
+  AssistantTurn _turn(Map<String, dynamic> j) => AssistantTurn(
+    reply: j['reply'] as String?,
+    confirm: j['confirm'] as Map<String, dynamic>?,
+  );
 
   @override
-  Future<String> hello(String language) async => (await _call('GET', '/assistant/hello?language=$language', language))['reply'] as String;
+  Future<String> hello(String language) async =>
+      (await _call(
+            'GET',
+            '/assistant/hello?language=$language',
+            language,
+          ))['reply']
+          as String;
 
   @override
-  Future<AssistantTurn> send(String thread, String message, String language) async =>
-      _turn(await _call('POST', '/assistant/chat', language, {'thread': thread, 'message': message}));
+  Future<AssistantTurn> send(
+    String thread,
+    String message,
+    String language,
+  ) async => _turn(
+    await _call('POST', '/assistant/chat', language, {
+      'thread': thread,
+      'message': message,
+    }),
+  );
 
   @override
-  Future<AssistantTurn> confirm(String thread, bool accept, String language) async =>
-      _turn(await _call('POST', '/assistant/confirm', language, {'thread': thread, 'accept': accept}));
+  Future<AssistantTurn> confirm(
+    String thread,
+    bool accept,
+    String language,
+  ) async => _turn(
+    await _call('POST', '/assistant/confirm', language, {
+      'thread': thread,
+      'accept': accept,
+    }),
+  );
 }

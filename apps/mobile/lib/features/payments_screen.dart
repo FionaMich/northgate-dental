@@ -12,7 +12,11 @@ import 'care_widgets.dart';
 /// Opens Stripe Checkout for one of the patient's visits in an in-app browser tab. The amount comes from the clinic's
 /// price list on the server; the app only asks for a link. When the patient comes back, the visits and payments
 /// refresh, so the receipt shows as soon as Stripe has told us.
-Future<void> payForVisit(BuildContext context, WidgetRef ref, String appointmentId) async {
+Future<void> payForVisit(
+  BuildContext context,
+  WidgetRef ref,
+  String appointmentId,
+) async {
   final messenger = ScaffoldMessenger.of(context);
   try {
     final link = await ref.read(careRepositoryProvider).payLink(appointmentId);
@@ -20,12 +24,17 @@ Future<void> payForVisit(BuildContext context, WidgetRef ref, String appointment
     listener = AppLifecycleListener(
       onResume: () {
         listener.dispose();
-        Future.delayed(const Duration(seconds: 2), () => ref.invalidate(careSummaryProvider));
+        Future.delayed(
+          const Duration(seconds: 2),
+          () => ref.invalidate(careSummaryProvider),
+        );
       },
     );
     if (!await launchUrl(link, mode: LaunchMode.inAppBrowserView)) {
       listener.dispose();
-      messenger.showSnackBar(const SnackBar(content: Text('Could not open the payment page.')));
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Could not open the payment page.')),
+      );
     }
   } on PaymentError catch (e) {
     messenger.showSnackBar(SnackBar(content: Text(e.message)));
@@ -49,12 +58,18 @@ class PaymentsScreen extends ConsumerWidget {
           children: [
             PageHero(
               title: 'Payments',
-              subtitle: 'Pay for a visit securely by card, and keep your receipts.',
+              subtitle:
+                  'Pay for a visit securely by card, and keep your receipts.',
               leading: const BackButton(color: Colors.white),
               facts: [
                 if (care.value case final c?) ...[
-                  if (_due(c).isNotEmpty) (Icons.receipt_long_rounded, '${_due(c).length} to pay'),
-                  if (c.payments.any((p) => p.paid)) (Icons.check_circle_rounded, '${c.payments.where((p) => p.paid).length} paid'),
+                  if (_due(c).isNotEmpty)
+                    (Icons.receipt_long_rounded, '${_due(c).length} to pay'),
+                  if (c.payments.any((p) => p.paid))
+                    (
+                      Icons.check_circle_rounded,
+                      '${c.payments.where((p) => p.paid).length} paid',
+                    ),
                 ],
               ],
             ),
@@ -65,7 +80,9 @@ class PaymentsScreen extends ConsumerWidget {
                   loading: () => const LoadingPanels(),
                   error: (_, _) => Panel(
                     onTap: () => ref.invalidate(careSummaryProvider),
-                    child: const Text('Could not load your payments. Tap to try again.'),
+                    child: const Text(
+                      'Could not load your payments. Tap to try again.',
+                    ),
                   ),
                   data: (c) => Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -78,21 +95,32 @@ class PaymentsScreen extends ConsumerWidget {
                         ),
                       if (_due(c).isNotEmpty) const SectionTitle('To pay'),
                       for (final (i, d) in _due(c).indexed)
-                        Reveal(order: i, child: _DueCard(item: d)),
+                        Reveal(
+                          order: i,
+                          child: _DueCard(item: d),
+                        ),
                       if (c.payments.any((p) => p.paid)) ...[
                         const SizedBox(height: 8),
                         const SectionTitle('Receipts'),
-                        for (final p in c.payments.where((p) => p.paid)) _ReceiptRow(payment: p),
+                        for (final p in c.payments.where((p) => p.paid))
+                          _ReceiptRow(payment: p),
                       ],
                       const SizedBox(height: 18),
                       const Row(
                         children: [
-                          Icon(Icons.lock_rounded, size: 16, color: Palette.muted),
+                          Icon(
+                            Icons.lock_rounded,
+                            size: 16,
+                            color: Palette.muted,
+                          ),
                           SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               'Card details are entered on Stripe\'s secure page and never reach Northgate Dental.',
-                              style: TextStyle(fontSize: 12.5, color: Palette.muted),
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                color: Palette.muted,
+                              ),
                             ),
                           ),
                         ],
@@ -110,13 +138,34 @@ class PaymentsScreen extends ConsumerWidget {
 }
 
 /// Something the patient can pay now: an open payment, or a booked visit with a price and no payment yet.
-typedef _Due = ({String appointmentId, String service, String location, DateTime at, int amountCents});
+typedef _Due = ({
+  String appointmentId,
+  String service,
+  String location,
+  DateTime at,
+  int amountCents,
+});
 
 List<_Due> _due(CareSummary c) => [
   for (final p in c.payments.where((p) => !p.paid))
-    (appointmentId: p.appointmentId, service: p.service, location: p.location, at: p.visitAt, amountCents: p.amountCents),
-  for (final a in c.upcoming.where((a) => a.priceCents != null && a.priceCents! > 0 && c.paymentFor(a.id) == null))
-    (appointmentId: a.id, service: a.service, location: a.location, at: a.startsAt, amountCents: a.priceCents!),
+    (
+      appointmentId: p.appointmentId,
+      service: p.service,
+      location: p.location,
+      at: p.visitAt,
+      amountCents: p.amountCents,
+    ),
+  for (final a in c.upcoming.where(
+    (a) =>
+        a.priceCents != null && a.priceCents! > 0 && c.paymentFor(a.id) == null,
+  ))
+    (
+      appointmentId: a.id,
+      service: a.service,
+      location: a.location,
+      at: a.startsAt,
+      amountCents: a.priceCents!,
+    ),
 ];
 
 class _DueCard extends ConsumerStatefulWidget {
@@ -144,13 +193,31 @@ class _DueCardState extends ConsumerState<_DueCard> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(d.service, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Palette.deepSea)),
+                  Text(
+                    d.service,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: Palette.deepSea,
+                    ),
+                  ),
                   const SizedBox(height: 2),
-                  Text('${dayMonth(d.at)}, ${clock(d.at)} · ${d.location}', style: const TextStyle(fontSize: 13.5, color: Palette.muted)),
+                  Text(
+                    '${dayMonth(d.at)}, ${clock(d.at)} · ${d.location}',
+                    style: const TextStyle(
+                      fontSize: 13.5,
+                      color: Palette.muted,
+                    ),
+                  ),
                   const SizedBox(height: 8),
                   Text(
                     dollars(d.amountCents),
-                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Palette.deepSea, letterSpacing: -0.3),
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      color: Palette.deepSea,
+                      letterSpacing: -0.3,
+                    ),
                   ),
                 ],
               ),
@@ -167,11 +234,23 @@ class _DueCardState extends ConsumerState<_DueCard> {
               style: FilledButton.styleFrom(
                 backgroundColor: Palette.teal,
                 minimumSize: const Size(96, 48),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
               ),
               child: _busy
-                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Text('Pay', style: TextStyle(fontWeight: FontWeight.w700)),
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text(
+                      'Pay',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
             ),
           ],
         ),
@@ -200,7 +279,14 @@ class _ReceiptRow extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(p.service, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Palette.deepSea)),
+                  Text(
+                    p.service,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: Palette.deepSea,
+                    ),
+                  ),
                   Text(
                     'Paid ${p.paidAt == null ? '' : dayMonthYear(p.paidAt!)} · ${p.location}',
                     style: const TextStyle(fontSize: 13, color: Palette.muted),
@@ -208,7 +294,14 @@ class _ReceiptRow extends StatelessWidget {
                 ],
               ),
             ),
-            Text(dollars(p.amountCents), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Palette.deepSea)),
+            Text(
+              dollars(p.amountCents),
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: Palette.deepSea,
+              ),
+            ),
           ],
         ),
       ),

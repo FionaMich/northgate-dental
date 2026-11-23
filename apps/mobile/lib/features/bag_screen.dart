@@ -23,25 +23,41 @@ class _BagScreenState extends ConsumerState<BagScreen> {
   bool _busy = false;
 
   Future<void> _checkout(List<BagLine> lines) async {
-    final clinicId = _clinicId ?? ref.read(clinicsProvider).value?.firstOrNull?.id;
+    final clinicId =
+        _clinicId ?? ref.read(clinicsProvider).value?.firstOrNull?.id;
     if (clinicId == null) return;
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
     setState(() => _busy = true);
     try {
-      final link = await ref.read(shopRepositoryProvider).checkout(lines, fulfilment: _fulfilment, clinicId: clinicId);
+      final link = await ref
+          .read(shopRepositoryProvider)
+          .checkout(lines, fulfilment: _fulfilment, clinicId: clinicId);
       late final AppLifecycleListener listener;
-      listener = AppLifecycleListener(onResume: () {
-        listener.dispose();
-        Future.delayed(const Duration(seconds: 2), () => ref.invalidate(shopOrdersProvider));
-      });
+      listener = AppLifecycleListener(
+        onResume: () {
+          listener.dispose();
+          Future.delayed(
+            const Duration(seconds: 2),
+            () => ref.invalidate(shopOrdersProvider),
+          );
+        },
+      );
       if (await launchUrl(link, mode: LaunchMode.inAppBrowserView)) {
         ref.read(bagProvider.notifier).clear();
         navigator.pop();
-        messenger.showSnackBar(const SnackBar(content: Text('Once you have paid, your order appears in Profile, Orders.')));
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Once you have paid, your order appears in Profile, Orders.',
+            ),
+          ),
+        );
       } else {
         listener.dispose();
-        messenger.showSnackBar(const SnackBar(content: Text('Could not open the payment page.')));
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Could not open the payment page.')),
+        );
       }
     } on ShopError catch (e) {
       messenger.showSnackBar(SnackBar(content: Text(e.message)));
@@ -60,18 +76,33 @@ class _BagScreenState extends ConsumerState<BagScreen> {
     final refills = lines.where((l) => l.refill).toList();
     return Scaffold(
       backgroundColor: Palette.mist,
-      appBar: AppBar(title: const Text('Your bag'), backgroundColor: Palette.mist, foregroundColor: Palette.deepSea),
+      appBar: AppBar(
+        title: const Text('Your bag'),
+        backgroundColor: Palette.mist,
+        foregroundColor: Palette.deepSea,
+      ),
       body: lines.isEmpty
           ? const Padding(
               padding: EdgeInsets.all(20),
-              child: EmptyNote(icon: Icons.shopping_bag_outlined, title: 'Your bag is empty', body: 'Add something from the shop.'),
+              child: EmptyNote(
+                icon: Icons.shopping_bag_outlined,
+                title: 'Your bag is empty',
+                body: 'Add something from the shop.',
+              ),
             )
           : ListView(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 140),
               children: [
                 for (final l in lines) _BagRow(line: l),
                 const SizedBox(height: 18),
-                const Text('How would you like it?', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Palette.deepSea)),
+                const Text(
+                  'How would you like it?',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: Palette.deepSea,
+                  ),
+                ),
                 const SizedBox(height: 10),
                 _Option(
                   key: const Key('fulfil-collect'),
@@ -88,8 +119,10 @@ class _BagScreenState extends ConsumerState<BagScreen> {
                             for (final c in clinics)
                               ChoiceChip(
                                 label: Text(c.name),
-                                selected: (_clinicId ?? clinics.first.id) == c.id,
-                                onSelected: (_) => setState(() => _clinicId = c.id),
+                                selected:
+                                    (_clinicId ?? clinics.first.id) == c.id,
+                                onSelected: (_) =>
+                                    setState(() => _clinicId = c.id),
                               ),
                           ],
                         ),
@@ -110,10 +143,17 @@ class _BagScreenState extends ConsumerState<BagScreen> {
                   child: Column(
                     children: [
                       _Total('Subtotal', dollars(subtotal)),
-                      _Total(_fulfilment == 'ship' ? 'Delivery' : 'Collection', delivery == 0 ? 'Free' : dollars(delivery)),
+                      _Total(
+                        _fulfilment == 'ship' ? 'Delivery' : 'Collection',
+                        delivery == 0 ? 'Free' : dollars(delivery),
+                      ),
                       const _Total('Sales tax', 'At checkout'),
                       const Divider(height: 22),
-                      _Total('Total before tax', dollars(subtotal + delivery), strong: true),
+                      _Total(
+                        'Total before tax',
+                        dollars(subtotal + delivery),
+                        strong: true,
+                      ),
                     ],
                   ),
                 ),
@@ -122,7 +162,11 @@ class _BagScreenState extends ConsumerState<BagScreen> {
                   Text(
                     'Refills: ${refills.map((l) => '${l.product.name} every ${l.product.refillMonths} months').join('; ')}. '
                     'Charged to the same card each time until you cancel.',
-                    style: const TextStyle(fontSize: 12.5, height: 1.4, color: Palette.muted),
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      height: 1.4,
+                      color: Palette.muted,
+                    ),
                   ),
                 ],
                 const SizedBox(height: 10),
@@ -131,8 +175,10 @@ class _BagScreenState extends ConsumerState<BagScreen> {
                     Icon(Icons.lock_rounded, size: 15, color: Palette.muted),
                     SizedBox(width: 6),
                     Expanded(
-                      child: Text('You pay on Stripe\'s secure page; we never see your card.',
-                          style: TextStyle(fontSize: 12.5, color: Palette.muted)),
+                      child: Text(
+                        'You pay on Stripe\'s secure page; we never see your card.',
+                        style: TextStyle(fontSize: 12.5, color: Palette.muted),
+                      ),
                     ),
                   ],
                 ),
@@ -142,18 +188,38 @@ class _BagScreenState extends ConsumerState<BagScreen> {
           ? null
           : Container(
               color: Colors.white,
-              padding: EdgeInsets.fromLTRB(20, 12, 20, 12 + MediaQuery.paddingOf(context).bottom),
+              padding: EdgeInsets.fromLTRB(
+                20,
+                12,
+                20,
+                12 + MediaQuery.paddingOf(context).bottom,
+              ),
               child: FilledButton(
                 key: const Key('checkout'),
                 onPressed: _busy ? null : () => _checkout(lines),
                 style: FilledButton.styleFrom(
                   backgroundColor: Palette.teal,
                   minimumSize: const Size.fromHeight(56),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                 ),
                 child: _busy
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Text('Checkout', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text(
+                        'Checkout',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
               ),
             ),
     );
@@ -175,30 +241,60 @@ class _BagRow extends ConsumerWidget {
         padding: const EdgeInsets.all(10),
         child: Row(
           children: [
-            SizedBox(width: 72, height: 72, child: ShopImage(p.imageKey, radius: 14)),
+            SizedBox(
+              width: 72,
+              height: 72,
+              child: ShopImage(p.imageKey, radius: 14),
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(p.name, style: const TextStyle(fontWeight: FontWeight.w700, color: Palette.deepSea)),
+                  Text(
+                    p.name,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: Palette.deepSea,
+                    ),
+                  ),
                   const SizedBox(height: 2),
-                  Text(line.refill ? 'Every ${p.refillMonths} months' : 'One time',
-                      style: const TextStyle(fontSize: 12.5, color: Palette.muted)),
+                  Text(
+                    line.refill ? 'Every ${p.refillMonths} months' : 'One time',
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      color: Palette.muted,
+                    ),
+                  ),
                   const SizedBox(height: 4),
-                  Text(dollars(line.cents), style: const TextStyle(fontWeight: FontWeight.w800, color: Palette.deepSea)),
+                  Text(
+                    dollars(line.cents),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: Palette.deepSea,
+                    ),
+                  ),
                 ],
               ),
             ),
             IconButton(
               tooltip: line.quantity == 1 ? 'Remove' : 'Fewer',
               onPressed: () => bag.setQuantity(p.id, line.quantity - 1),
-              icon: Icon(line.quantity == 1 ? Icons.delete_outline_rounded : Icons.remove_rounded),
+              icon: Icon(
+                line.quantity == 1
+                    ? Icons.delete_outline_rounded
+                    : Icons.remove_rounded,
+              ),
             ),
-            Text('${line.quantity}', style: const TextStyle(fontWeight: FontWeight.w700)),
+            Text(
+              '${line.quantity}',
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
             IconButton(
               tooltip: 'More',
-              onPressed: line.quantity >= 10 ? null : () => bag.setQuantity(p.id, line.quantity + 1),
+              onPressed: line.quantity >= 10
+                  ? null
+                  : () => bag.setQuantity(p.id, line.quantity + 1),
               icon: const Icon(Icons.add_rounded),
             ),
           ],
@@ -237,7 +333,10 @@ class _Option extends StatelessWidget {
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: selected ? Palette.teal : Palette.line, width: selected ? 1.6 : 1),
+          border: Border.all(
+            color: selected ? Palette.teal : Palette.line,
+            width: selected ? 1.6 : 1,
+          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -246,15 +345,37 @@ class _Option extends StatelessWidget {
               children: [
                 Icon(icon, color: selected ? Palette.teal : Palette.muted),
                 const SizedBox(width: 12),
-                Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.w700, color: Palette.deepSea))),
-                Text(trailing, style: const TextStyle(fontWeight: FontWeight.w700, color: Palette.deepSea)),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: Palette.deepSea,
+                    ),
+                  ),
+                ),
+                Text(
+                  trailing,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: Palette.deepSea,
+                  ),
+                ),
               ],
             ),
-            if (detail != null) Padding(
-              padding: const EdgeInsets.only(left: 36, top: 2),
-              child: Text(detail!, style: const TextStyle(fontSize: 12.5, color: Palette.muted)),
-            ),
-            if (child != null) Padding(padding: const EdgeInsets.only(left: 36, top: 10), child: child),
+            if (detail != null)
+              Padding(
+                padding: const EdgeInsets.only(left: 36, top: 2),
+                child: Text(
+                  detail!,
+                  style: const TextStyle(fontSize: 12.5, color: Palette.muted),
+                ),
+              ),
+            if (child != null)
+              Padding(
+                padding: const EdgeInsets.only(left: 36, top: 10),
+                child: child,
+              ),
           ],
         ),
       ),
@@ -269,10 +390,20 @@ class _Total extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = TextStyle(fontSize: strong ? 16 : 14, fontWeight: strong ? FontWeight.w800 : FontWeight.w500, color: Palette.deepSea);
+    final style = TextStyle(
+      fontSize: strong ? 16 : 14,
+      fontWeight: strong ? FontWeight.w800 : FontWeight.w500,
+      color: Palette.deepSea,
+    );
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(children: [Text(label, style: style), const Spacer(), Text(value, style: style)]),
+      child: Row(
+        children: [
+          Expanded(child: Text(label, style: style)),
+          const SizedBox(width: 12),
+          Text(value, style: style),
+        ],
+      ),
     );
   }
 }
@@ -282,7 +413,10 @@ class OrdersScreen extends ConsumerWidget {
   const OrdersScreen({super.key});
 
   static String _status(ShopOrder o) => switch (o.status) {
-    'paid' => o.fulfilment == 'collect' ? 'Being prepared at ${o.clinic}' : 'Being packed',
+    'paid' =>
+      o.fulfilment == 'collect'
+          ? 'Being prepared at ${o.clinic}'
+          : 'Being packed',
     'ready' => 'Ready to collect at ${o.clinic}',
     'collected' => 'Collected',
     'shipped' => 'On its way',
@@ -294,7 +428,11 @@ class OrdersScreen extends ConsumerWidget {
     final orders = ref.watch(shopOrdersProvider);
     return Scaffold(
       backgroundColor: Palette.mist,
-      appBar: AppBar(title: const Text('Orders'), backgroundColor: Palette.mist, foregroundColor: Palette.deepSea),
+      appBar: AppBar(
+        title: const Text('Orders'),
+        backgroundColor: Palette.mist,
+        foregroundColor: Palette.deepSea,
+      ),
       body: RefreshIndicator(
         onRefresh: () => ref.refresh(shopOrdersProvider.future),
         child: ListView(
@@ -302,10 +440,16 @@ class OrdersScreen extends ConsumerWidget {
           children: [
             ...orders.when(
               loading: () => const [LoadingPanels()],
-              error: (_, _) => [const Text('Could not load your orders. Pull to try again.')],
+              error: (_, _) => [
+                const Text('Could not load your orders. Pull to try again.'),
+              ],
               data: (list) => list.isEmpty
                   ? const [
-                      EmptyNote(icon: Icons.shopping_bag_outlined, title: 'No orders yet', body: 'What you buy in the shop appears here.'),
+                      EmptyNote(
+                        icon: Icons.shopping_bag_outlined,
+                        title: 'No orders yet',
+                        body: 'What you buy in the shop appears here.',
+                      ),
                     ]
                   : [
                       for (final o in list)
@@ -319,17 +463,42 @@ class OrdersScreen extends ConsumerWidget {
                               children: [
                                 Row(
                                   children: [
-                                    ShopPill(o.isRefill ? 'Refill' : dayMonthYear(o.createdAt),
-                                        icon: o.isRefill ? Icons.autorenew_rounded : Icons.receipt_long_rounded),
+                                    ShopPill(
+                                      o.isRefill
+                                          ? 'Refill'
+                                          : dayMonthYear(o.createdAt),
+                                      icon: o.isRefill
+                                          ? Icons.autorenew_rounded
+                                          : Icons.receipt_long_rounded,
+                                    ),
                                     const Spacer(),
                                     if (o.totalCents != null)
-                                      Text(dollars(o.totalCents!), style: const TextStyle(fontWeight: FontWeight.w800, color: Palette.deepSea)),
+                                      Text(
+                                        dollars(o.totalCents!),
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w800,
+                                          color: Palette.deepSea,
+                                        ),
+                                      ),
                                   ],
                                 ),
                                 const SizedBox(height: 10),
-                                for (final line in o.lines) Text(line, style: const TextStyle(color: Palette.deepSea, height: 1.5)),
+                                for (final line in o.lines)
+                                  Text(
+                                    line,
+                                    style: const TextStyle(
+                                      color: Palette.deepSea,
+                                      height: 1.5,
+                                    ),
+                                  ),
                                 const SizedBox(height: 8),
-                                Text(_status(o), style: const TextStyle(fontWeight: FontWeight.w700, color: Palette.teal)),
+                                Text(
+                                  _status(o),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    color: Palette.teal,
+                                  ),
+                                ),
                               ],
                             ),
                           ),

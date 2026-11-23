@@ -17,7 +17,10 @@ class PlanScreen extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: Palette.mist,
         surfaceTintColor: Colors.transparent,
-        title: const Text('Treatment plan', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 17)),
+        title: const Text(
+          'Treatment plan',
+          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 17),
+        ),
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 4, 20, 40),
@@ -35,7 +38,11 @@ class PlanScreen extends StatelessWidget {
             ),
             child: Stack(
               children: [
-                Positioned(right: 40, bottom: 14, child: Tooth3D(height: 150, crown: current != null)),
+                Positioned(
+                  right: 40,
+                  bottom: 14,
+                  child: Tooth3D(height: 150, crown: current != null),
+                ),
                 Padding(
                   padding: const EdgeInsets.all(22),
                   child: SizedBox(
@@ -44,8 +51,14 @@ class PlanScreen extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          current == null ? 'Complete' : 'Phase ${plan.donePhases + 1} of ${plan.phases.length}',
-                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Palette.tealDark),
+                          current == null
+                              ? 'Complete'
+                              : 'Phase ${plan.donePhases + 1} of ${plan.phases.length}',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: Palette.tealDark,
+                          ),
                         ),
                         const SizedBox(height: 6),
                         Text(
@@ -73,9 +86,16 @@ class PlanScreen extends StatelessWidget {
               child: phase.procedures.isEmpty
                   ? const Padding(
                       padding: EdgeInsets.symmetric(vertical: 10),
-                      child: Text('No procedures in this phase yet.', style: TextStyle(color: Palette.muted)),
+                      child: Text(
+                        'No procedures in this phase yet.',
+                        style: TextStyle(color: Palette.muted),
+                      ),
                     )
-                  : Column(children: [for (final p in phase.procedures) ProcedureRow(p)]),
+                  : Column(
+                      children: [
+                        for (final p in phase.procedures) ProcedureRow(p),
+                      ],
+                    ),
             ),
             const SizedBox(height: 14),
           ],

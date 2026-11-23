@@ -22,27 +22,47 @@ abstract class AlignerReminders {
 
 /// When to remind about a visit, and what to say. Generic text: no treatment on the lock screen.
 List<(DateTime, String)> visitReminderTimes(DateTime start, DateTime now) {
-  final hhmm = '${start.hour.toString().padLeft(2, '0')}:${start.minute.toString().padLeft(2, '0')}';
+  final hhmm =
+      '${start.hour.toString().padLeft(2, '0')}:${start.minute.toString().padLeft(2, '0')}';
   final eveBefore = DateTime(start.year, start.month, start.day - 1, 18);
   final morning = DateTime(start.year, start.month, start.day, 8);
-  final dayOf = start.difference(morning) < const Duration(hours: 1) ? start.subtract(const Duration(hours: 2)) : morning;
-  return [(eveBefore, 'Dental visit tomorrow at $hhmm'), (dayOf, 'Dental visit today at $hhmm')].where((r) => r.$1.isAfter(now)).toList();
+  final dayOf = start.difference(morning) < const Duration(hours: 1)
+      ? start.subtract(const Duration(hours: 2))
+      : morning;
+  return [
+    (eveBefore, 'Dental visit tomorrow at $hhmm'),
+    (dayOf, 'Dental visit today at $hhmm'),
+  ].where((r) => r.$1.isAfter(now)).toList();
 }
 
 class LocalAlignerReminders implements AlignerReminders {
   static const _first = 1001, _second = 1002;
-  static const _visitBase = 2000, _visitSlots = 40; // ids 2000..2039: up to 20 visits, two reminders each
-  static const reminders = [(Duration(minutes: 30), _first), (Duration(hours: 2), _second)];
+  static const _visitBase = 2000,
+      _visitSlots = 40; // ids 2000..2039: up to 20 visits, two reminders each
+  static const reminders = [
+    (Duration(minutes: 30), _first),
+    (Duration(hours: 2), _second),
+  ];
   final _plugin = FlutterLocalNotificationsPlugin();
   bool _ready = false;
 
   Future<void> _init() async {
     if (_ready) return;
     tzdata.initializeTimeZones();
-    tz.setLocalLocation(tz.getLocation((await FlutterTimezone.getLocalTimezone()).identifier));
-    await _plugin.initialize(settings: const InitializationSettings(android: AndroidInitializationSettings('ic_tooth')));
+    tz.setLocalLocation(
+      tz.getLocation((await FlutterTimezone.getLocalTimezone()).identifier),
+    );
+    await _plugin.initialize(
+      settings: const InitializationSettings(
+        android: AndroidInitializationSettings('ic_tooth'),
+      ),
+    );
     // Android 13 and later ask the person once; if they say no, the timer still works without reminders.
-    await _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()?.requestNotificationsPermission();
+    await _plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >()
+        ?.requestNotificationsPermission();
     _ready = true;
   }
 
@@ -67,7 +87,9 @@ class LocalAlignerReminders implements AlignerReminders {
         // Inexact: may arrive a few minutes late, and needs no special alarm permission.
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
         title: 'Time to put your aligners back in',
-        body: after.inHours >= 2 ? 'They have been out for 2 hours.' : 'They have been out for 30 minutes.',
+        body: after.inHours >= 2
+            ? 'They have been out for 2 hours.'
+            : 'They have been out for 30 minutes.',
       );
     }
   }

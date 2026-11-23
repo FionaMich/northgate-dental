@@ -69,9 +69,18 @@ enum Tint {
 }
 
 ThemeData northgateTheme() {
-  final scheme = ColorScheme.fromSeed(seedColor: Palette.teal)
-      .copyWith(primary: Palette.teal, onPrimary: Colors.white, surface: Palette.mist, onSurface: Palette.deepSea, error: Palette.error);
-  final base = ThemeData(colorScheme: scheme, fontFamily: uiFont, scaffoldBackgroundColor: Palette.mist);
+  final scheme = ColorScheme.fromSeed(seedColor: Palette.teal).copyWith(
+    primary: Palette.teal,
+    onPrimary: Colors.white,
+    surface: Palette.mist,
+    onSurface: Palette.deepSea,
+    error: Palette.error,
+  );
+  final base = ThemeData(
+    colorScheme: scheme,
+    fontFamily: uiFont,
+    scaffoldBackgroundColor: Palette.mist,
+  );
   OutlineInputBorder border(Color c, [double w = 1]) => OutlineInputBorder(
     borderRadius: BorderRadius.circular(16),
     borderSide: BorderSide(color: c, width: w),
@@ -93,9 +102,21 @@ ThemeData northgateTheme() {
             letterSpacing: -0.9,
             color: Palette.deepSea,
           ),
-          titleMedium: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: Palette.deepSea),
-          bodyLarge: const TextStyle(fontSize: 15, height: 1.5, color: Palette.muted),
-          labelMedium: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Palette.muted),
+          titleMedium: const TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
+            color: Palette.deepSea,
+          ),
+          bodyLarge: const TextStyle(
+            fontSize: 15,
+            height: 1.5,
+            color: Palette.muted,
+          ),
+          labelMedium: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: Palette.muted,
+          ),
         )
         .apply(fontFamily: uiFont),
     inputDecorationTheme: InputDecorationTheme(
@@ -106,12 +127,19 @@ ThemeData northgateTheme() {
       enabledBorder: border(Palette.line),
       focusedBorder: border(Palette.teal, 2),
       errorBorder: border(Palette.error),
-      labelStyle: const TextStyle(color: Palette.muted, fontWeight: FontWeight.w500),
+      labelStyle: const TextStyle(
+        color: Palette.muted,
+        fontWeight: FontWeight.w500,
+      ),
     ),
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
         foregroundColor: Palette.teal,
-        textStyle: const TextStyle(fontFamily: uiFont, fontWeight: FontWeight.w700, fontSize: 15),
+        textStyle: const TextStyle(
+          fontFamily: uiFont,
+          fontWeight: FontWeight.w700,
+          fontSize: 15,
+        ),
       ),
     ),
   );

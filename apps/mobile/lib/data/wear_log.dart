@@ -24,7 +24,8 @@ class WearLog {
     return total;
   }
 
-  WearLog start(DateTime at) => wearing ? this : WearLog([...sessions, (at, null)]);
+  WearLog start(DateTime at) =>
+      wearing ? this : WearLog([...sessions, (at, null)]);
 
   /// Ends the running session and drops sessions older than two weeks (only the last 7 days are shown).
   WearLog stop(DateTime at) {
@@ -44,7 +45,11 @@ class WearLog {
   static WearLog decode(String? raw) => raw == null
       ? const WearLog([])
       : WearLog([
-          for (final r in jsonDecode(raw) as List) (DateTime.parse(r[0] as String), r[1] == null ? null : DateTime.parse(r[1] as String)),
+          for (final r in jsonDecode(raw) as List)
+            (
+              DateTime.parse(r[0] as String),
+              r[1] == null ? null : DateTime.parse(r[1] as String),
+            ),
         ]);
 }
 
@@ -64,11 +69,14 @@ class SecureWearStore implements WearStore {
   Future<String?> read(String key) => _storage.read(key: key);
 
   @override
-  Future<void> write(String key, String value) => _storage.write(key: key, value: value);
+  Future<void> write(String key, String value) =>
+      _storage.write(key: key, value: value);
 
   @override
   Future<void> clearAll() async {
-    for (final key in (await _storage.readAll()).keys.where((k) => k.startsWith(_prefix))) {
+    for (final key in (await _storage.readAll()).keys.where(
+      (k) => k.startsWith(_prefix),
+    )) {
       await _storage.delete(key: key);
     }
   }

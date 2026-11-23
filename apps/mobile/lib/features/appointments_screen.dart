@@ -43,8 +43,13 @@ class AppointmentsScreen extends ConsumerWidget {
       children: [
         PageHero(
           title: 'Visits',
-          subtitle: upcoming.isEmpty ? 'Nothing booked yet.' : 'Your booked visits, soonest first.',
-          facts: [if (upcoming.isNotEmpty) (Icons.event_available_rounded, '${upcoming.length} booked')],
+          subtitle: upcoming.isEmpty
+              ? 'Nothing booked yet.'
+              : 'Your booked visits, soonest first.',
+          facts: [
+            if (upcoming.isNotEmpty)
+              (Icons.event_available_rounded, '${upcoming.length} booked'),
+          ],
         ),
         OverHero(
           child: Padding(
@@ -52,14 +57,20 @@ class AppointmentsScreen extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                PrimaryButton(key: const Key('visits-book'), label: 'Book a visit', onPressed: () => _book(context, ref)),
+                PrimaryButton(
+                  key: const Key('visits-book'),
+                  label: 'Book a visit',
+                  onPressed: () => _book(context, ref),
+                ),
                 const SizedBox(height: 22),
                 ...care.when(
                   loading: () => const [LoadingPanels()],
                   error: (_, _) => [
                     Panel(
                       onTap: () => ref.invalidate(careSummaryProvider),
-                      child: const Text('Could not load your visits. Tap to try again.'),
+                      child: const Text(
+                        'Could not load your visits. Tap to try again.',
+                      ),
                     ),
                   ],
                   data: (c) => [
@@ -86,8 +97,11 @@ class AppointmentsScreen extends ConsumerWidget {
                       icon: Icons.history_rounded,
                       tint: Tint.sky,
                       title: 'Past visits',
-                      detail: 'What was done, X-rays and summaries are in Records',
-                      onTap: () => ref.read(shellTabProvider.notifier).go(ShellTab.records),
+                      detail:
+                          'What was done, X-rays and summaries are in Records',
+                      onTap: () => ref
+                          .read(shellTabProvider.notifier)
+                          .go(ShellTab.records),
                     ),
                   ],
                 ),
@@ -128,19 +142,34 @@ class _VisitCard extends StatelessWidget {
                 Container(
                   width: 58,
                   height: 64,
-                  decoration: BoxDecoration(gradient: buttonGradient, borderRadius: BorderRadius.circular(16)),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        weekday(a.startsAt),
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFFCDEFE7)),
-                      ),
-                      Text(
-                        '${a.startsAt.day}',
-                        style: const TextStyle(fontSize: 24, height: 1.05, fontWeight: FontWeight.w700, color: Colors.white),
-                      ),
-                    ],
+                  decoration: BoxDecoration(
+                    gradient: buttonGradient,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          weekday(a.startsAt),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFFCDEFE7),
+                          ),
+                        ),
+                        Text(
+                          '${a.startsAt.day}',
+                          style: const TextStyle(
+                            fontSize: 24,
+                            height: 1.05,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(width: 14),
@@ -150,14 +179,27 @@ class _VisitCard extends StatelessWidget {
                     children: [
                       Text(
                         a.service,
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Palette.deepSea),
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: Palette.deepSea,
+                        ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         '${dayMonth(a.startsAt)}, ${clock(a.startsAt)} to ${clock(a.endsAt)}',
-                        style: const TextStyle(fontSize: 13.5, color: Palette.muted),
+                        style: const TextStyle(
+                          fontSize: 13.5,
+                          color: Palette.muted,
+                        ),
                       ),
-                      Text(a.location, style: const TextStyle(fontSize: 13.5, color: Palette.muted)),
+                      Text(
+                        a.location,
+                        style: const TextStyle(
+                          fontSize: 13.5,
+                          color: Palette.muted,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -169,13 +211,21 @@ class _VisitCard extends StatelessWidget {
                 children: [
                   DentistAvatar(
                     name: a.dentist!,
-                    asset: a.dentistPhoto == null ? null : 'assets/images/team/${a.dentistPhoto}.jpg',
+                    asset: a.dentistPhoto == null
+                        ? null
+                        : 'assets/images/team/${a.dentistPhoto}.jpg',
                     size: 34,
                   ),
                   const SizedBox(width: 10),
-                  Text(
-                    'With ${a.dentist}',
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Palette.deepSea),
+                  Expanded(
+                    child: Text(
+                      'With ${a.dentist}',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: Palette.deepSea,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -184,7 +234,10 @@ class _VisitCard extends StatelessWidget {
               const SizedBox(height: 14),
               Container(
                 padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
-                decoration: BoxDecoration(color: Palette.mist, borderRadius: BorderRadius.circular(14)),
+                decoration: BoxDecoration(
+                  color: Palette.mist,
+                  borderRadius: BorderRadius.circular(14),
+                ),
                 child: Row(
                   children: [
                     Expanded(
@@ -192,12 +245,23 @@ class _VisitCard extends StatelessWidget {
                         TextSpan(
                           children: [
                             TextSpan(
-                              text: dollars(payment?.amountCents ?? a.priceCents!),
-                              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: Palette.deepSea),
+                              text: dollars(
+                                payment?.amountCents ?? a.priceCents!,
+                              ),
+                              style: const TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w800,
+                                color: Palette.deepSea,
+                              ),
                             ),
                             TextSpan(
-                              text: payment?.paid == true ? '  paid' : '  to pay',
-                              style: const TextStyle(fontSize: 13, color: Palette.muted),
+                              text: payment?.paid == true
+                                  ? '  paid'
+                                  : '  to pay',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: Palette.muted,
+                              ),
                             ),
                           ],
                         ),
@@ -206,9 +270,19 @@ class _VisitCard extends StatelessWidget {
                     if (payment?.paid == true)
                       const Row(
                         children: [
-                          Icon(Icons.check_circle_rounded, size: 18, color: Palette.teal),
+                          Icon(
+                            Icons.check_circle_rounded,
+                            size: 18,
+                            color: Palette.teal,
+                          ),
                           SizedBox(width: 6),
-                          Text('Paid', style: TextStyle(fontWeight: FontWeight.w700, color: Palette.teal)),
+                          Text(
+                            'Paid',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              color: Palette.teal,
+                            ),
+                          ),
                         ],
                       )
                     else
@@ -218,9 +292,14 @@ class _VisitCard extends StatelessWidget {
                         style: FilledButton.styleFrom(
                           backgroundColor: Palette.teal,
                           minimumSize: const Size(84, 40),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
-                        child: const Text('Pay now', style: TextStyle(fontWeight: FontWeight.w700)),
+                        child: const Text(
+                          'Pay now',
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
                       ),
                   ],
                 ),
@@ -235,7 +314,9 @@ class _VisitCard extends StatelessWidget {
                     onPressed: onReschedule,
                     style: OutlinedButton.styleFrom(
                       minimumSize: const Size.fromHeight(46),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
                     ),
                     child: const Text('Reschedule'),
                   ),
@@ -245,7 +326,10 @@ class _VisitCard extends StatelessWidget {
                   child: TextButton(
                     key: Key('cancel-${a.id}'),
                     onPressed: onCancel,
-                    style: TextButton.styleFrom(foregroundColor: Palette.error, minimumSize: const Size.fromHeight(46)),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Palette.error,
+                      minimumSize: const Size.fromHeight(46),
+                    ),
                     child: const Text('Cancel'),
                   ),
                 ),

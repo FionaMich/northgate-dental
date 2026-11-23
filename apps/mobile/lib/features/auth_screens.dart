@@ -50,12 +50,22 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> with _Busy {
   final _password = TextEditingController();
   bool _show = false;
 
-  bool get _ready => _name.text.trim().isNotEmpty && _email.text.contains('@') && PasswordRules.ok(_password.text);
+  bool get _ready =>
+      _name.text.trim().isNotEmpty &&
+      _email.text.contains('@') &&
+      PasswordRules.ok(_password.text);
 
   Future<void> _create() async {
     if (!_ready) return;
     final email = _email.text.trim();
-    if (await run((r) => r.signUp(name: _name.text, email: email, password: _password.text)) && mounted) {
+    if (await run(
+          (r) => r.signUp(
+            name: _name.text,
+            email: email,
+            password: _password.text,
+          ),
+        ) &&
+        mounted) {
       Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => CodeScreen(email: email, purpose: CodePurpose.signUp),
@@ -81,7 +91,10 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> with _Busy {
       children: [
         Text('Create your account', style: text.headlineMedium),
         const SizedBox(height: 6),
-        Text('We will email you a code to confirm it is you.', style: text.bodyLarge),
+        Text(
+          'We will email you a code to confirm it is you.',
+          style: text.bodyLarge,
+        ),
         const SizedBox(height: 22),
         TextField(
           key: const Key('name'),
@@ -114,7 +127,9 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> with _Busy {
             labelText: 'Password',
             suffixIcon: IconButton(
               tooltip: _show ? 'Hide password' : 'Show password',
-              icon: Icon(_show ? Icons.visibility_off_rounded : Icons.visibility_rounded),
+              icon: Icon(
+                _show ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+              ),
               onPressed: () => setState(() => _show = !_show),
             ),
           ),
@@ -123,7 +138,12 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> with _Busy {
         PasswordChecklist(rules: _rules(_password.text)),
         if (error != null) ...[const SizedBox(height: 14), ErrorNote(error!)],
         const SizedBox(height: 22),
-        PrimaryButton(key: const Key('create-account'), label: 'Create account', busy: busy, onPressed: _ready ? _create : null),
+        PrimaryButton(
+          key: const Key('create-account'),
+          label: 'Create account',
+          busy: busy,
+          onPressed: _ready ? _create : null,
+        ),
         const SizedBox(height: 14),
         const Text(
           'By creating an account you agree that Northgate Dental may use your email to send sign-in codes.',
@@ -176,13 +196,19 @@ class _CodeScreenState extends ConsumerState<CodeScreen> with _Busy {
         nav.popUntil((r) => r.isFirst);
       }
     } else if (widget.purpose == CodePurpose.signIn) {
-      if (await run((r) => r.verifySignInCode(widget.email, code))) ref.invalidate(sessionVerifiedProvider);
+      if (await run((r) => r.verifySignInCode(widget.email, code))) {
+        ref.invalidate(sessionVerifiedProvider);
+      }
     } else {
       if (await run((r) => r.verifyResetCode(widget.email, code))) {
-        nav.pushReplacement(MaterialPageRoute(builder: (_) => const NewPasswordScreen()));
+        nav.pushReplacement(
+          MaterialPageRoute(builder: (_) => const NewPasswordScreen()),
+        );
       }
     }
-    if (error != null && mounted) setState(() => _attempt++); // fresh boxes after a wrong code
+    if (error != null && mounted) {
+      setState(() => _attempt++); // fresh boxes after a wrong code
+    }
   }
 
   Future<void> _resend() async {
@@ -210,28 +236,48 @@ class _CodeScreenState extends ConsumerState<CodeScreen> with _Busy {
       heroFraction: 0.3,
       showBack: !signingIn,
       children: [
-        Text(signingIn ? 'Enter your sign-in code' : 'Check your email', style: text.headlineMedium),
+        Text(
+          signingIn ? 'Enter your sign-in code' : 'Check your email',
+          style: text.headlineMedium,
+        ),
         const SizedBox(height: 6),
         Text(switch (widget.purpose) {
-          CodePurpose.signUp => 'We sent a 6-digit code to ${widget.email}. It expires in 10 minutes.',
-          CodePurpose.signIn => 'For your security we sent a 6-digit code to ${widget.email}. It expires in 10 minutes.',
-          CodePurpose.reset => 'If an account uses ${widget.email}, we sent it a 6-digit code. It expires in 10 minutes.',
+          CodePurpose.signUp =>
+            'We sent a 6-digit code to ${widget.email}. It expires in 10 minutes.',
+          CodePurpose.signIn =>
+            'For your security we sent a 6-digit code to ${widget.email}. It expires in 10 minutes.',
+          CodePurpose.reset =>
+            'If an account uses ${widget.email}, we sent it a 6-digit code. It expires in 10 minutes.',
         }, style: text.bodyLarge),
         const SizedBox(height: 24),
-        CodeBoxes(key: ValueKey(_attempt), enabled: !busy, onCompleted: _verify),
+        CodeBoxes(
+          key: ValueKey(_attempt),
+          enabled: !busy,
+          onCompleted: _verify,
+        ),
         if (error != null) ...[const SizedBox(height: 16), ErrorNote(error!)],
         const SizedBox(height: 20),
         Center(
           child: _left > 0
               ? Text(
                   'Send a new code in ${_left}s',
-                  style: const TextStyle(color: Palette.muted, fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                    color: Palette.muted,
+                    fontWeight: FontWeight.w600,
+                  ),
                 )
-              : TextButton(key: const Key('resend'), onPressed: busy ? null : _resend, child: const Text('Send a new code')),
+              : TextButton(
+                  key: const Key('resend'),
+                  onPressed: busy ? null : _resend,
+                  child: const Text('Send a new code'),
+                ),
         ),
         const SizedBox(height: 4),
         const Center(
-          child: Text('Check your spam folder if it has not arrived.', style: TextStyle(fontSize: 13, color: Palette.muted)),
+          child: Text(
+            'Check your spam folder if it has not arrived.',
+            style: TextStyle(fontSize: 13, color: Palette.muted),
+          ),
         ),
         if (signingIn) ...[
           const SizedBox(height: 12),
@@ -256,12 +302,15 @@ class ResetRequestScreen extends ConsumerStatefulWidget {
   ConsumerState<ResetRequestScreen> createState() => _ResetRequestScreenState();
 }
 
-class _ResetRequestScreenState extends ConsumerState<ResetRequestScreen> with _Busy {
+class _ResetRequestScreenState extends ConsumerState<ResetRequestScreen>
+    with _Busy {
   late final _email = TextEditingController(text: widget.email);
 
   Future<void> _send() async {
     final email = _email.text.trim();
-    if (!email.contains('@')) return setState(() => error = 'Enter the email you signed up with.');
+    if (!email.contains('@')) {
+      return setState(() => error = 'Enter the email you signed up with.');
+    }
     if (await run((r) => r.sendPasswordReset(email)) && mounted) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
@@ -285,7 +334,10 @@ class _ResetRequestScreenState extends ConsumerState<ResetRequestScreen> with _B
       children: [
         Text('Reset your password', style: text.headlineMedium),
         const SizedBox(height: 6),
-        Text('Enter your email and we will send you a code to choose a new password.', style: text.bodyLarge),
+        Text(
+          'Enter your email and we will send you a code to choose a new password.',
+          style: text.bodyLarge,
+        ),
         const SizedBox(height: 22),
         TextField(
           key: const Key('email'),
@@ -297,7 +349,12 @@ class _ResetRequestScreenState extends ConsumerState<ResetRequestScreen> with _B
         ),
         if (error != null) ...[const SizedBox(height: 14), ErrorNote(error!)],
         const SizedBox(height: 22),
-        PrimaryButton(key: const Key('send-reset'), label: 'Send code', busy: busy, onPressed: _send),
+        PrimaryButton(
+          key: const Key('send-reset'),
+          label: 'Send code',
+          busy: busy,
+          onPressed: _send,
+        ),
       ],
     );
   }
@@ -310,13 +367,15 @@ class NewPasswordScreen extends ConsumerStatefulWidget {
   ConsumerState<NewPasswordScreen> createState() => _NewPasswordScreenState();
 }
 
-class _NewPasswordScreenState extends ConsumerState<NewPasswordScreen> with _Busy {
+class _NewPasswordScreenState extends ConsumerState<NewPasswordScreen>
+    with _Busy {
   final _password = TextEditingController();
   bool _show = false;
 
   Future<void> _save() async {
     final nav = Navigator.of(context);
-    if (PasswordRules.ok(_password.text) && await run((r) => r.setNewPassword(_password.text))) {
+    if (PasswordRules.ok(_password.text) &&
+        await run((r) => r.setNewPassword(_password.text))) {
       // The reset session proved the inbox only; signing in again adds the password step.
       ref.read(passwordChangedNoticeProvider.notifier).show();
       await ref.read(accountRepositoryProvider).signOut();
@@ -338,7 +397,10 @@ class _NewPasswordScreenState extends ConsumerState<NewPasswordScreen> with _Bus
       children: [
         Text('Choose a new password', style: text.headlineMedium),
         const SizedBox(height: 6),
-        Text('You will use it the next time you sign in.', style: text.bodyLarge),
+        Text(
+          'You will use it the next time you sign in.',
+          style: text.bodyLarge,
+        ),
         const SizedBox(height: 22),
         TextField(
           key: const Key('password'),
@@ -351,7 +413,9 @@ class _NewPasswordScreenState extends ConsumerState<NewPasswordScreen> with _Bus
             labelText: 'New password',
             suffixIcon: IconButton(
               tooltip: _show ? 'Hide password' : 'Show password',
-              icon: Icon(_show ? Icons.visibility_off_rounded : Icons.visibility_rounded),
+              icon: Icon(
+                _show ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+              ),
               onPressed: () => setState(() => _show = !_show),
             ),
           ),
