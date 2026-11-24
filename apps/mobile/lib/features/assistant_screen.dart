@@ -7,6 +7,7 @@ import '../data/assistant_repository.dart';
 import '../design/tokens.dart';
 import '../state.dart';
 import '../data/call_repository.dart';
+import 'chat_widgets.dart';
 import 'nora_call_screen.dart';
 import 'voice_screen.dart';
 
@@ -20,9 +21,12 @@ class AssistantScreen extends ConsumerStatefulWidget {
 }
 
 class _Line {
-  const _Line(this.text, {this.mine = false});
+  _Line(this.text, {this.mine = false}) : at = DateTime.now();
   final String text;
   final bool mine;
+  final DateTime at;
+  bool read =
+      false; // the patient's message turns blue once Nora has answered it
 }
 
 class _AssistantScreenState extends ConsumerState<AssistantScreen> {
@@ -97,7 +101,7 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> {
           () => _lines
             ..clear()
             ..add(
-              const _Line(
+              _Line(
                 'The receptionist is unavailable right now. Please call your clinic.',
               ),
             ),
@@ -113,6 +117,9 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> {
       final turn = await call();
       if (!mounted) return;
       setState(() {
+        for (final l in _lines) {
+          l.read = true;
+        }
         if (turn.reply != null) _lines.add(_Line(turn.reply!));
         _confirm = turn.confirm;
       });
@@ -122,7 +129,7 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> {
       if (mounted) {
         setState(
           () => _lines.add(
-            const _Line(
+            _Line(
               'Something went wrong. Please try again, or call your clinic.',
             ),
           ),
@@ -206,24 +213,24 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Palette.mist,
+      backgroundColor: chatWallpaper,
       appBar: AppBar(
         backgroundColor: Palette.deepSea,
         foregroundColor: Colors.white,
         titleSpacing: 0,
-        title: const Row(
+        title: Row(
           children: [
-            CircleAvatar(
+            const CircleAvatar(
               radius: 17,
               backgroundColor: Color(0xFFDDF4EC),
               backgroundImage: AssetImage('assets/images/nora/idle.png'),
             ),
-            SizedBox(width: 10),
+            const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
+                  const Text(
                     'Nora',
                     style: TextStyle(
                       fontSize: 17,
@@ -232,9 +239,13 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> {
                     ),
                   ),
                   Text(
-                    'AI · 8 languages',
+                    _waiting ? 'typing…' : 'AI assistant · online',
+                    key: const Key('chat-presence'),
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 12, color: Color(0xFFA9DCD1)),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFFA9DCD1),
+                    ),
                   ),
                 ],
               ),
@@ -274,116 +285,58 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> {
               textDirection: TextDirection.ltr,
               child: ListView(
                 controller: _scroll,
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                padding: const EdgeInsets.fromLTRB(10, 10, 10, 12),
                 children: [
-                  for (final l in _lines) _Bubble(line: l),
+                  const ChatDayChip('Today'),
+                  for (final (i, l) in _lines.indexed)
+                    ChatBubble(
+                      text: l.text,
+                      at: l.at,
+                      mine: l.mine,
+                      first: i == 0 || _lines[i - 1].mine != l.mine,
+                      delivery: !l.mine
+                          ? null
+                          : l.read
+                          ? Delivery.read
+                          : Delivery.delivered,
+                    ),
                   if (_lines.length == 1 && !_waiting)
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        for (final MapEntry(key: s, value: icon)
-                            in _starters.entries)
-                          ActionChip(
-                            key: Key('starter-$s'),
-                            avatar: Icon(icon),
-                            label: Text(s),
-                            onPressed: () => _send(s),
-                          ),
-                      ],
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (final MapEntry(key: s, value: icon)
+                              in _starters.entries)
+                            ActionChip(
+                              key: Key('starter-$s'),
+                              avatar: Icon(icon),
+                              label: Text(s),
+                              onPressed: () => _send(s),
+                            ),
+                        ],
+                      ),
                     ),
                   if (_confirm != null)
                     _ConfirmCard(confirm: _confirm!, onAnswer: _answer),
-                  if (_waiting) const _Writing(),
+                  if (_waiting) const ChatTyping(who: 'Nora'),
                 ],
               ),
             ),
           ),
-          SafeArea(
-            top: false,
-            child: Container(
-              color: Colors.white,
-              padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Semantics(
-                      label: 'Message to Nora', // the hint alone is not read as the field's name by every screen reader
-                      child: TextField(
-                        key: const Key('assistant-input'),
-                        controller: _input,
-                        enabled: _confirm == null,
-                        minLines: 1,
-                        maxLines: 4,
-                        maxLength: 2000,
-                        textInputAction: TextInputAction.send,
-                        onSubmitted: (_) => _send(),
-                        decoration: const InputDecoration(
-                          hintText: 'Type in any of our languages',
-                          counterText: '',
-                          border: InputBorder.none,
-                        ),
-                      ),
-                    ),
-                  ),
-                  IconButton.filled(
-                    key: const Key('assistant-send'),
-                    onPressed: _waiting || _confirm != null ? null : _send,
-                    style: IconButton.styleFrom(backgroundColor: Palette.teal),
-                    icon: const Icon(Icons.arrow_upward_rounded),
-                    tooltip: 'Send',
-                  ),
-                ],
-              ),
-            ),
+          ChatComposer(
+            controller: _input,
+            onSend: _send,
+            label: 'Message to Nora',
+            hint: 'Message',
+            enabled: _confirm == null,
+            canSend: !_waiting && _confirm == null,
           ),
         ],
       ),
     );
   }
-}
-
-class _Bubble extends StatelessWidget {
-  const _Bubble({required this.line});
-  final _Line line;
-
-  @override
-  Widget build(BuildContext context) => Align(
-    alignment: line.mine
-        ? AlignmentDirectional.centerEnd
-        : AlignmentDirectional.centerStart,
-    child: Container(
-      constraints: BoxConstraints(
-        maxWidth: MediaQuery.sizeOf(context).width * 0.8,
-      ),
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-      decoration: BoxDecoration(
-        color: line.mine ? Palette.teal : Colors.white,
-        borderRadius: BorderRadiusDirectional.only(
-          topStart: const Radius.circular(18),
-          topEnd: const Radius.circular(18),
-          bottomStart: Radius.circular(line.mine ? 18 : 4),
-          bottomEnd: Radius.circular(line.mine ? 4 : 18),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Palette.deepSea.withValues(alpha: 0.06),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: SelectableText(
-        line.text,
-        style: TextStyle(
-          fontSize: 15,
-          height: 1.4,
-          color: line.mine ? Colors.white : Palette.deepSea,
-        ),
-      ),
-    ),
-  );
 }
 
 class _ConfirmCard extends StatelessWidget {
@@ -398,7 +351,7 @@ class _ConfirmCard extends StatelessWidget {
     String text(String key, String fallback) =>
         (confirm[key] as String?) ?? fallback;
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
+      margin: const EdgeInsets.only(top: 10),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -455,29 +408,4 @@ class _ConfirmCard extends StatelessWidget {
       ),
     );
   }
-}
-
-class _Writing extends StatelessWidget {
-  const _Writing();
-
-  @override
-  Widget build(BuildContext context) => const Padding(
-    padding: EdgeInsets.only(bottom: 10),
-    child: Row(
-      children: [
-        SizedBox(
-          width: 16,
-          height: 16,
-          child: CircularProgressIndicator(strokeWidth: 2, color: Palette.teal),
-        ),
-        SizedBox(width: 10),
-        Flexible(
-          child: Text(
-            'Writing… this can take up to a minute',
-            style: TextStyle(fontSize: 13, color: Palette.muted),
-          ),
-        ),
-      ],
-    ),
-  );
 }
