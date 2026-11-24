@@ -19,7 +19,7 @@ from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode
 
-from . import safety, tools
+from . import metrics, safety, tools
 from .models import model_for
 
 
@@ -109,7 +109,9 @@ def assistant(state: State, config: RunnableConfig) -> dict:
     if not getattr(reply, "tool_calls", None) and not used_a_tool:
         # A small model sometimes says "I will check" and stops. One second look, before the patient sees anything.
         second = bound.invoke([*history, reply, HumanMessage(NUDGE)])
-        if getattr(second, "tool_calls", None):
+        used = bool(getattr(second, "tool_calls", None))
+        metrics.SECOND_LOOKS.labels("tool_called" if used else "kept").inc()
+        if used:
             reply = second
     return {"messages": [reply]}
 
@@ -144,6 +146,7 @@ def grounded(state: State, config: RunnableConfig) -> dict:
     unsupported = [m.group(0) for m in _FACT.finditer(reply) if m.group(0).replace(" ", "") not in evidence.replace(" ", "")]
     if not unsupported:
         return {}
+    metrics.BLOCKS.inc()
     session = tools._session(config)
     try:  # the fixed text says the team has it, so the team must really have it
         tools._rpc(session, "request_handover", category="other", language=session.language,

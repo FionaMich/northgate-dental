@@ -142,6 +142,23 @@ services:
     networks: [app]
     mem_limit: 512m
 
+  # Monitoring (ADR 0017): Alloy scrapes the assistant's /metrics on the private network and writes to Grafana Cloud.
+  # Started once the three GRAFANA_PROM_* values are in .env: docker compose --profile monitoring up -d alloy
+  alloy:
+    <<: *defaults
+    image: grafana/alloy:v1.22.0
+    profiles: [monitoring]
+    command: ["run", "/etc/alloy/config.alloy", "--storage.path=/var/lib/alloy/data"]
+    environment:
+      GRAFANA_PROM_URL: ${GRAFANA_PROM_URL:-}
+      GRAFANA_PROM_USER: ${GRAFANA_PROM_USER:-}
+      GRAFANA_PROM_TOKEN: ${GRAFANA_PROM_TOKEN:-}
+    volumes:
+      - ./alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - alloy_data:/var/lib/alloy/data
+    networks: [app]
+    mem_limit: 256m
+
   # n8n (blueprint section 41): automations triggered by time or events. Its editor is not on the internet: only
   # /webhook/ is routed by the WAF; the editor is reached through a Bastion SSH tunnel to 127.0.0.1:5678.
   n8n-db:
@@ -201,6 +218,7 @@ networks:
   data: { internal: true } # no route in or out of the VM; only services on this network can reach Presidio
 
 volumes:
+  alloy_data: {}
   ollama_models: {}
   n8n_db: {}
   n8n_data: {}
