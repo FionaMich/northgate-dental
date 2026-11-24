@@ -9,13 +9,15 @@ from agent.safety import fixed
 
 class ScriptedModel:
     """Replies with the next scripted message; records that it was called."""
-    def __init__(self, *replies):
-        self.replies, self.calls = list(replies), 0
+    def __init__(self, *replies, second_look=None):
+        self.replies, self.calls, self.second_look = list(replies), 0, second_look
 
     def bind_tools(self, _tools):
         return self
 
     def invoke(self, _messages):
+        if getattr(_messages[-1], "content", None) == graph.NUDGE:   # the second look: nothing to add unless scripted
+            return self.second_look or AIMessage("")
         self.calls += 1
         return self.replies.pop(0)
 
@@ -118,3 +120,12 @@ def test_pay_my_bill_skips_a_paid_visit_and_opens_the_next_unpaid_one(monkeypatc
     monkeypatch.setattr(tools, "_rpc", rpc)
     session = tools.Session("u", "k", "j", "patient-1", "en", "https://x")
     assert tools.pay_link.func(config={"configurable": {"session": session}}) == "https://x/pay?t=tok"
+
+
+def test_a_reply_that_only_promises_to_check_gets_one_second_look_and_the_tool_runs(db):
+    model = ScriptedModel(AIMessage("Je vais vérifier les disponibilités."),
+                          AIMessage("Le premier créneau est lundi."),
+                          second_look=call("find_slots", clinic_code="quincy", service_code="cleaning", day="2026-11-30"))
+    _, _, out = run(model, "Je voudrais un détartrage à Quincy la semaine prochaine", language="fr")
+    assert ("available_slots" in [name for name, _ in db]), "the tool the first reply skipped was called"
+    assert out["messages"][-1].content == "Le premier créneau est lundi."

@@ -47,6 +47,13 @@ class NoraConfirm extends NoraCallEvent {
   final Map<String, dynamic> card;
 }
 
+/// A link Nora offers (the payment page): shown as a button, never read aloud.
+class NoraLink extends NoraCallEvent {
+  const NoraLink(this.url, this.label);
+  final String url;
+  final String label;
+}
+
 class NoraEnded extends NoraCallEvent {
   const NoraEnded(this.reason);
   final String reason;
@@ -207,6 +214,13 @@ class _StreamNoraCall implements NoraCall {
         );
       case 'mood':
         _events.add(NoraMoodEvent(data['mood'] as String? ?? 'idle'));
+      case 'link':
+        _events.add(
+          NoraLink(
+            data['url'] as String? ?? '',
+            data['label'] as String? ?? 'Open',
+          ),
+        );
       case 'confirm':
         _events.add(
           NoraConfirm(

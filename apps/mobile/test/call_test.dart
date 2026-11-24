@@ -136,4 +136,29 @@ void main() {
       expect(calls.calls.single.left, isTrue);
     },
   );
+
+  testWidgets(
+    'a payment link from Nora is a button, and a new question clears it',
+    (tester) async {
+      final calls = await openCall(tester);
+      final call = calls.calls.single;
+      call.controller.add(const NoraJoined());
+      call.controller.add(
+        const NoraLink('https://pay.test/pay?t=abc', 'Pay securely'),
+      );
+      await tester.pump();
+      expect(find.byKey(const Key('call-link')), findsOneWidget);
+      expect(find.text('Pay securely'), findsOneWidget);
+      call.controller.add(const NoraLink('javascript:alert(1)', 'Bad'));
+      await tester.pump();
+      expect(
+        find.text('Bad'),
+        findsNothing,
+        reason: 'only https links become buttons',
+      );
+      call.controller.add(const NoraCaption('you', 'Thanks'));
+      await tester.pump();
+      expect(find.byKey(const Key('call-link')), findsNothing);
+    },
+  );
 }

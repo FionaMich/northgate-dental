@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'package:url_launcher/url_launcher.dart';
+
 import '../data/call_repository.dart';
 import '../design/tokens.dart';
 import 'nora_portrait.dart';
@@ -34,6 +36,7 @@ class _NoraCallScreenState extends ConsumerState<NoraCallScreen> {
   String _error = '';
   StreamSubscription<NoraCallEvent>? _sub;
   Timer? _pickUp;
+  (Uri, String)? _link;
   final _captionScroll = ScrollController();
 
   @override
@@ -74,12 +77,16 @@ class _NoraCallScreenState extends ConsumerState<NoraCallScreen> {
           break;
         case NoraCaption(:final who, :final text):
           if (who == 'you') {
+            _link = null; // a new question: the last link no longer belongs on screen
             _youSaid = text;
           } else {
             _caption = text;
           }
         case NoraMoodEvent(:final mood):
           _mood = NoraMood.values.asNameMap()[mood] ?? NoraMood.idle;
+        case NoraLink(:final url, :final label):
+          final uri = Uri.tryParse(url);
+          if (uri != null && uri.scheme == 'https') _link = (uri, label);
         case NoraConfirm(:final card):
           _confirm = card;
           _caption = '${card['title'] ?? ''} ${card['detail'] ?? ''}'.trim();
@@ -238,6 +245,24 @@ class _NoraCallScreenState extends ConsumerState<NoraCallScreen> {
                         ),
                       ),
                     ),
+                  ),
+                ),
+              if (_link != null)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(22, 14, 22, 0),
+                  child: FilledButton.icon(
+                    key: const Key('call-link'),
+                    onPressed: () => launchUrl(
+                      _link!.$1,
+                      mode: LaunchMode.externalApplication,
+                    ),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Palette.shine,
+                      foregroundColor: Palette.deepSea,
+                      minimumSize: const Size.fromHeight(50),
+                    ),
+                    icon: const Icon(Icons.lock_rounded, size: 18),
+                    label: Text(_link!.$2),
                   ),
                 ),
               if (_confirm != null)

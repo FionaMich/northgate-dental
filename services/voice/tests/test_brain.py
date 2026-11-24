@@ -90,3 +90,11 @@ def test_nora_does_not_listen_while_she_has_the_floor_and_takes_it_when_she_answ
     b.floor.nora = False
     asyncio.run(spoken(b, "when do you open"))
     assert b.floor.nora is True               # hers until the audio has played
+
+
+def test_a_payment_link_becomes_a_button_and_is_never_read_aloud():
+    b = brain_with(lambda request: httpx.Response(200, json={"reply": "Your payment link is ready: https://pay.test/pay?t=abc"}))
+    out = asyncio.run(spoken(b, "can I pay my bill"))
+    assert out[-1].text == "Your payment link is ready."
+    assert {"kind": "link", "url": "https://pay.test/pay?t=abc", "label": "Pay securely"} in b.agent.events
+    assert all("http" not in e.get("text", "") for e in b.agent.events)
