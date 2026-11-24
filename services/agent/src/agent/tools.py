@@ -159,10 +159,16 @@ def cancel_visit(visit_ref: str, config: RunnableConfig) -> str:
 
 
 @tool
-def pay_link(visit_ref: str, config: RunnableConfig) -> str:
-    """A secure link to pay for one of the patient's visits by card on Stripe's page. The price comes from the clinic's
-    price list on the server."""
+def pay_link(config: RunnableConfig, visit_ref: str = "") -> str:
+    """A secure link to pay for one of the patient's visits by card on Stripe's page. Leave visit_ref empty for the
+    patient's next visit. The price comes from the clinic's price list on the server."""
     s = _session(config)
+    if not visit_ref:  # "pay my bill": the next visit, found here so the model needs one step, not two
+        rows = _get(s, "/appointments", select="id", status="eq.booked", order="starts_at", limit="1",
+                    starts_at=f"gte.{datetime.now().astimezone().isoformat()}")
+        if not rows:
+            return "No upcoming visit to pay for."
+        visit_ref = rows[0]["id"]
     token = _rpc(s, "start_my_payment", appointment=visit_ref)
     return f"{s.link_base}/pay?t={token}"
 
