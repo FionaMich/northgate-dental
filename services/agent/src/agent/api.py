@@ -6,6 +6,8 @@ LangSmith tracing turns on only when LANGSMITH_API_KEY is set, with inputs and o
 traces show nodes, tools, timings and outcomes, never what the patient wrote."""
 
 import os
+import secrets
+import time
 from dataclasses import dataclass
 from typing import Literal
 
@@ -68,10 +70,18 @@ class ConfirmIn(BaseModel):
     accept: bool
 
 
-class StreamToken(BaseModel):
+class CallTicket(BaseModel):
+    """Everything the app needs to join a Nora call (ADR 0015). The call ID is random: never a name or patient ID."""
     api_key: str
     token: str
     user_id: str
+    call_type: str = "nora_voice"
+    call_id: str
+
+
+# Calls the app has started, so the Nora agent (next ticket) can find the patient's session for a call ID.
+# shortcut: one process in memory, upgrade to a Postgres table when a second agent container appears.
+calls: dict[str, tuple[Who, float]] = {}
 
 
 class Reply(BaseModel):
@@ -111,11 +121,18 @@ def confirm(body: ConfirmIn, w: Who = Depends(who)) -> Reply:
     return _reply(assistant.invoke(Command(resume=body.accept), _config(w, body.thread)))
 
 
-@app.post("/assistant/stream-token", response_model=StreamToken)  # under /assistant/, the prefix Nginx proxies
-def stream_token(w: Who = Depends(who)) -> StreamToken:
-    """A one-hour Stream Video token for the signed-in patient (ADR 0015). The Stream user is the Supabase user ID."""
+@app.post("/assistant/call", response_model=CallTicket)  # under /assistant/, the prefix Nginx proxies
+def start_call(w: Who = Depends(who)) -> CallTicket:
+    """A random call ID and a one-hour Stream Video token for the signed-in patient (ADR 0015). The Stream user is
+    the Supabase user ID; the patient's session and language are kept here for the agent that joins the call."""
     conf = stream.settings()
     if conf is None:
         raise HTTPException(503, "calls are not available")
     key, secret = conf
-    return StreamToken(api_key=key, token=stream.user_token(w.user_id, secret), user_id=w.user_id)
+    now = time.time()
+    # One live call per patient, and nothing older than a token: the store cannot grow with repeated taps.
+    for old in [cid for cid, (owner, started) in calls.items() if owner.user_id == w.user_id or now - started > stream.TOKEN_TTL]:
+        calls.pop(old, None)
+    call_id = secrets.token_urlsafe(12)
+    calls[call_id] = (w, now)
+    return CallTicket(api_key=key, token=stream.user_token(w.user_id, secret), user_id=w.user_id, call_id=call_id)

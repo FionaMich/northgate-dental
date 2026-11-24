@@ -8,6 +8,7 @@ import 'package:dental/data/care_repository.dart';
 import 'package:dental/data/shop_repository.dart';
 import 'package:dental/features/visit_screen.dart';
 import 'package:flutter/services.dart';
+import 'package:dental/data/call_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -359,10 +360,12 @@ void main() {
     tester.view.devicePixelRatio = 2.0;
     addTearDown(tester.view.reset);
     final assistant = FakeAssistantRepository();
+    final calls = FakeCallRepository();
     await pumpApp(
       tester,
       FakeAccountRepository(patients: [michelle]),
       assistant: assistant,
+      calls: calls,
       care: FakeCareRepository({'p-m': richCare()}),
       extra: [pdfViewProvider.overrideWithValue((_) => const SizedBox())],
     );
@@ -378,6 +381,35 @@ void main() {
     );
     await tapKey(tester, 'assistant-send');
     await shot(tester, '24-assistant-confirm');
+
+    // The voice call with Nora (section 11): both sides captioned, then a booking waiting for the button.
+    await tapKey(tester, 'confirm-no');
+    await tapKey(tester, 'open-voice');
+    final call = calls.calls.single;
+    call.controller.add(const NoraJoined());
+    call.controller.add(const NoraMoodEvent('speaking'));
+    call.controller.add(
+      const NoraCaption(
+        'you',
+        'Quiero una limpieza en Quincy el viernes por la mañana',
+      ),
+    );
+    call.controller.add(
+      const NoraCaption(
+        'nora',
+        'Claro. El viernes 27 a las 10:00 hay hueco en Quincy con la Dra. Reyes. ¿Lo reservo?',
+      ),
+    );
+    await shot(tester, '25-nora-call');
+    call.controller.add(
+      const NoraConfirm({
+        'title': '¿Reservar esta cita?',
+        'detail': 'Limpieza dental · viernes 27 de noviembre a las 10:00 · Northgate Dental, Quincy',
+        'yes': 'Confirmar',
+        'no': 'Ahora no',
+      }),
+    );
+    await shot(tester, '26-nora-call-confirm');
   });
 
   // The style audit: every remaining page, at normal and at large system text (1.3x).

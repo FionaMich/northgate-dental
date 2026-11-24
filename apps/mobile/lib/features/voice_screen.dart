@@ -8,6 +8,7 @@ import '../data/assistant_repository.dart';
 import '../data/voice_engine.dart';
 import '../design/tokens.dart';
 import '../state.dart';
+import 'nora_portrait.dart';
 
 /// Talk to Nora: she listens (on the phone), answers through the assistant service and speaks her reply aloud, with
 /// captions. Her portrait changes with what she is doing, like a video call: idle and breathing, listening with a
@@ -20,18 +21,7 @@ class VoiceScreen extends ConsumerStatefulWidget {
   ConsumerState<VoiceScreen> createState() => _VoiceScreenState();
 }
 
-enum NoraMood { idle, listening, thinking, speaking }
-
-class _VoiceScreenState extends ConsumerState<VoiceScreen>
-    with TickerProviderStateMixin {
-  late final _breath = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 3200),
-  );
-  late final _pulse = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 1400),
-  );
+class _VoiceScreenState extends ConsumerState<VoiceScreen> {
   late final String _thread = List.generate(
     24,
     (_) => Random.secure().nextInt(16).toRadixString(16),
@@ -54,25 +44,10 @@ class _VoiceScreenState extends ConsumerState<VoiceScreen>
   }
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Reduce motion on the phone: Nora stays still; the status line still says what she is doing.
-    if (MediaQuery.disableAnimationsOf(context)) {
-      _breath.stop();
-      _pulse.stop();
-    } else {
-      if (!_breath.isAnimating) _breath.repeat(reverse: true);
-      if (!_pulse.isAnimating) _pulse.repeat();
-    }
-  }
-
-  @override
   void dispose() {
     _voice.stopListening();
     _voice.stopSpeaking();
-    _breath.dispose();
     _captionScroll.dispose();
-    _pulse.dispose();
     super.dispose();
   }
 
@@ -192,11 +167,6 @@ class _VoiceScreenState extends ConsumerState<VoiceScreen>
 
   @override
   Widget build(BuildContext context) {
-    final pose = switch (_mood) {
-      NoraMood.listening => 'listening',
-      NoraMood.speaking => 'speaking',
-      _ => 'idle',
-    };
     return Scaffold(
       backgroundColor: Palette.heroBottom,
       body: DecoratedBox(
@@ -255,113 +225,7 @@ class _VoiceScreenState extends ConsumerState<VoiceScreen>
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Flexible(
-                      child: FittedBox(
-                        child:
-                            // Nora's portrait: breathes when idle, pulses a ring while listening, glows while speaking.
-                            AnimatedBuilder(
-                              animation: Listenable.merge([_breath, _pulse]),
-                              builder: (_, _) {
-                                final breathe =
-                                    1 +
-                                    0.018 *
-                                        Curves.easeInOut.transform(
-                                          _breath.value,
-                                        );
-                                return SizedBox(
-                                  width: 300,
-                                  height: 300,
-                                  child: Stack(
-                                    alignment: Alignment.center,
-                                    children: [
-                                      if (_mood == NoraMood.listening)
-                                        for (final offset in [0.0, 0.5])
-                                          Opacity(
-                                            opacity:
-                                                (1 -
-                                                        ((_pulse.value +
-                                                                offset) %
-                                                            1))
-                                                    .clamp(0, 1) *
-                                                0.5,
-                                            child: Container(
-                                              width:
-                                                  220 +
-                                                  80 *
-                                                      ((_pulse.value + offset) %
-                                                          1),
-                                              height:
-                                                  220 +
-                                                  80 *
-                                                      ((_pulse.value + offset) %
-                                                          1),
-                                              decoration: BoxDecoration(
-                                                shape: BoxShape.circle,
-                                                border: Border.all(
-                                                  color: Palette.shine,
-                                                  width: 3,
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                      Transform.scale(
-                                        scale: _mood == NoraMood.speaking
-                                            ? breathe * 1.02
-                                            : breathe,
-                                        child: Container(
-                                          width: 220,
-                                          height: 220,
-                                          decoration: BoxDecoration(
-                                            shape: BoxShape.circle,
-                                            color: const Color(0xFFDDF4EC),
-                                            border: Border.all(
-                                              color: Colors.white,
-                                              width: 5,
-                                            ),
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color:
-                                                    (_mood == NoraMood.speaking
-                                                            ? Palette.shine
-                                                            : Colors.black)
-                                                        .withValues(
-                                                          alpha:
-                                                              _mood ==
-                                                                  NoraMood
-                                                                      .speaking
-                                                              ? 0.55
-                                                              : 0.25,
-                                                        ),
-                                                blurRadius:
-                                                    _mood == NoraMood.speaking
-                                                    ? 40
-                                                    : 24,
-                                                spreadRadius:
-                                                    _mood == NoraMood.speaking
-                                                    ? 4
-                                                    : 0,
-                                              ),
-                                            ],
-                                          ),
-                                          child: ClipOval(
-                                            child: AnimatedSwitcher(
-                                              duration: const Duration(
-                                                milliseconds: 220,
-                                              ),
-                                              child: Image.asset(
-                                                'assets/images/nora/$pose.png',
-                                                key: ValueKey(pose),
-                                                fit: BoxFit.cover,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              },
-                            ),
-                      ),
+                      child: FittedBox(child: NoraPortrait(mood: _mood)),
                     ),
                     const SizedBox(height: 12),
                     Text(
