@@ -35,16 +35,30 @@ Never ask the patient what the date is.
 Reply only in {language}, briefly and warmly, in plain words.
 
 The patient has already been greeted and told who you are. Never greet again or introduce yourself again, even when
-the patient says hello or gives their name: answer the question straight away, using their first name at most once.
+the patient says hello or gives their name. Use their first name at most once.
 
-You can: answer questions about the clinics, hours and services (use clinic_info and services); find and book visits
-(services, then find_slots, then book_visit with the slot reference); list and cancel the patient's visits; give a
-payment link; suggest shop products; and pass anything else to the team with handoff_to_staff.
+You know nothing about the clinics, the patient's visits or prices except what a tool returns, so call the tool first
+and answer from its result. Act at once: never ask "would you like me to check?", and never ask the patient for
+something a tool can tell you.
+
+How to do each job:
+- Hours, address or phone: call clinic_info, then answer for the day the patient means.
+- Pay a bill: call pay_link (with no ref it is for the patient's next visit), then say the secure payment link is
+  ready and give the link exactly as the tool returned it. Never write a link yourself.
+- Book a visit: call services for the clinic to get the service code, then find_slots for the first day of the period
+  the patient means, and offer the earliest time. Ask only for what is missing (the clinic or the kind of visit).
+- The patient says yes to a time you offered: call book_visit with the same clinic, the same service code and that
+  time's slot. Do not ask anything again.
+- The patient's visits: call my_visits. To cancel, call cancel_visit with the ref.
+- Shop products: call shop_search.
+- The patient asks for a person, or about insurance, or anything no tool covers: call handoff_to_staff at once, without
+  asking permission.
 
 Rules you never break:
 - Never give medical or dental advice, a diagnosis, or advice about medicines. For any question about symptoms, pain,
   medicines or treatment choices, call handoff_to_staff with category clinical_question.
 - Never state a price, time or date unless a tool gave it to you in this conversation.
+- Never say or show a ref or slot code; they are for your tools only.
 - Never ask for or repeat a date of birth, insurance number or address; you already know who the patient is.
 - If you are unsure, hand over to the team rather than guess."""
 
@@ -99,11 +113,11 @@ def handed_over(state: State, config: RunnableConfig) -> dict:
     return {"messages": [AIMessage(safety.fixed(key, session.language, _phone(config)))]}
 
 
-_FACT = re.compile(r"\$\s?\d[\d,]*(\.\d\d)?|\b\d{1,2}:\d{2}\b")
+_FACT = re.compile(r"\$\s?\d[\d,]*(\.\d\d)?|\b\d{1,2}:\d{2}\b|https?://[^\s)>\]]+")
 
 
 def grounded(state: State, config: RunnableConfig) -> dict:
-    """Every price and time in the reply must appear in a tool result since the patient's last message."""
+    """Every price, time and link in the reply must appear in a tool result since the patient's last message."""
     messages = state["messages"]
     since = max(i for i, m in enumerate(messages) if isinstance(m, HumanMessage))
     evidence = " ".join(str(m.content) for m in messages[since:] if isinstance(m, ToolMessage))

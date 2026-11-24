@@ -97,3 +97,10 @@ def test_an_invented_price_or_time_is_not_sent(db):
     assert "$79" not in out["messages"][-1].content
     assert out["messages"][-1].content == fixed("handover", "en", "(617) 555-0130")
     assert db[0][0] == "request_handover", "the fixed text says the team has it, so it must"
+
+
+def test_an_invented_payment_link_is_not_sent(db):
+    model = ScriptedModel(AIMessage("Here is your secure payment link: https://securepaymentlink.com/v-77"))
+    _, _, out = run(model, "Can I pay my bill?")
+    assert "http" not in out["messages"][-1].content      # only a link a tool returned may reach the patient
+    assert out["messages"][-1].content == fixed("handover", "en", "(617) 555-0130")
