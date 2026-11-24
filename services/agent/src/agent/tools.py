@@ -4,7 +4,7 @@ from the verified session in the run configuration (blueprint section 31). Booki
 the patient's own confirmation button (LangGraph interrupt)."""
 
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import httpx
@@ -100,6 +100,25 @@ def _named(s: Session, clinic_code: str, service_code: str) -> tuple[str, str, s
     return loc[0]["id"], svc[0]["id"], loc[0]["time_zone"], loc[0].get("name", clinic_code), svc[0].get("name", service_code)
 
 
+def _slot_ref(ts: str, tz: str) -> str:
+    """A slot as the model sees it: the clinic's own date and clock time, the same digits it reads to the patient."""
+    return datetime.fromisoformat(ts).astimezone(ZoneInfo(tz)).strftime("%Y-%m-%dT%H:%M")
+
+
+def _free_slot(s: Session, loc: str, svc: str, tz: str, slot: str) -> tuple[str, str]:
+    """The free slot the model means. Whatever it passes, only a time the clinic really has free can be booked: the
+    reference is matched against the free times for that day, never trusted as written."""
+    try:
+        wanted = datetime.fromisoformat(slot.split("|")[0].strip()[:16])
+    except ValueError:
+        raise ToolRefused("that is not a time from find_slots; call find_slots and use one of its slots") from None
+    day = (wanted.date() - timedelta(days=1)).isoformat()   # a day either side covers the clinic's time zone
+    for x in _rpc(s, "available_slots", loc=loc, service=svc, from_day=day, days=3) or []:
+        if _slot_ref(x["starts_at"], tz) == wanted.strftime("%Y-%m-%dT%H:%M"):
+            return x["starts_at"], x["practitioner_id"]
+    raise ToolRefused("that time is not free; call find_slots again and offer one of its times")
+
+
 def _card(s: Session, action: str, detail: str) -> dict:
     """What the app's confirmation card shows: in the patient's language, from the reviewed texts, never generated."""
     from .safety import fixed
@@ -116,7 +135,7 @@ def find_slots(clinic_code: str, service_code: str, day: str, config: RunnableCo
     loc, svc, tz, _, service = _named(s, clinic_code, service_code)
     date.fromisoformat(day)
     slots = _rpc(s, "available_slots", loc=loc, service=svc, from_day=day, days=3) or []
-    lines = [f"{_local(x['starts_at'], tz)} (slot {x['starts_at']}|{x['practitioner_id']})" for x in slots[:12]]
+    lines = [f"{_local(x['starts_at'], tz)} (slot {_slot_ref(x['starts_at'], tz)})" for x in slots[:12]]
     return f"{service}, free times:\n" + "\n".join(lines) if lines else "No free times on those days."
 
 
@@ -125,7 +144,7 @@ def book_visit(clinic_code: str, service_code: str, slot: str, config: RunnableC
     """Book a visit in a slot from find_slots. The patient is asked to confirm with a button before anything is booked."""
     s = _session(config)
     loc, svc, tz, clinic, service = _named(s, clinic_code, service_code)
-    starts, practitioner = slot.split("|")
+    starts, practitioner = _free_slot(s, loc, svc, tz, slot)
     answer = interrupt(_card(s, "book", f"{service} · {_local(starts, tz)} · Northgate Dental, {clinic}"))
     if not answer:
         return "The patient chose not to book."
