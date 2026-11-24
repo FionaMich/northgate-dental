@@ -42,7 +42,7 @@ def test_no_session_means_no_token(client, monkeypatch):
         async def __aexit__(self, *a): pass
         async def get(self, *a, **k): return Res()
     monkeypatch.setattr(api.httpx, "AsyncClient", Db)
-    assert client.post("/assistant/stream-token", headers={"Authorization": "Bearer bad"}).status_code == 401
+    assert client.post("/assistant/call", headers={"Authorization": "Bearer bad"}).status_code == 401
 
 
 def test_a_signed_in_patient_gets_a_token_for_their_own_id(client, monkeypatch):
@@ -56,9 +56,14 @@ def test_a_signed_in_patient_gets_a_token_for_their_own_id(client, monkeypatch):
         async def get(self, path, **k):
             return Res({"id": "user-1"}) if path == "/auth/v1/user" else Res([{"patient_id": "p1", "patients": None}])
     monkeypatch.setattr(api.httpx, "AsyncClient", Db)
-    body = client.post("/assistant/stream-token", headers={"Authorization": "Bearer good"}).json()
-    assert body["api_key"] == "key" and body["user_id"] == "user-1"
+    body = client.post("/assistant/call", headers={"Authorization": "Bearer good"}).json()
+    assert body["api_key"] == "key" and body["user_id"] == "user-1" and body["call_type"] == "nora_voice"
     assert _claims(body["token"])["user_id"] == "user-1"
+    assert "user-1" not in body["call_id"] and "p1" not in body["call_id"], "call IDs are random, never an identity"
+    assert api.calls[body["call_id"]][0].user_id == "user-1", "the agent can find the patient behind the call"
+    second = client.post("/assistant/call", headers={"Authorization": "Bearer good"}).json()
+    assert second["call_id"] != body["call_id"]
+    assert body["call_id"] not in api.calls and second["call_id"] in api.calls, "one live call per patient"
 
 
 def test_without_stream_keys_the_endpoint_says_calls_are_unavailable(client, monkeypatch):
@@ -74,4 +79,4 @@ def test_without_stream_keys_the_endpoint_says_calls_are_unavailable(client, mon
         async def get(self, path, **k):
             return Res({"id": "user-1"}) if path == "/auth/v1/user" else Res([{"patient_id": "p1", "patients": None}])
     monkeypatch.setattr(api.httpx, "AsyncClient", Db)
-    assert client.post("/assistant/stream-token", headers={"Authorization": "Bearer good"}).status_code == 503
+    assert client.post("/assistant/call", headers={"Authorization": "Bearer good"}).status_code == 503

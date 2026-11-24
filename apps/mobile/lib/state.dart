@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'data/account_repository.dart';
 import 'data/assistant_repository.dart';
+import 'data/call_repository.dart';
 import 'data/care_repository.dart';
 import 'data/shop_repository.dart';
 import 'data/voice_engine.dart';
@@ -157,3 +158,9 @@ final assistantRepositoryProvider = Provider<AssistantRepository>(
 
 /// The phone's speech recogniser and voice for the Nora voice screen (tests: a fake).
 final voiceEngineProvider = Provider<VoiceEngine>((ref) => DeviceVoiceEngine());
+
+/// Voice calls with Nora through Stream (main.dart: the real SDK; tests: a fake). Absent on the server means the
+/// voice screen on the phone takes over.
+final callRepositoryProvider = Provider<CallRepository>(
+  (ref) => throw UnimplementedError('override in main or tests'),
+);

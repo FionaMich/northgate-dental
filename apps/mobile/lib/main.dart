@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'app.dart';
 import 'data/account_repository.dart';
 import 'data/assistant_repository.dart';
+import 'data/call_repository.dart';
 import 'data/care_repository.dart';
 import 'data/shop_repository.dart';
 import 'data/secure_session_storage.dart';
@@ -40,6 +41,9 @@ Future<void> main() async {
         ),
         assistantRepositoryProvider.overrideWithValue(
           HttpAssistantRepository(Supabase.instance.client.auth),
+        ),
+        callRepositoryProvider.overrideWithValue(
+          StreamCallRepository(Supabase.instance.client.auth),
         ),
       ],
       child: const NorthgateApp(),

@@ -5,6 +5,7 @@ import 'package:dental/data/account_repository.dart';
 import 'package:dental/data/care_repository.dart';
 import 'package:dental/data/shop_repository.dart';
 import 'package:dental/data/assistant_repository.dart';
+import 'package:dental/data/call_repository.dart';
 import 'package:dental/data/aligner_reminders.dart';
 import 'package:dental/data/wear_log.dart';
 import 'package:dental/data/voice_engine.dart';
@@ -614,5 +615,50 @@ class FakeVoiceEngine implements VoiceEngine {
   @override
   Future<void> stopSpeaking() async {
     if (_talking?.isCompleted == false) _talking!.complete();
+  }
+}
+
+/// A Nora call the test drives by adding events; records what the patient did.
+class FakeNoraCall implements NoraCall {
+  // Synchronous, so a test sees the screen change right after adding an event.
+  final controller = StreamController<NoraCallEvent>.broadcast(sync: true);
+  final answers = <bool>[];
+  bool joined = false;
+  bool left = false;
+  bool muted = false;
+
+  @override
+  Stream<NoraCallEvent> get events => controller.stream;
+
+  @override
+  Future<void> join() async => joined = true;
+
+  @override
+  Future<void> setMuted(bool value) async => muted = value;
+
+  @override
+  Future<void> answer(bool accept) async => answers.add(accept);
+
+  @override
+  Future<void> leave() async {
+    left = true;
+    await controller.close();
+  }
+}
+
+/// Offers a call (or not, like a server without Stream keys) and hands out one fake call per start.
+class FakeCallRepository implements CallRepository {
+  FakeCallRepository({this.available = true});
+  final bool available;
+  final calls = <FakeNoraCall>[];
+  final languages = <String>[];
+
+  @override
+  Future<NoraCall> start(String language) async {
+    if (!available) throw const CallsUnavailable();
+    languages.add(language);
+    final call = FakeNoraCall();
+    calls.add(call);
+    return call;
   }
 }

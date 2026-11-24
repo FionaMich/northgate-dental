@@ -6,6 +6,8 @@ import 'package:material_ui/material_ui.dart';
 import '../data/assistant_repository.dart';
 import '../design/tokens.dart';
 import '../state.dart';
+import '../data/call_repository.dart';
+import 'nora_call_screen.dart';
 import 'voice_screen.dart';
 
 /// Chat with Northgate's virtual receptionist, in the patient's language. It always opens by saying it is an AI;
@@ -34,6 +36,30 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> {
   String _language = 'en';
   bool _waiting = false;
   Map<String, dynamic>? _confirm;
+
+  bool _startingCall = false;
+
+  /// A call with Nora when the server offers one; otherwise the phone's own voice screen.
+  Future<void> _openVoice() async {
+    if (_startingCall) return; // a second tap while the server answers must not start a second call
+    setState(() => _startingCall = true);
+    final navigator = Navigator.of(context);
+    NoraCall? call;
+    try {
+      call = await ref.read(callRepositoryProvider).start(_language);
+    } on Exception {
+      call = null; // CallsUnavailable, or no network: the phone's voice still works
+    }
+    if (!mounted) return;
+    setState(() => _startingCall = false);
+    await navigator.push(
+      MaterialPageRoute(
+        builder: (_) => call == null
+            ? VoiceScreen(language: _language)
+            : NoraCallScreen(call: call, language: _language),
+      ),
+    );
+  }
 
   static const _starters = {
     'Book a cleaning': Icons.event_available_rounded,
@@ -220,11 +246,7 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> {
             key: const Key('open-voice'),
             tooltip: 'Talk to Nora',
             icon: const Icon(Icons.graphic_eq_rounded),
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => VoiceScreen(language: _language),
-              ),
-            ),
+            onPressed: _startingCall ? null : _openVoice,
           ),
           TextButton.icon(
             key: const Key('pick-language'),

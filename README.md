@@ -354,9 +354,9 @@ A small shop inside the patient app for the products our dentists and hygienists
 
 A virtual receptionist in the patient app, benchmarked on OralSync's "Lisa" (the leading AI receptionist for Dutch dental practices), without the phone line. It books, moves and cancels visits, answers questions about the clinics, payments and the shop, and hands anything else to the team with a written summary.
 
-| Chat | Confirm a booking |
-| --- | --- |
-| ![Assistant](.github/readme/assistant.png) | ![Confirm](.github/readme/assistant-confirm.png) |
+| Chat | Confirm a booking | Voice call | Confirm by button, never by voice |
+| --- | --- | --- | --- |
+| ![Assistant](.github/readme/assistant.png) | ![Confirm](.github/readme/assistant-confirm.png) | ![Voice call with Nora](.github/readme/nora-call.png) | ![A booking proposed in a call waits for the button](.github/readme/nora-call-confirm.png) |
 
 **How a message is handled** (`services/agent/src/agent/graph.py`):
 
@@ -399,6 +399,8 @@ flowchart TD
 **Languages:** English, French, Dutch, German, Spanish, Italian, Lithuanian and Swedish (Fiona's choice, 23 November 2026). Every non-English safety text is marked draft until a native speaker reviews it, as health messaging requires.
 
 **Model:** `model_for(role)` picks the model from one setting. The demo runs Gemma 4 on Ollama, so nothing leaves our own machines. On a CPU a reply takes 30 to 60 seconds, so the app says so while it waits; Amazon Bedrock is one setting away if speed matters more than keeping everything in-house.
+
+**Voice calls with Nora (in progress):** the voice button in the chat now starts a Stream Video call. Our server checks the patient's session and signs a one-hour call token for a random call ID, the phone joins with the Stream SDK under the fixed name "Patient", and Nora will join from our server, where she listens, thinks and speaks. The call screen shows her portrait, live captions of both sides ("You said" and Nora's words) and the same Confirm buttons as the chat: saying "yes" books nothing, only the button does. If the server has no call service or Nora does not pick up within 25 seconds, the phone's own voice screen takes over. We record nothing; the call type is set with recording and transcription off before the first call, and a check script will prove it. Next: the server-side agent (local speech models, the same LangGraph brain).
 
 **Tracing:** LangSmith records each conversation's steps, tool calls, timings and outcomes, with inputs and outputs hidden: what the patient wrote never leaves the service.
 
@@ -660,14 +662,16 @@ The pictures were generated for the fictional practice (no stock licence to trac
 
 **What was built:**
 - the campaign email redesign: hero picture, offer card, three reasons, gold accent for December; two campaigns (spring whitening, December treat) sent to the staging inbox through Resend;
-- `POST /assistant/stream-token` is the address (the earlier `/stream/token` name was not proxied by Nginx);
+- `POST /assistant/call` is the address (the earlier `/stream/token` name was not proxied by Nginx);
 - a public `marketing` bucket in Supabase Storage for campaign pictures (migration `20261124000100_marketing_assets.sql`), created on staging and holding both pictures;
-- `POST /assistant/stream-token` in the assistant service: a one-hour Stream Video token for the signed-in patient, signed on the server with the standard library (no SDK), refused without a valid session or when Stream is not configured;
-- two decisions recorded: LangSmith tracing with inputs and outputs hidden (ADR 0014) and Stream as the call transport with Nora's brain unchanged (ADR 0015).
+- `POST /assistant/call` in the assistant service: a one-hour Stream Video token for the signed-in patient, signed on the server with the standard library (no SDK), refused without a valid session or when Stream is not configured;
+- two decisions recorded: LangSmith tracing with inputs and outputs hidden (ADR 0014) and Stream as the call transport with Nora's brain unchanged (ADR 0015);
+- later the same day: the Nora call screen in the app (`stream_video_flutter` 1.8), the voice button that tries a call first and falls back to the phone's own voice, and `POST /assistant/call` issuing a random call ID with the session kept for the agent; the README's app images regenerated from the current screens.
 
 **How it was proved:**
 - worker: 24 tests, including that a campaign button never points at the bare site root and that a picture address cannot carry a per-recipient tracker;
-- assistant: 37 tests, including a token that names only the user ID and dies after an hour, and no token without a session;
+- assistant: 37 tests, including a token that names only the user ID and dies after an hour, no token without a session, and one live call per patient;
+- app: 91 tests, five of them on the call screen (captions of both sides, a booking by voice still waits for the button, mute and end reach the call, no call service opens the phone voice, no pick-up offers the phone voice);
 - both campaign emails delivered and read back from the inbox, pictures loading from the public bucket.
 
 **Commands:**

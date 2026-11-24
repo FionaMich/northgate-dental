@@ -161,13 +161,20 @@ void main() {
     },
   );
 
-  testWidgets('the Nora card on Home is a button of its own for screen readers', (tester) async {
-    await pumpApp(tester, FakeAccountRepository(patients: [elena]));
-    await signIn(tester);
-    final card = tester.getSemantics(find.byKey(const Key('open-assistant')));
-    expect(card.label, startsWith('Ask Nora'), reason: 'not merged into the visit card above it');
-    expect(card.getSemanticsData().flagsCollection.isButton, isTrue);
-  });
+  testWidgets(
+    'the Nora card on Home is a button of its own for screen readers',
+    (tester) async {
+      await pumpApp(tester, FakeAccountRepository(patients: [elena]));
+      await signIn(tester);
+      final card = tester.getSemantics(find.byKey(const Key('open-assistant')));
+      expect(
+        card.label,
+        startsWith('Ask Nora'),
+        reason: 'not merged into the visit card above it',
+      );
+      expect(card.getSemanticsData().flagsCollection.isButton, isTrue);
+    },
+  );
 
   testWidgets('the message field has a name a screen reader can read', (
     tester,

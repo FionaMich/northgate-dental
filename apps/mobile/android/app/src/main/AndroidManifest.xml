@@ -5,6 +5,9 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <!-- Talking to Nora: the microphone, asked for only when the patient taps the mic on the voice screen. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+    <!-- Voice calls with Nora through Stream (ADR 0015): audio routing and network state; no camera, the call is voice only; no Bluetooth permission, so a headset is speaker or wired only. -->
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <application
         android:label="Northgate Dental"
         android:name="${applicationName}"
