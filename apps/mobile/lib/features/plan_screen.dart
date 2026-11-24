@@ -1,4 +1,4 @@
-import 'package:material_ui/material_ui.dart';
+import 'package:dental/ui.dart';
 
 import '../data/care_repository.dart';
 import '../design/art.dart';

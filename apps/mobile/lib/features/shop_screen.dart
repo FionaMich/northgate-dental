@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:material_ui/material_ui.dart';
+import 'package:dental/ui.dart';
 
 import '../data/shop_repository.dart';
 import '../design/format.dart';
@@ -753,7 +753,7 @@ class _Stepper extends StatelessWidget {
     child: Row(
       children: [
         IconButton(
-          tooltip: 'Fewer',
+          tooltip: tr('Fewer'),
           onPressed: onChanged == null || value <= 1
               ? null
               : () => onChanged!(value - 1),
@@ -768,7 +768,7 @@ class _Stepper extends StatelessWidget {
           ),
         ),
         IconButton(
-          tooltip: 'More',
+          tooltip: tr('More'),
           onPressed: onChanged == null || value >= 10
               ? null
               : () => onChanged!(value + 1),

@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:material_ui/material_ui.dart';
+import 'package:dental/ui.dart';
 
 import 'package:url_launcher/url_launcher.dart';
 
@@ -357,7 +357,7 @@ class _RoundButton extends StatelessWidget {
     return Semantics(
       button: true,
       enabled: enabled,
-      label: label,
+      label: tr(label),
       child: GestureDetector(
         onTap: enabled ? onTap : null,
         child: AnimatedContainer(

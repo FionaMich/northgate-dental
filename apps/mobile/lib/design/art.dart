@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 
-import 'package:material_ui/material_ui.dart';
+import 'package:dental/ui.dart';
 
 import 'tokens.dart';
 
@@ -225,7 +225,7 @@ class Lockup extends StatelessWidget {
     final strong = onDark ? Colors.white : Palette.deepSea;
     final soft = onDark ? const Color(0xFF8FE3C8) : Palette.teal;
     return Semantics(
-      label: 'Northgate Dental',
+      label: tr('Northgate Dental'),
       child: ExcludeSemantics(
         child: MediaQuery.withNoTextScaling(
           // the lockup is artwork: it keeps its proportions at any text size, and shrinks if space is short

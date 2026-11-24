@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:material_ui/material_ui.dart';
+import 'package:dental/ui.dart';
 
 import '../data/aftercare.dart';
 import '../data/care_repository.dart';
@@ -115,7 +115,9 @@ class _Header extends ConsumerWidget {
                     for (final p in people)
                       _PersonChip(
                         key: Key('person-${p.id}'),
-                        label: p.isSelf ? '${p.firstName} (you)' : p.firstName,
+                        label: p.isSelf
+                            ? '${p.firstName} ${tr('(you)')}'
+                            : p.firstName,
                         selected: p.id == current?.id,
                         onTap: () => ref
                             .read(selectedPatientProvider.notifier)
@@ -304,7 +306,12 @@ Future<void> confirmCancelVisit(
             ),
             const SizedBox(height: 8),
             Text(
-              '${a.service}, ${weekday(a.startsAt)} ${dayMonth(a.startsAt)} at ${clock(a.startsAt)}. The time goes back to other patients.',
+              trf('{}, {} {} at {}. The time goes back to other patients.', [
+                tr(a.service),
+                weekday(a.startsAt),
+                dayMonth(a.startsAt),
+                clock(a.startsAt),
+              ]),
               textAlign: TextAlign.center,
               style: const TextStyle(
                 fontSize: 15,
@@ -447,7 +454,11 @@ class _NextVisit extends ConsumerWidget {
                   ),
                   const SizedBox(height: 3),
                   Text(
-                    '${clock(appointment.startsAt)} to ${clock(appointment.endsAt)} · ${appointment.location}',
+                    trf('{} to {} · {}', [
+                      clock(appointment.startsAt),
+                      clock(appointment.endsAt),
+                      appointment.location,
+                    ]),
                     style: const TextStyle(fontSize: 14, color: Palette.muted),
                   ),
                   Text(
@@ -861,7 +872,7 @@ class _OurServices extends ConsumerWidget {
 
               return Semantics(
                 button: true,
-                label: label,
+                label: tr(label),
                 excludeSemantics: true,
                 child: Pressable(
                   onTap: open,

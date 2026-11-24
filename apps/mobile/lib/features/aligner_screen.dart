@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:material_ui/material_ui.dart';
+import 'package:dental/ui.dart';
 
 import '../data/account_repository.dart';
 import '../data/aligner_reminders.dart';
@@ -98,7 +98,7 @@ class _AlignerScreenState extends ConsumerState<AlignerScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     IconButton(
-                      tooltip: 'Back',
+                      tooltip: tr('Back'),
                       color: Colors.white,
                       onPressed: () => Navigator.of(context).maybePop(),
                       icon: const Icon(Icons.arrow_back_rounded),
@@ -117,7 +117,7 @@ class _AlignerScreenState extends ConsumerState<AlignerScreen> {
                     ),
                     Center(
                       child: Semantics(
-                        label: '${hoursMinutes(today)} of 22 hours today',
+                        label: tr('${hoursMinutes(today)} of 22 hours today'),
                         child: SizedBox.square(
                           dimension: 220,
                           child: CustomPaint(
@@ -311,7 +311,7 @@ class _Week extends StatelessWidget {
                   );
                   final met = worn >= WearLog.goal;
                   return Semantics(
-                    label: '${weekday(d)}: ${hoursMinutes(worn)}',
+                    label: tr('${weekday(d)}: ${hoursMinutes(worn)}'),
                     child: ExcludeSemantics(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.end,

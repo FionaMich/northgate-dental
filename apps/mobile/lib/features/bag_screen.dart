@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:material_ui/material_ui.dart';
+import 'package:dental/ui.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../data/shop_repository.dart';
@@ -288,7 +288,9 @@ class _BagRow extends ConsumerWidget {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             IconButton(
-                              tooltip: line.quantity == 1 ? 'Remove' : 'Fewer',
+                              tooltip: tr(
+                                line.quantity == 1 ? 'Remove' : 'Fewer',
+                              ),
                               visualDensity: VisualDensity.compact,
                               iconSize: 20,
                               onPressed: () =>
@@ -306,7 +308,7 @@ class _BagRow extends ConsumerWidget {
                               ),
                             ),
                             IconButton(
-                              tooltip: 'More',
+                              tooltip: tr('More'),
                               visualDensity: VisualDensity.compact,
                               iconSize: 20,
                               onPressed: line.quantity >= 10

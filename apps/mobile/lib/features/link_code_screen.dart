@@ -1,6 +1,6 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:material_ui/material_ui.dart';
+import 'package:dental/ui.dart';
 
 import '../data/account_repository.dart';
 import '../design/tokens.dart';
@@ -186,8 +186,8 @@ class _LinkCodeScreenState extends ConsumerState<LinkCodeScreen> {
                           textCapitalization: TextCapitalization.words,
                           autofillHints: const [AutofillHints.givenName],
                           textInputAction: TextInputAction.next,
-                          decoration: const InputDecoration(
-                            labelText: 'First name',
+                          decoration: InputDecoration(
+                            labelText: tr('First name'),
                           ),
                         ),
                         const SizedBox(height: 14),
@@ -197,8 +197,8 @@ class _LinkCodeScreenState extends ConsumerState<LinkCodeScreen> {
                           textCapitalization: TextCapitalization.words,
                           autofillHints: const [AutofillHints.familyName],
                           textInputAction: TextInputAction.next,
-                          decoration: const InputDecoration(
-                            labelText: 'Last name',
+                          decoration: InputDecoration(
+                            labelText: tr('Last name'),
                           ),
                         ),
                         const SizedBox(height: 14),
@@ -217,8 +217,8 @@ class _LinkCodeScreenState extends ConsumerState<LinkCodeScreen> {
                         ),
                         onSubmitted: (_) =>
                             _newPatient ? _register() : _linkWithBirthDate(),
-                        decoration: const InputDecoration(
-                          labelText: 'Date of birth',
+                        decoration: InputDecoration(
+                          labelText: tr('Date of birth'),
                           hintText: 'MM/DD/YYYY',
                         ),
                       ),

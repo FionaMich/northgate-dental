@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:material_ui/material_ui.dart';
+import 'package:dental/ui.dart';
 
 import '../data/account_repository.dart';
 import '../design/tokens.dart';
@@ -88,7 +88,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                         keyboardType: TextInputType.emailAddress,
                         autofillHints: const [AutofillHints.email],
                         textInputAction: TextInputAction.next,
-                        decoration: const InputDecoration(labelText: 'Email'),
+                        decoration: InputDecoration(labelText: tr('Email')),
                       ),
                       const SizedBox(height: 14),
                       TextField(
@@ -97,9 +97,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                         obscureText: true,
                         autofillHints: const [AutofillHints.password],
                         onSubmitted: (_) => _submit(),
-                        decoration: const InputDecoration(
-                          labelText: 'Password',
-                        ),
+                        decoration: InputDecoration(labelText: tr('Password')),
                       ),
                       Align(
                         alignment: Alignment.centerRight,

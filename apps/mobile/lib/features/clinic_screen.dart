@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:material_ui/material_ui.dart';
+import 'package:dental/ui.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
@@ -105,7 +105,7 @@ class ClinicScreen extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         IconButton(
-                          tooltip: 'Back',
+                          tooltip: tr('Back'),
                           color: Colors.white,
                           onPressed: () => Navigator.of(context).maybePop(),
                           icon: const Icon(Icons.arrow_back_rounded),
@@ -331,7 +331,7 @@ class _HoursRow extends StatelessWidget {
       children: [
         Expanded(
           child: Text(
-            today ? '$day (today)' : day,
+            today ? '${tr(day)} ${tr('(today)')}' : day,
             style: TextStyle(
               fontSize: 15,
               fontWeight: today ? FontWeight.w700 : FontWeight.w500,

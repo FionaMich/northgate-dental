@@ -1,5 +1,5 @@
 import 'package:flutter/services.dart';
-import 'package:material_ui/material_ui.dart';
+import 'package:dental/ui.dart';
 
 import 'art.dart';
 import 'motion.dart';
@@ -205,7 +205,7 @@ class AuthLayout extends StatelessWidget {
                       right: 12,
                       top: 10 + MediaQuery.paddingOf(context).top,
                       child: IconButton.filledTonal(
-                        tooltip: 'Back',
+                        tooltip: tr('Back'),
                         style: IconButton.styleFrom(
                           backgroundColor: Colors.white.withValues(alpha: 0.14),
                           foregroundColor: Colors.white,

@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:material_ui/material_ui.dart';
+import 'package:dental/ui.dart';
 
 import '../data/care_repository.dart';
 import '../design/format.dart';
@@ -187,7 +187,11 @@ class _VisitCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '${dayMonth(a.startsAt)}, ${clock(a.startsAt)} to ${clock(a.endsAt)}',
+                        trf('{}, {} to {}', [
+                          dayMonth(a.startsAt),
+                          clock(a.startsAt),
+                          clock(a.endsAt),
+                        ]),
                         style: const TextStyle(
                           fontSize: 13.5,
                           color: Palette.muted,
@@ -256,8 +260,8 @@ class _VisitCard extends StatelessWidget {
                             ),
                             TextSpan(
                               text: payment?.paid == true
-                                  ? '  paid'
-                                  : '  to pay',
+                                  ? '  ${tr('paid')}'
+                                  : '  ${tr('to pay')}',
                               style: const TextStyle(
                                 fontSize: 13,
                                 color: Palette.muted,

@@ -1,4 +1,4 @@
-import 'package:material_ui/material_ui.dart';
+import 'package:dental/ui.dart';
 
 /// Direction D (approved 2026-11-19): the blueprint's tooth mark, teal palette, bundled fonts.
 abstract final class Palette {

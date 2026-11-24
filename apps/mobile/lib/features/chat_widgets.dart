@@ -1,4 +1,4 @@
-import 'package:material_ui/material_ui.dart';
+import 'package:dental/ui.dart';
 
 import '../design/tokens.dart';
 
@@ -100,11 +100,11 @@ class ChatBubble extends StatelessWidget {
                     color: delivery == Delivery.read
                         ? _readBlue
                         : Palette.muted,
-                    semanticLabel: switch (delivery!) {
+                    semanticLabel: tr(switch (delivery!) {
                       Delivery.sent => 'Sent',
                       Delivery.delivered => 'Delivered',
                       Delivery.read => 'Read',
-                    },
+                    }),
                   ),
                 ],
               ],
@@ -165,7 +165,7 @@ class _ChatTypingState extends State<ChatTyping>
 
   @override
   Widget build(BuildContext context) => Semantics(
-    label: '${widget.who} is typing',
+    label: tr('${widget.who} is typing'),
     liveRegion: true,
     child: Align(
       alignment: AlignmentDirectional.centerStart,
@@ -243,7 +243,7 @@ class ChatComposer extends StatelessWidget {
                 borderRadius: BorderRadius.circular(24),
               ),
               child: Semantics(
-                label: label, // the hint alone is not read as the field's name by every screen reader
+                label: tr(label), // the hint alone is not read as the field's name by every screen reader
                 child: TextField(
                   key: const Key('assistant-input'),
                   controller: controller,
@@ -254,7 +254,7 @@ class ChatComposer extends StatelessWidget {
                   textInputAction: TextInputAction.send,
                   onSubmitted: (_) => onSend(),
                   decoration: InputDecoration(
-                    hintText: hint,
+                    hintText: tr(hint),
                     counterText: '',
                     border: InputBorder.none,
                     enabledBorder: InputBorder.none,
@@ -274,7 +274,7 @@ class ChatComposer extends StatelessWidget {
               onPressed: canSend ? onSend : null,
               style: IconButton.styleFrom(backgroundColor: Palette.teal),
               icon: const Icon(Icons.send_rounded, size: 21),
-              tooltip: 'Send',
+              tooltip: tr('Send'),
             ),
           ),
         ],

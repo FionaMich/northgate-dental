@@ -1,4 +1,4 @@
-import 'package:material_ui/material_ui.dart';
+import 'package:dental/ui.dart';
 
 import '../data/aftercare.dart';
 import '../data/care_repository.dart';
@@ -40,7 +40,7 @@ class AftercareScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     IconButton(
-                      tooltip: 'Back',
+                      tooltip: tr('Back'),
                       color: Colors.white,
                       onPressed: () => Navigator.of(context).maybePop(),
                       icon: const Icon(Icons.arrow_back_rounded),
@@ -61,7 +61,12 @@ class AftercareScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            '${visitTitle(visit.kind)} on ${weekday(visit.at)} ${dayMonth(visit.at)} at ${visit.location}',
+                            trf('{} on {} {} at {}', [
+                              tr(visitTitle(visit.kind)),
+                              weekday(visit.at),
+                              dayMonth(visit.at),
+                              visit.location,
+                            ]),
                             style: const TextStyle(
                               fontSize: 15,
                               color: Color(0xFFCDEFE7),

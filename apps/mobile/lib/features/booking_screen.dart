@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:material_ui/material_ui.dart';
+import 'package:dental/ui.dart';
 
 import '../data/account_repository.dart';
 import '../data/care_repository.dart';
@@ -201,8 +201,8 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                         key: const Key('service-search'),
                         onChanged: (v) =>
                             setState(() => _search = v.trim().toLowerCase()),
-                        decoration: const InputDecoration(
-                          labelText: 'Search services',
+                        decoration: InputDecoration(
+                          labelText: tr('Search services'),
                           prefixIcon: Icon(Icons.search_rounded),
                         ),
                       ),
@@ -379,7 +379,10 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                             ),
                           ),
                           Text(
-                            '${clock(_slot!.startsAt)} to ${clock(_slot!.endsAt)}',
+                            trf('{} to {}', [
+                              clock(_slot!.startsAt),
+                              clock(_slot!.endsAt),
+                            ]),
                             style: const TextStyle(
                               fontSize: 17,
                               fontWeight: FontWeight.w700,
@@ -431,7 +434,7 @@ class _Header extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             IconButton(
-              tooltip: 'Back',
+              tooltip: tr('Back'),
               color: Colors.white,
               onPressed: () => Navigator.of(context).maybePop(),
               icon: const Icon(Icons.arrow_back_rounded),
@@ -610,7 +613,7 @@ class _Choice extends StatelessWidget {
                               borderRadius: BorderRadius.circular(999),
                             ),
                             child: Text(
-                              '$minutes min',
+                              '$minutes ${tr('min')}',
                               style: const TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w700,
@@ -666,7 +669,8 @@ class _DayTile extends StatelessWidget {
   Widget build(BuildContext context) => Semantics(
     button: true,
     selected: selected,
-    label: '${weekday(day)} ${dayMonth(day)}, $count times',
+    label:
+        '${weekday(day)} ${dayMonth(day)}, ${tr(count == 1 ? '1 time' : '$count times')}',
     child: Pressable(
       onTap: onTap,
       child: InkWell(
@@ -911,7 +915,13 @@ class _HoldSheetState extends ConsumerState<_HoldSheet> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      '${widget.service.name} at ${widget.clinic.name}, ${weekday(s.startsAt)} ${dayMonth(s.startsAt)} at ${clock(s.startsAt)}.',
+                      trf('{} at {}, {} {} at {}.', [
+                        tr(widget.service.name),
+                        widget.clinic.name,
+                        weekday(s.startsAt),
+                        dayMonth(s.startsAt),
+                        clock(s.startsAt),
+                      ]),
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         fontSize: 15,
@@ -1135,7 +1145,7 @@ class _DentistChoice extends StatelessWidget {
               ),
               if (onInfo != null)
                 IconButton(
-                  tooltip: 'About $title',
+                  tooltip: tr('About $title'),
                   onPressed: onInfo,
                   icon: const Icon(
                     Icons.info_outline_rounded,

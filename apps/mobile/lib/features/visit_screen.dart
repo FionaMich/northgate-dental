@@ -2,7 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:material_ui/material_ui.dart';
+import 'package:dental/ui.dart';
 import 'package:pdfx/pdfx.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -104,7 +104,7 @@ class VisitScreen extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     IconButton(
-                      tooltip: 'Back',
+                      tooltip: tr('Back'),
                       color: Colors.white,
                       onPressed: () => Navigator.of(context).maybePop(),
                       icon: const Icon(Icons.arrow_back_rounded),
@@ -275,7 +275,12 @@ class VisitScreen extends ConsumerWidget {
                               ),
                             ),
                             subtitle: Text(
-                              'Tooth ${f.tooth}${f.surface == null ? '' : ', ${surfaceLabel(f.surface!)}'}',
+                              trf('Tooth {}{}', [
+                                f.tooth,
+                                f.surface == null
+                                    ? ''
+                                    : ', ${surfaceLabel(f.surface!)}',
+                              ]),
                             ),
                           ),
                       ],
@@ -531,7 +536,7 @@ class _ImageViewer extends ConsumerWidget {
       ),
       actions: [
         IconButton(
-          tooltip: 'Download',
+          tooltip: tr('Download'),
           icon: const Icon(Icons.download_rounded),
           onPressed: () => ref.read(documentOpenerProvider)(url),
         ),
@@ -578,7 +583,7 @@ class _PdfScreenState extends ConsumerState<_PdfScreen> {
       ),
       actions: [
         IconButton(
-          tooltip: 'Download',
+          tooltip: tr('Download'),
           icon: const Icon(Icons.download_rounded),
           onPressed: () => ref.read(documentOpenerProvider)(widget.url),
         ),
