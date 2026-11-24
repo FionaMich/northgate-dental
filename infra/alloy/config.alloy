@@ -1,0 +1,21 @@
+// Grafana Alloy: reads the assistant's numbers on the private network and sends them to Grafana Cloud (ADR 0017).
+// Only metrics leave the VM: counts, timings and token totals with fixed labels. No logs, no traces, no patient data.
+
+prometheus.scrape "assistant" {
+  targets         = [{"__address__" = "assistant:8100", "service" = "assistant"}]
+  scrape_interval = "30s"
+  forward_to      = [prometheus.remote_write.grafana_cloud.receiver]
+}
+
+prometheus.remote_write "grafana_cloud" {
+  external_labels = {product = "northgate-dental", environment = "staging"}
+
+  endpoint {
+    url = sys.env("GRAFANA_PROM_URL")
+
+    basic_auth {
+      username = sys.env("GRAFANA_PROM_USER")
+      password = sys.env("GRAFANA_PROM_TOKEN")
+    }
+  }
+}

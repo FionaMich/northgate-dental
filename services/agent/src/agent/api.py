@@ -12,12 +12,13 @@ from dataclasses import dataclass, field, replace
 from typing import Literal
 
 import httpx
-from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException, Response
 from langchain_core.messages import AIMessage, HumanMessage
 from langgraph.types import Command
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from pydantic import BaseModel, Field
 
-from . import graph, safety, stream
+from . import graph, metrics, safety, stream
 from .tools import Session
 
 if os.environ.get("LANGSMITH_API_KEY"):
@@ -127,11 +128,25 @@ def _config(w: Who, thread: str) -> dict:
     return {"configurable": {"thread_id": f"{w.user_id}:{thread}", "session": w.session, "clinic_phone": w.clinic_phone}}
 
 
+def _run(channel: str, w: Who, what, thread: str) -> Reply:
+    """One turn through the graph, timed and counted (metrics.py)."""
+    started = time.monotonic()
+    out = assistant.invoke(what, _config(w, thread))
+    metrics.record(channel, w.session.language, time.monotonic() - started, out)
+    return _reply(out)
+
+
 def _reply(out: dict) -> Reply:
     if out.get("__interrupt__"):
         return Reply(confirm=out["__interrupt__"][0].value)
     last = next((m for m in reversed(out["messages"]) if isinstance(m, AIMessage) and m.content), None)
     return Reply(reply=str(last.content) if last else None)
+
+
+@app.get("/metrics", include_in_schema=False)
+def prometheus() -> Response:
+    """For the collector on the private network. Not under /assistant/, so Nginx never publishes it."""
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
 @app.get("/assistant/health")
@@ -147,12 +162,12 @@ def hello(language: Language = "en") -> dict:
 
 @app.post("/assistant/chat", response_model=Reply)
 def chat(body: ChatIn, w: Who = Depends(who)) -> Reply:
-    return _reply(assistant.invoke({"messages": [HumanMessage(body.message)]}, _config(w, body.thread)))
+    return _run("chat", w, {"messages": [HumanMessage(body.message)]}, body.thread)
 
 
 @app.post("/assistant/confirm", response_model=Reply)
 def confirm(body: ConfirmIn, w: Who = Depends(who)) -> Reply:
-    return _reply(assistant.invoke(Command(resume=body.accept), _config(w, body.thread)))
+    return _run("chat", w, Command(resume=body.accept), body.thread)
 
 
 @app.post("/assistant/call", response_model=CallTicket)  # under /assistant/, the prefix Nginx proxies
@@ -173,6 +188,7 @@ def start_call(w: Who = Depends(who)) -> CallTicket:
         raise HTTPException(503, "calls are not available")
     call_id = secrets.token_urlsafe(12)
     calls[call_id] = CallCtx(who=w, started=now)
+    metrics.CALLS.labels(w.session.language).inc()
     return CallTicket(api_key=key, token=stream.user_token(w.user_id, secret), user_id=w.user_id, call_id=call_id)
 
 
@@ -202,7 +218,7 @@ def call_turn(call_id: str, body: TurnIn) -> Reply:
     """What the patient said on the call, as text, through the same graph as the chat (gate first). The identity is
     the session kept for the call, never anything the voice service sends."""
     ctx = _call(call_id)
-    return _reply(assistant.invoke({"messages": [HumanMessage(body.message)]}, _config(ctx.who, f"call-{call_id}")))
+    return _run("call", ctx.who, {"messages": [HumanMessage(body.message)]}, f"call-{call_id}")
 
 
 @app.post("/assistant/call/{call_id}/confirm", response_model=Reply)
@@ -214,7 +230,7 @@ def call_confirm(call_id: str, body: ConfirmIn, w: Who = Depends(who)) -> Reply:
         raise HTTPException(403, "not your call")
     # the call's language: the button's request carries none. Everything else is this request's verified session.
     w = replace(w, session=replace(w.session, language=ctx.who.session.language))
-    reply = _reply(assistant.invoke(Command(resume=body.accept), _config(w, f"call-{call_id}")))
+    reply = _run("call", w, Command(resume=body.accept), f"call-{call_id}")
     ctx.to_say.append(_spoken(reply))
     return reply
 

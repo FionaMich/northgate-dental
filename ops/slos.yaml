@@ -1,0 +1,13 @@
+# Service level objectives (AGENTS 14.4). Each is measured from the assistant's own metrics in Grafana Cloud.
+assistant:
+  answer_time:
+    objective: 95 per cent of turns answered within 30 seconds, over 28 days
+    measure: histogram_quantile(0.95, sum by (le) (rate(nora_turn_seconds_bucket[28d])))
+    note: The demo server runs the model on a CPU; the target is for that hardware and tightens with a faster model.
+  availability:
+    objective: the assistant is up 99.5 per cent of the time, over 28 days
+    measure: avg_over_time(up{service="assistant"}[28d])
+  handover_rate:
+    objective: watched, not targeted; a sudden rise means the assistant stopped being useful
+    measure: sum(rate(nora_turns_total{outcome="handover"}[1d])) / sum(rate(nora_turns_total[1d]))
+dashboard: https://hopefulwardrobe467.grafana.net/d/northgate-nora

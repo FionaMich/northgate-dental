@@ -398,15 +398,17 @@ flowchart TD
 
 **Languages:** English, French, Dutch, German, Spanish, Italian, Lithuanian and Swedish (Fiona's choice, 23 November 2026). Every non-English safety text is marked draft until a native speaker reviews it, as health messaging requires.
 
-**Model:** `model_for(role)` picks the model from one setting. The demo runs Gemma 4 on Ollama, so nothing leaves our own machines. On a CPU a reply takes 30 to 60 seconds, so the app says so while it waits; Amazon Bedrock is one setting away if speed matters more than keeping everything in-house.
+**Model:** `model_for(role)` picks the model from one setting. The demo runs Gemma 4 on Ollama, so nothing leaves our own machines. On a CPU a reply takes 7 to 40 seconds, shown as a typing indicator; Amazon Bedrock is one setting away if speed matters more than keeping everything in-house.
 
 **Voice calls with Nora:** the voice button in the chat starts a Stream Video call. Our server checks the patient's session and signs a one-hour call token for a random call ID, the phone joins with the Stream SDK under the fixed name "Patient", and Nora joins from our voice service, where she listens, thinks with the same LangGraph assistant as the chat, and speaks. The call screen shows her portrait, live captions of both sides and the same Confirm buttons as the chat: saying "yes" books nothing, only the button does. A payment link is never read aloud; it arrives as a "Pay securely" button. Nora takes strict turns: she keeps the caller's audio until a second of quiet, transcribes the whole question once, and does not listen while she thinks or speaks, so noise can never cut her answer short. We record nothing; the call type has recording and transcription switched off.
 
 Three calls, one per language, each solving four requests in one conversation: opening hours, paying a bill, booking a cleaning (confirmed with the button) and a handover to the team. Select a picture to play the video.
 
-| English (81 s) | French (93 s) | German (97 s) |
+| English (85 s) | French (98 s) | German (102 s) |
 | :-: | :-: | :-: |
 | [![Voice call with Nora in English](.github/readme/videos/nora-call-en.jpg)](https://github.com/FionaMich/northgate-dental/releases/download/demo-2026-11-24/nora-call-en.mp4) | [![Voice call with Nora in French](.github/readme/videos/nora-call-fr.jpg)](https://github.com/FionaMich/northgate-dental/releases/download/demo-2026-11-24/nora-call-fr.mp4) | [![Voice call with Nora in German](.github/readme/videos/nora-call-de.jpg)](https://github.com/FionaMich/northgate-dental/releases/download/demo-2026-11-24/nora-call-de.mp4) |
+
+After the booking is confirmed, each video shows the confirmation email the notification worker sends for that visit (the same template and details; the image is a render of it).
 
 How the videos were made, so nothing in them is taken for more than it is: each is one real call on a phone against the staging server, and every answer, tool call, booking and payment link is the assistant's own. The patient ("Michelle") is a generated voice played from a laptop. For these recordings her words were given to the assistant as text from the script, so the videos show the conversation, the tools and the voice, not speech recognition; recognition was checked separately in English, where a live take transcribed her question word for word. The waiting between turns (7 to 40 seconds on a CPU-only server) is cut, Nora's voice is the audio our voice service sent to the phone, and both voices are levelled to the same loudness.
 
@@ -433,6 +435,7 @@ One codebase for Android now and iOS later, with full control over every pixel. 
 - **pdfx** renders documents with Android's own PDF renderer, so patients read their files without downloading them.
 - **flutter_local_notifications** schedules visit reminders and aligner alerts on the device. The reminder text is generic ("Dental visit tomorrow at 09:30"), because a lock screen is not private.
 - **Fonts are bundled**, never fetched from a font service at runtime, so the app makes no third-party requests that could reveal who is using it.
+- **Eight languages, the whole app:** English, French, Dutch, German, Spanish, Italian, Lithuanian and Swedish. The screens stay written in English; the app's own `Text` widget looks each string up on the way to the screen, so no screen carries translation code and a missing translation falls back to English, never to a blank. 571 strings per language, with tests that every language has the same strings and placeholders. The language follows the phone, can be changed in Profile, and Nora starts in it. Clinic data (service and product names) stays as the clinic wrote it.
 - **Online-first:** Boston patients have reliable connectivity. Only the session and the aligner log live on the phone, and both are encrypted and wiped on sign-out.
 
 </details>
@@ -553,6 +556,28 @@ Losing the VM, or even the Oracle account, must never mean losing data.
 <summary><b>Test data generator (Python, uv)</b></summary>
 
 About 3,000 dental patients with visits, tooth charts, findings and treatment plans, plus named test personas. It also plants **canary records**: unmistakable fake values that must never appear in a log, trace or message. `scripts/canary-scan.sh` fails if one does.
+
+</details>
+
+<details>
+<summary><b>Monitoring: Prometheus metrics, Grafana Alloy and a Grafana Cloud dashboard</b></summary>
+
+The assistant counts what it does and Grafana shows it, so "is Nora working, how fast, and what does a conversation cost?" has a measured answer.
+
+| Metric | What it answers |
+| --- | --- |
+| `nora_turns_total` by channel, language and outcome | How many turns, and how they ended: answered, a confirm card, a handover, an emergency |
+| `nora_turn_seconds` | How long a patient waits (p50 and p95, chat and call) |
+| `nora_tool_calls_total` by tool | Which jobs patients bring: hours, booking, paying, the shop |
+| `nora_model_tokens_total` by direction | Token use, the basis for cost per 100 conversations |
+| `nora_grounding_blocks_total` | How often the safety check refused a price, time or link no tool returned |
+| `nora_second_looks_total` | How often a reply that used no tool needed a second look, and whether it then called one |
+| `nora_calls_started_total` | Voice calls by language |
+
+- **Nothing about a patient can leave in a metric.** Every label is one of a few fixed words. A test puts a canary name in a message and proves it never reaches the metrics page.
+- **The page is private.** `/metrics` is outside the `/assistant/` prefix, so Nginx never publishes it; Grafana Alloy reads it on the Docker network and writes to Grafana Cloud's hosted Prometheus.
+- **Objectives are written down** in `ops/slos.yaml`: 95 per cent of turns answered within 30 seconds on the demo's CPU-only server, and 99.5 per cent availability.
+- **One dashboard** ("Northgate Dental: Nora, the receptionist assistant"): turns by outcome, time to answer, handover rate, safety refusals, tool calls, tokens per turn, languages and calls.
 
 </details>
 
