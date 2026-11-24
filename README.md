@@ -400,7 +400,15 @@ flowchart TD
 
 **Model:** `model_for(role)` picks the model from one setting. The demo runs Gemma 4 on Ollama, so nothing leaves our own machines. On a CPU a reply takes 30 to 60 seconds, so the app says so while it waits; Amazon Bedrock is one setting away if speed matters more than keeping everything in-house.
 
-**Voice calls with Nora (in progress):** the voice button in the chat now starts a Stream Video call. Our server checks the patient's session and signs a one-hour call token for a random call ID, the phone joins with the Stream SDK under the fixed name "Patient", and Nora will join from our server, where she listens, thinks and speaks. The call screen shows her portrait, live captions of both sides ("You said" and Nora's words) and the same Confirm buttons as the chat: saying "yes" books nothing, only the button does. If the server has no call service or Nora does not pick up within 25 seconds, the phone's own voice screen takes over. We record nothing; the call type is set with recording and transcription off before the first call, and a check script will prove it. Next: the server-side agent (local speech models, the same LangGraph brain).
+**Voice calls with Nora:** the voice button in the chat starts a Stream Video call. Our server checks the patient's session and signs a one-hour call token for a random call ID, the phone joins with the Stream SDK under the fixed name "Patient", and Nora joins from our voice service, where she listens, thinks with the same LangGraph assistant as the chat, and speaks. The call screen shows her portrait, live captions of both sides and the same Confirm buttons as the chat: saying "yes" books nothing, only the button does. A payment link is never read aloud; it arrives as a "Pay securely" button. Nora takes strict turns: she keeps the caller's audio until a second of quiet, transcribes the whole question once, and does not listen while she thinks or speaks, so noise can never cut her answer short. We record nothing; the call type has recording and transcription switched off.
+
+Three calls, one per language, each solving four requests in one conversation: opening hours, paying a bill, booking a cleaning (confirmed with the button) and a handover to the team. Select a picture to play the video.
+
+| English (81 s) | French (93 s) | German (97 s) |
+| :-: | :-: | :-: |
+| [![Voice call with Nora in English](.github/readme/videos/nora-call-en.jpg)](https://github.com/FionaMich/northgate-dental/releases/download/demo-2026-11-24/nora-call-en.mp4) | [![Voice call with Nora in French](.github/readme/videos/nora-call-fr.jpg)](https://github.com/FionaMich/northgate-dental/releases/download/demo-2026-11-24/nora-call-fr.mp4) | [![Voice call with Nora in German](.github/readme/videos/nora-call-de.jpg)](https://github.com/FionaMich/northgate-dental/releases/download/demo-2026-11-24/nora-call-de.mp4) |
+
+How the videos were made, so nothing in them is taken for more than it is: each is one real call on a phone against the staging server, and every answer, tool call, booking and payment link is the assistant's own. The patient ("Michelle") is a generated voice played from a laptop. For these recordings her words were given to the assistant as text from the script, so the videos show the conversation, the tools and the voice, not speech recognition; recognition was checked separately in English, where a live take transcribed her question word for word. The waiting between turns (7 to 40 seconds on a CPU-only server) is cut, Nora's voice is the audio our voice service sent to the phone, and both voices are levelled to the same loudness.
 
 **Tracing:** LangSmith records each conversation's steps, tool calls, timings and outcomes, with inputs and outputs hidden: what the patient wrote never leaves the service.
 
@@ -656,6 +664,34 @@ The pictures were generated for the fictional practice (no stock licence to trac
 </details>
 
 ## Deployments
+
+<details>
+<summary><b>24 November 2026 (night): voice calls that take turns, a messenger-style chat, and call videos in three languages</b></summary>
+
+**What was built:**
+- the voice service: Nora hears the whole question once after a second of quiet, is never interrupted, and silence is filtered before the speech model (it had been 40 seconds behind and writing words nobody said);
+- the assistant: a tool-first playbook per job, the day and "next week" worked out from today's date, one second look when a reply uses no tool, and tool choice that works the same in French and German as in English;
+- booking: the time Nora offers is matched on the server against the clinic's free times, so a mangled reference can never reach the confirm card;
+- payments on a call: "pay my bill" opens the next unpaid visit in one step, the link arrives as a button, and a link no tool returned is refused by the safety check;
+- the chat with Nora: messenger look with times, delivery ticks, a typing indicator and a rounded message bar;
+- the call screen: any sign of Nora marks the call live, so a late pick-up no longer leaves "cannot take calls" on screen; the Confirm button is answered in the call's language.
+
+**Evidence:** the three call videos above (English, French, German), and these merged pull requests with their tests: #105 to #112.
+
+**Commands, in order:**
+
+```bash
+# the assistant on the server, after each merge
+infra/scripts/ssh-vm.sh deploy 'cd /opt/northgate && git pull --ff-only && cd infra && docker compose --profile assistant up -d --build assistant'
+# the voice service (run on a laptop for the recordings)
+cd services/voice && set -a && . ./.env && set +a && uv run python -m voice.agent
+# the app on the phone
+cd apps/mobile && flutter build apk --release --dart-define-from-file=staging.env && adb install -r build/app/outputs/flutter-apk/app-release.apk
+```
+
+**Still to do:** run the voice service on the server (today it runs on a laptop), record the other five languages, and translate the app's own labels ("You said", "Nora is listening", the card details).
+
+</details>
 
 <details>
 <summary><b>24 November 2026: campaign emails with pictures, Stream call tokens, the LangSmith and Stream decisions</b></summary>
