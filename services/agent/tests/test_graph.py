@@ -69,7 +69,7 @@ def test_a_clinical_question_is_handed_over_with_the_fixed_text(db):
 
 def test_booking_waits_for_the_patients_button(db):
     model = ScriptedModel(
-        call("book_visit", clinic_code="quincy", service_code="D1110", slot="2026-11-27T15:00:00+00:00|dr-1"),
+        call("book_visit", clinic_code="quincy", service_code="D1110", slot="2026-11-27T10:00"),
         AIMessage("You're booked."),
     )
     app, config, out = run(model, "Reserva la limpieza de las 10:00", language="es")
@@ -79,18 +79,30 @@ def test_booking_waits_for_the_patients_button(db):
     assert "Adult cleaning" in card["detail"] and "Northgate Dental, Quincy" in card["detail"]
     assert not any(n == "hold_slot" for n, _ in db)
     app.invoke(Command(resume=True), config)
-    assert [n for n, _ in db] == ["hold_slot", "confirm_booking"]
-    assert db[0][1]["patient"] == "patient-1", "the patient comes from the session, never from the model"
+    writes = [(n, p) for n, p in db if n != "available_slots"]   # the free times are read again to match the slot
+    assert [n for n, _ in writes] == ["hold_slot", "confirm_booking"]
+    assert writes[0][1]["patient"] == "patient-1", "the patient comes from the session, never from the model"
+    assert writes[0][1]["starts"] == "2026-11-27T15:00:00+00:00", "the clinic's own slot, found from the time offered"
 
 
 def test_declining_the_button_books_nothing(db):
     model = ScriptedModel(
-        call("book_visit", clinic_code="quincy", service_code="D1110", slot="2026-11-27T15:00:00+00:00|dr-1"),
+        call("book_visit", clinic_code="quincy", service_code="D1110", slot="2026-11-27T10:00"),
         AIMessage("No problem."),
     )
     app, config, _ = run(model, "Book it")
     app.invoke(Command(resume=False), config)
-    assert db == []
+    assert [n for n, _ in db if n != "available_slots"] == [], "nothing is written when the patient declines"
+
+
+def test_a_time_the_clinic_does_not_have_free_cannot_be_booked(db):
+    model = ScriptedModel(
+        call("book_visit", clinic_code="quincy", service_code="D1110", slot="2026-11-27T03:00"),
+        AIMessage("Let me look again."),
+    )
+    _, _, out = run(model, "Book it")
+    assert "__interrupt__" not in out, "no confirm card for a time that is not free"
+    assert not any(n == "hold_slot" for n, _ in db)
 
 
 def test_an_invented_price_or_time_is_not_sent(db):
