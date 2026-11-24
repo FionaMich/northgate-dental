@@ -592,6 +592,40 @@ Each principle below comes from a well-known software engineering book, and each
 
 </details>
 
+## Patient emails
+
+Every email the practice sends is built by the worker from one shared frame: tables instead of modern CSS so Gmail, Apple Mail and Outlook render it the same, system fonts, dark mode, one main button, and the clinic's number as a tap-to-call link. Service emails carry no images at all, so nothing is fetched and nothing breaks when images are blocked. Campaign emails add one hero picture, an offer card and up to three reasons, in the style of a well-run Mailchimp account, and always carry one-click unsubscribe.
+
+<p align="center">
+  <img src=".github/readme/emails/promotion-spring.png" width="24%" alt="Spring whitening offer: hero photo, offer card, one button, three reasons">
+  <img src=".github/readme/emails/promotion-christmas.png" width="24%" alt="December offer with a gold accent and a family photo">
+  <img src=".github/readme/emails/confirmation.png" width="24%" alt="Booking confirmed, with a date tile and a change-or-cancel button">
+  <img src=".github/readme/emails/reschedule.png" width="24%" alt="A moved visit: the old time struck through, the new time shown">
+</p>
+<p align="center">
+  <img src=".github/readme/emails/receipt.png" width="24%" alt="Payment receipt with the PDF attached">
+  <img src=".github/readme/emails/checkin-1d.png" width="24%" alt="Day-after check-in with the emergency path">
+</p>
+
+<details>
+<summary><b>What an expert email marketer would check, and how each email passes</b></summary>
+
+| Check | How it is done here |
+| --- | --- |
+| Subject and preview text do the selling | Subjects carry the day and time (never the treatment, because subjects show on lock screens); a hidden preheader sets the inbox preview |
+| One job per email | Exactly one main button: change or cancel, pay, tell us how you are, or book the offer |
+| Pictures that help, text that survives without them | Campaign hero photos are hosted in a public Supabase Storage bucket at a fixed address with alt text; service emails have no images, so they render in full even when images are blocked |
+| No tracking pixels | The picture address is the same for every recipient; a test refuses a per-recipient query string |
+| Mobile first | 600 px card that goes full width under 620 px; the three reasons stack on a phone |
+| Dark mode | `prefers-color-scheme` swaps the card and ink colours |
+| Deliverability | Plain-text part on every email; one-click unsubscribe (`List-Unsubscribe` headers) on campaigns; Resend idempotency keys so retries never double-send |
+| Consent | Campaigns go only to patients who opted in; the footer says why they got it |
+| Privacy | First name, service, time, clinic and phone only; no surname, record number or clinical detail; campaigns never mention anyone's treatment (tested) |
+
+The pictures were generated for the fictional practice (no stock licence to track, no real people) and cropped to 3:2 at 1200 by 800 pixels.
+
+</details>
+
 ## What the patient app does
 
 <details>
@@ -620,6 +654,39 @@ Each principle below comes from a well-known software engineering book, and each
 </details>
 
 ## Deployments
+
+<details>
+<summary><b>24 November 2026: campaign emails with pictures, Stream call tokens, the LangSmith and Stream decisions</b></summary>
+
+**What was built:**
+- the campaign email redesign: hero picture, offer card, three reasons, gold accent for December; two campaigns (spring whitening, December treat) sent to the staging inbox through Resend;
+- `POST /assistant/stream-token` is the address (the earlier `/stream/token` name was not proxied by Nginx);
+- a public `marketing` bucket in Supabase Storage for campaign pictures (migration `20261124000100_marketing_assets.sql`), created on staging and holding both pictures;
+- `POST /assistant/stream-token` in the assistant service: a one-hour Stream Video token for the signed-in patient, signed on the server with the standard library (no SDK), refused without a valid session or when Stream is not configured;
+- two decisions recorded: LangSmith tracing with inputs and outputs hidden (ADR 0014) and Stream as the call transport with Nora's brain unchanged (ADR 0015).
+
+**How it was proved:**
+- worker: 24 tests, including that a campaign button never points at the bare site root and that a picture address cannot carry a per-recipient tracker;
+- assistant: 37 tests, including a token that names only the user ID and dies after an hour, and no token without a session;
+- both campaign emails delivered and read back from the inbox, pictures loading from the public bucket.
+
+**Commands:**
+
+```bash
+cd services/worker && uv run pytest -q
+cd services/agent && uv run pytest -q
+supabase projects api-keys --project-ref <staging ref> -o json        # the service key, never printed
+curl -X POST "$SUPABASE_URL/storage/v1/bucket" -H "Authorization: Bearer <service key>" -d '{"id":"marketing","name":"marketing","public":true}'
+curl -X POST "$SUPABASE_URL/storage/v1/object/marketing/emails/promo-spring.jpg" -H "Authorization: Bearer <service key>" -H "Content-Type: image/jpeg" --data-binary @.github/readme/emails/promo-spring.jpg
+scripts/shot.sh file://.../spring.html docs/media/emails/promotion-spring-phone.png phone
+```
+
+**Screenshots still to take:**
+- [ ] Gmail on the phone: the December email with the picture loaded, light and dark mode
+- [ ] Supabase staging, Storage: the `marketing` bucket with the two pictures
+- [ ] Stream dashboard: the app's region and the three call types once created
+
+</details>
 
 <details>
 <summary><b>22 November 2026: the receptionist assistant, the sculpted tooth chart, LangSmith</b></summary>

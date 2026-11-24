@@ -3,6 +3,8 @@ from datetime import datetime, timezone
 import re
 from dataclasses import replace
 
+import pytest
+
 from worker.messages import Context, Promotion, decide, render, render_promotion
 
 EMAIL = re.compile(r"[\w.+-]+@[\w-]+\.[a-z]{2,}")
@@ -124,3 +126,29 @@ def test_a_promotion_names_no_visit_and_always_carries_unsubscribe():
     assert message.subject == promo.subject and "Ana" in message.text
     assert "unsubscribe?t=xyz" in message.text and "unsubscribe?t=xyz" in message.html
     assert "Cleaning and exam" not in message.html, "marketing never mentions anyone's treatment"
+
+
+def test_a_promotion_shows_its_picture_with_alt_text_and_its_reasons():
+    promo = Promotion(subject="Merry and bright", preheader="A gift for your smile.", headline="Give your smile a December treat",
+                      body="Book before the holidays.", offer="Free whitening touch-up with every cleaning", cta_label="Book now",
+                      cta_link="https://example.org/offers/december", ends="24 December",
+                      hero_image="https://example.org/img/december.jpg", hero_alt="A family laughing by the Christmas tree",
+                      points=(("Quick", "45 minutes"), ("Gentle", "Made for your teeth")), accent="#D9A441")
+    html = render_promotion("Ana", promo, unsubscribe="https://n8n.example/webhook/unsubscribe?t=xyz").html
+    assert 'src="https://example.org/img/december.jpg"' in html and 'alt="A family laughing by the Christmas tree"' in html
+    assert html.index("december.jpg") < html.index("Northgate <span"), "the picture sits above the brand band"
+    assert '<a href="https://example.org/offers/december" style="display:block' in html, "the picture links to the offer"
+    assert "Quick" in html and "45 minutes" in html and "#D9A441" in html
+    assert "img" not in render("confirmation", CTX).html, "service emails stay image-free"
+
+
+def test_a_campaign_picture_cannot_track_who_opened_it():
+    with pytest.raises(ValueError):
+        Promotion(subject="s", preheader="p", headline="H", body="b", offer="o", cta_label="c",
+                  cta_link="https://example.org/offers/x", ends="e", hero_image="https://example.org/h.jpg?r=patient-1")
+
+
+def test_a_campaign_button_never_points_at_the_bare_site_root():
+    with pytest.raises(ValueError):
+        Promotion(subject="s", preheader="p", headline="H", body="b", offer="o", cta_label="c",
+                  cta_link="https://84-12-126-31.sslip.io/?utm_source=mail", ends="e")

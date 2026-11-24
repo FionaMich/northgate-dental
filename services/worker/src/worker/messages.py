@@ -2,9 +2,11 @@
 and at most one link: a single-use token that names nobody (cancel, check-in or pay).
 No surname, no clinical detail, no record number (Meta and email providers sign no BAA)."""
 
+import re
 from dataclasses import dataclass
 from datetime import datetime
 from html import escape
+from urllib.parse import urlparse
 from zoneinfo import ZoneInfo
 
 
@@ -30,7 +32,10 @@ class Message:
 
 @dataclass(frozen=True)
 class Promotion:
-    """A marketing email: the same for every recipient except the first name. Never about anyone's treatment."""
+    """A marketing email: the same for every recipient except the first name. Never about anyone's treatment.
+
+    The hero image is a static picture we host (a stock-style photograph, no text in it, no tracking pixel); email
+    clients that block images show `hero_alt` instead. `points` are up to three short reasons under the offer."""
     subject: str
     preheader: str
     headline: str
@@ -39,6 +44,25 @@ class Promotion:
     cta_label: str
     cta_link: str
     ends: str
+    hero_image: str | None = None
+    hero_alt: str = ""
+    points: tuple[tuple[str, str], ...] = ()
+    eyebrow: str = "For you"
+    accent: str = "#1FBFA2"     # the eyebrow and offer border; the Christmas edition uses gold
+
+    def __post_init__(self) -> None:
+        # A campaign button must land somewhere specific, never a bare site root (Fiona, 2026-11-24).
+        cta = urlparse(self.cta_link)
+        if cta.scheme != "https" or not cta.netloc or cta.path in ("", "/"):
+            raise ValueError("cta_link must be an https page, not the site root")
+        if len(self.points) > 3:
+            raise ValueError("at most three points")
+        # shortcut: refuses a query string only; a per-recipient path would pass. Upgrade to a fixed allow-listed
+        # bucket address when W22 builds campaigns.
+        if self.hero_image and (urlparse(self.hero_image).query or urlparse(self.hero_image).fragment):
+            raise ValueError("hero_image is the same address for everyone: no query string, so no tracking pixel")
+        if not re.fullmatch(r"#[0-9A-Fa-f]{6}", self.accent):
+            raise ValueError("accent is a six-digit hex colour")
 
 
 def decide(event: dict) -> str | None:
@@ -158,21 +182,37 @@ def render(kind: str, ctx: Context) -> Message:
 
 
 def render_promotion(first_name: str, promo: Promotion, unsubscribe: str) -> Message:
-    """A campaign email (only to patients who opted in to offers). Same frame as the service emails, plus unsubscribe."""
+    """A campaign email (only to patients who opted in to offers). Same frame as the service emails, plus a hero
+    image, an offer card, up to three reasons and one-click unsubscribe."""
     e = escape
     text = (f"Hello {first_name},\n\n{promo.headline}\n\n{promo.body}\n\n{promo.offer}, until {promo.ends}.\n\n"
-            f"{promo.cta_label}: {promo.cta_link}\n\nNorthgate Dental\n\nYou get offers because you said yes to them. "
-            f"Unsubscribe: {unsubscribe}\n")
+            + "".join(f"{t}: {d}\n" for t, d in promo.points) + f"\n{promo.cta_label}: {promo.cta_link}\n\n"
+            f"Northgate Dental\n\nYou get offers because you said yes to them. Unsubscribe: {unsubscribe}\n")
+    # The picture is itself a link to the offer: Gmail then treats it as a link, not a loose image with a download button.
+    hero = (f'<tr><td><a href="{e(promo.cta_link)}" style="display:block;text-decoration:none">'
+            f'<img src="{e(promo.hero_image)}" alt="{e(promo.hero_alt)}" width="600" height="400" '
+            f'style="display:block;width:100%;height:auto;max-height:400px;object-fit:cover;border:0;background:#0B2B2A" />'
+            f'</a></td></tr>' if promo.hero_image else "")
+    points = ""
+    if promo.points:
+        cells = "".join(
+            f'<td class="pt" width="{100 // len(promo.points)}%" style="padding:0 10px 0 0;vertical-align:top">'
+            f'<p style="margin:0 0 6px;font-size:12px;font-weight:800;letter-spacing:0.6px;text-transform:uppercase;'
+            f'color:#137C6C">{e(t)}</p><p class="ink" style="margin:0;font-size:14px;line-height:21px;color:#0B2B2A">'
+            f'{e(d)}</p></td>' for t, d in promo.points)
+        points = (f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:30px;'
+                  f'border-top:1px solid #E3ECEA"><tr><td style="height:24px"></td></tr><tr>{cells}</tr></table>')
     body = (f'<p class="ink" style="margin:0 0 22px;font-size:16px;line-height:25px;color:#0B2B2A">{e(promo.body)}</p>'
             f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td style="padding:22px;'
-            f'border-radius:16px;background:#E8F6F2;border:1px dashed #1FBFA2">'
+            f'border-radius:16px;background:#E8F6F2;border:1px dashed {e(promo.accent)}">'
             f'<p style="margin:0;font-size:22px;line-height:28px;font-weight:800;color:#0B2B2A">{e(promo.offer)}</p>'
             f'<p style="margin:6px 0 0;font-size:14px;color:#3E5654">Until {e(promo.ends)}, at all three clinics.</p>'
-            f'</td></tr></table>' + _button(promo.cta_label, promo.cta_link))
+            f'</td></tr></table>' + _button(promo.cta_label, promo.cta_link) + points)
     footer = (f'You get offers because you said yes to them. <a href="{e(unsubscribe)}" style="color:#5B706E;'
               f'text-decoration:underline">Unsubscribe</a> in one click.')
-    return Message(promo.subject, text, _layout(promo.preheader, "For you", f"{first_name}, {promo.headline[0].lower()}"
-                                                f"{promo.headline[1:]}", body, None, None, footer))
+    headline = f"{first_name}, {promo.headline[0].lower()}{promo.headline[1:]}"
+    return Message(promo.subject, text, _layout(promo.preheader, promo.eyebrow, headline, body, None, None, footer,
+                                                hero=hero, accent=promo.accent))
 
 
 def _p(text: str, top: int = 0) -> str:
@@ -188,9 +228,10 @@ def _button(label: str, link: str) -> str:
 
 
 def _layout(preheader: str, eyebrow: str, headline: str, body: str, clinic: str | None, phone: str | None,
-            footer: str | None = None) -> str:
+            footer: str | None = None, hero: str = "", accent: str = "#1FBFA2") -> str:
     """The frame every patient email shares: inbox preview, brand band, card, help line, footer. Self-contained:
-    system fonts and no images, so nothing is fetched and nothing breaks when images are blocked."""
+    system fonts and, for service emails, no images, so nothing is fetched and nothing breaks when images are blocked.
+    Campaigns may add one hero image row (with alt text) above the band."""
     e = escape
     help_line = (f'Questions? Call {e(clinic)} on <a href="tel:{e(phone)}" style="color:#137C6C;font-weight:700;'
                  f'text-decoration:none">{e(phone_label(phone))}</a>' if phone else "")
@@ -199,7 +240,7 @@ def _layout(preheader: str, eyebrow: str, headline: str, body: str, clinic: str 
 <meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark">
 <meta name="supported-color-schemes" content="light dark"><title>{e(headline)}</title>
 <style>
-@media (max-width:620px){{.card{{width:100%!important;border-radius:0!important}}.px{{padding-left:24px!important;padding-right:24px!important}}h1{{font-size:26px!important;line-height:32px!important}}}}
+@media (max-width:620px){{.card{{width:100%!important;border-radius:0!important}}.px{{padding-left:24px!important;padding-right:24px!important}}h1{{font-size:26px!important;line-height:32px!important}}.pt{{display:block!important;width:100%!important;padding:0 0 18px!important}}}}
 @media (prefers-color-scheme:dark){{.bg{{background:#06201F!important}}.card{{background:#0E2F2D!important}}.ink{{color:#EAF4F2!important}}}}
 </style></head>
 <body style="margin:0;padding:0;background:#EEF3F2">
@@ -207,10 +248,10 @@ def _layout(preheader: str, eyebrow: str, headline: str, body: str, clinic: str 
 <table role="presentation" class="bg" width="100%" cellpadding="0" cellspacing="0" style="background:#EEF3F2;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
 <tr><td align="center" style="padding:32px 12px">
 <table role="presentation" class="card" width="600" cellpadding="0" cellspacing="0" style="width:600px;max-width:600px;background:#FFFFFF;border-radius:24px;overflow:hidden">
-<tr><td class="px" style="background:#0B2B2A;padding:30px 44px 34px">
-<p style="margin:0;font-size:19px;font-weight:800;color:#FFFFFF;letter-spacing:-0.2px">Northgate <span style="color:#1FBFA2">Dental</span></p>
+{hero}<tr><td class="px" style="background:#0B2B2A;padding:30px 44px 34px">
+<p style="margin:0;font-size:19px;font-weight:800;color:#FFFFFF;letter-spacing:-0.2px">Northgate <span style="color:{e(accent)}">Dental</span></p>
 <p style="margin:3px 0 30px;font-size:12px;color:#A9DCD1">Back Bay &middot; Cambridge &middot; Quincy</p>
-<p style="margin:0 0 8px;font-size:14px;font-weight:700;color:#1FBFA2">{e(eyebrow)}</p>
+<p style="margin:0 0 8px;font-size:14px;font-weight:700;color:{e(accent)}">{e(eyebrow)}</p>
 <h1 style="margin:0;font-size:30px;line-height:36px;font-weight:800;color:#FFFFFF;letter-spacing:-0.5px">{e(headline)}</h1>
 </td></tr>
 <tr><td class="px" style="padding:34px 44px 8px">{body}</td></tr>
