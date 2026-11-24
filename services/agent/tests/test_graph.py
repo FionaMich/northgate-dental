@@ -104,3 +104,17 @@ def test_an_invented_payment_link_is_not_sent(db):
     _, _, out = run(model, "Can I pay my bill?")
     assert "http" not in out["messages"][-1].content      # only a link a tool returned may reach the patient
     assert out["messages"][-1].content == fixed("handover", "en", "(617) 555-0130")
+
+
+def test_pay_my_bill_skips_a_paid_visit_and_opens_the_next_unpaid_one(monkeypatch):
+    from agent import tools
+    monkeypatch.setattr(tools, "_get", lambda s, path, **p: [{"id": "paid"}, {"id": "due"}])
+
+    def rpc(s, name, appointment):
+        if appointment == "paid":
+            raise tools.ToolRefused("this visit is already paid")
+        return "tok"
+
+    monkeypatch.setattr(tools, "_rpc", rpc)
+    session = tools.Session("u", "k", "j", "patient-1", "en", "https://x")
+    assert tools.pay_link.func(config={"configurable": {"session": session}}) == "https://x/pay?t=tok"

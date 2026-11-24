@@ -28,7 +28,7 @@ class State(MessagesState):
 
 
 PROMPT = """You are Nora, the virtual receptionist of Northgate Dental, a dental group in Boston with clinics at Back Bay
-(code back-bay), Cambridge (cambridge) and Quincy (quincy). Today is {today}; tomorrow is {tomorrow}.
+(code back-bay), Cambridge (cambridge) and Quincy (quincy). Today is {today}; tomorrow is {tomorrow}. This week ends on Sunday; next week starts on {next_monday}.
 Work out every date the patient means ("today", "tomorrow", "next Monday", "this weekend") from today's date yourself.
 Never ask the patient what the date is.
 
@@ -91,7 +91,8 @@ def assistant(state: State, config: RunnableConfig) -> dict:
     language = safety.texts().get(session.language, safety.texts()["en"])["name"]
     model = config["configurable"].get("model") or model_for("assistant")
     reply = model.bind_tools(tools.ALL).invoke(
-        [SystemMessage(PROMPT.format(today=_day(date.today()), tomorrow=_day(date.today() + timedelta(days=1)), language=language)), *state["messages"]])
+        [SystemMessage(PROMPT.format(today=_day(date.today()), tomorrow=_day(date.today() + timedelta(days=1)),
+                                      next_monday=_day(date.today() + timedelta(days=7 - date.today().weekday())), language=language)), *state["messages"]])
     return {"messages": [reply]}
 
 
