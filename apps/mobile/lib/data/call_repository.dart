@@ -66,6 +66,28 @@ class StreamCallRepository implements CallRepository {
   StreamCallRepository(this._auth);
   final GoTrueClient _auth;
 
+  /// The patient's Confirm or Not now for a call: a write, so it goes to our server with the verified session.
+  Future<void> _confirm(String callId, bool accept) async {
+    final http = HttpClient()..connectionTimeout = const Duration(seconds: 15);
+    try {
+      final request = await http.postUrl(
+        Uri.parse('$assistantBase/assistant/call/$callId/confirm'),
+      );
+      final token = _auth.currentSession?.accessToken;
+      if (token != null) {
+        request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $token');
+      }
+      request.headers.contentType = ContentType.json;
+      request.write(jsonEncode({'thread': 'call-$callId', 'accept': accept}));
+      final response = await request.close().timeout(
+        const Duration(seconds: 150),
+      );
+      await response.drain<void>();
+    } finally {
+      http.close();
+    }
+  }
+
   @override
   Future<NoraCall> start(String language) async {
     final http = HttpClient()..connectionTimeout = const Duration(seconds: 15);
@@ -85,7 +107,10 @@ class StreamCallRepository implements CallRepository {
       if (response.statusCode != 200) {
         throw const CallsUnavailable(); // 503 when the server has no call service; anything else is the same to the patient
       }
-      return _StreamNoraCall(jsonDecode(text) as Map<String, dynamic>);
+      return _StreamNoraCall(
+        jsonDecode(text) as Map<String, dynamic>,
+        _confirm,
+      );
     } on IOException {
       throw const CallsUnavailable();
     } finally {
@@ -95,8 +120,9 @@ class StreamCallRepository implements CallRepository {
 }
 
 class _StreamNoraCall implements NoraCall {
-  _StreamNoraCall(this._ticket);
+  _StreamNoraCall(this._ticket, this._confirm);
   final Map<String, dynamic> _ticket;
+  final Future<void> Function(String callId, bool accept) _confirm;
   final _events = StreamController<NoraCallEvent>.broadcast();
   sv.StreamVideo? _client;
   sv.Call? _call;
@@ -182,12 +208,8 @@ class _StreamNoraCall implements NoraCall {
   }
 
   @override
-  Future<void> answer(bool accept) async {
-    await _call?.sendCustomEvent(
-      eventType: 'patient',
-      custom: {'kind': 'confirm', 'accept': accept},
-    );
-  }
+  Future<void> answer(bool accept) =>
+      _confirm(_ticket['call_id'] as String, accept);
 
   @override
   Future<void> leave() async {

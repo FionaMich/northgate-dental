@@ -8,7 +8,7 @@ traces show nodes, tools, timings and outcomes, never what the patient wrote."""
 import os
 import secrets
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Literal
 
 import httpx
@@ -79,9 +79,43 @@ class CallTicket(BaseModel):
     call_id: str
 
 
-# Calls the app has started, so the Nora agent (next ticket) can find the patient's session for a call ID.
-# shortcut: one process in memory, upgrade to a Postgres table when a second agent container appears.
-calls: dict[str, tuple[Who, float]] = {}
+@dataclass
+class CallCtx:
+    """A call in progress: who is on it, when it started, whether the voice service has picked it up, and replies the
+    voice service still has to speak (the patient's Confirm answer arrives through the API, not through the call)."""
+    who: Who
+    started: float
+    claimed: bool = False
+    to_say: list[str] = field(default_factory=list)
+
+
+# Calls the app has started, so the voice service can find the patient's session for a call ID.
+# shortcut: one process in memory, upgrade to a Postgres table when a second assistant container appears.
+calls: dict[str, CallCtx] = {}
+
+# The voice service (services/voice) talks to this API with a shared key; it never holds a patient's token.
+INTERNAL_KEY = os.environ.get("ASSISTANT_INTERNAL_KEY", "")
+# Languages the voice service can speak (ElevenLabs' multilingual model: all eight); anything else uses the phone's voice.
+VOICE_LANGUAGES = set(os.environ.get("VOICE_LANGUAGES", "en,fr,nl,de,es,it,lt,sv").split(","))
+
+
+def internal(x_internal_key: str = Header(...)) -> None:
+    if not INTERNAL_KEY or x_internal_key != INTERNAL_KEY:
+        raise HTTPException(401, "internal key")
+
+
+def _call(call_id: str) -> CallCtx:
+    ctx = calls.get(call_id)
+    if ctx is None or time.time() - ctx.started > stream.TOKEN_TTL:
+        raise HTTPException(404, "no such call")
+    return ctx
+
+
+def _spoken(reply: "Reply") -> str:
+    """What Nora says aloud for a reply: the confirm card is read out, the button stays the only way to book."""
+    if reply.confirm:
+        return f"{reply.confirm.get('title', '')} {reply.confirm.get('detail', '')}".strip()
+    return reply.reply or ""
 
 
 class Reply(BaseModel):
@@ -126,13 +160,62 @@ def start_call(w: Who = Depends(who)) -> CallTicket:
     """A random call ID and a one-hour Stream Video token for the signed-in patient (ADR 0015). The Stream user is
     the Supabase user ID; the patient's session and language are kept here for the agent that joins the call."""
     conf = stream.settings()
-    if conf is None:
+    if conf is None or w.session.language not in VOICE_LANGUAGES:
         raise HTTPException(503, "calls are not available")
     key, secret = conf
     now = time.time()
     # One live call per patient, and nothing older than a token: the store cannot grow with repeated taps.
-    for old in [cid for cid, (owner, started) in calls.items() if owner.user_id == w.user_id or now - started > stream.TOKEN_TTL]:
+    for old in [cid for cid, c in calls.items() if c.who.user_id == w.user_id or now - c.started > stream.TOKEN_TTL]:
         calls.pop(old, None)
     call_id = secrets.token_urlsafe(12)
-    calls[call_id] = (w, now)
+    calls[call_id] = CallCtx(who=w, started=now)
     return CallTicket(api_key=key, token=stream.user_token(w.user_id, secret), user_id=w.user_id, call_id=call_id)
+
+
+class TurnIn(BaseModel):
+    message: str = Field(min_length=1, max_length=2000)
+
+
+class PendingCall(BaseModel):
+    call_id: str
+    call_type: str = "nora_voice"
+    language: str
+
+
+@app.get("/assistant/calls/pending", response_model=list[PendingCall], dependencies=[Depends(internal)])
+def pending_calls() -> list[PendingCall]:
+    """Calls nobody has joined yet; the voice service claims them and joins each one as Nora."""
+    out = []
+    for cid, ctx in calls.items():
+        if not ctx.claimed and time.time() - ctx.started < 120:
+            ctx.claimed = True
+            out.append(PendingCall(call_id=cid, language=ctx.who.session.language))
+    return out
+
+
+@app.post("/assistant/call/{call_id}/turn", response_model=Reply, dependencies=[Depends(internal)])
+def call_turn(call_id: str, body: TurnIn) -> Reply:
+    """What the patient said on the call, as text, through the same graph as the chat (gate first). The identity is
+    the session kept for the call, never anything the voice service sends."""
+    ctx = _call(call_id)
+    return _reply(assistant.invoke({"messages": [HumanMessage(body.message)]}, _config(ctx.who, f"call-{call_id}")))
+
+
+@app.post("/assistant/call/{call_id}/confirm", response_model=Reply)
+def call_confirm(call_id: str, body: ConfirmIn, w: Who = Depends(who)) -> Reply:
+    """The patient's Confirm or Not now on the call screen: the only write path in a call, with the verified session.
+    Nora then says the outcome: the voice service collects it from /say."""
+    ctx = _call(call_id)
+    if ctx.who.user_id != w.user_id:
+        raise HTTPException(403, "not your call")
+    reply = _reply(assistant.invoke(Command(resume=body.accept), _config(w, f"call-{call_id}")))
+    ctx.to_say.append(_spoken(reply))
+    return reply
+
+
+@app.get("/assistant/call/{call_id}/say", response_model=list[str], dependencies=[Depends(internal)])
+def call_say(call_id: str) -> list[str]:
+    """Replies waiting to be spoken (after a Confirm); each is handed out once."""
+    ctx = _call(call_id)
+    out, ctx.to_say = ctx.to_say, []
+    return out

@@ -137,6 +137,8 @@ services:
       LANGSMITH_HIDE_OUTPUTS: "true"
       STREAM_API_KEY: ${STREAM_API_KEY:-}          # Stream Video (ADR 0015); empty means calls are unavailable
       STREAM_API_SECRET: ${STREAM_API_SECRET:-}
+      ASSISTANT_INTERNAL_KEY: ${ASSISTANT_INTERNAL_KEY:-}  # shared with the voice service; empty means no voice service
+      VOICE_LANGUAGES: ${VOICE_LANGUAGES:-en,fr,nl,de,es,it,lt,sv}
     networks: [app]
     mem_limit: 512m
 
