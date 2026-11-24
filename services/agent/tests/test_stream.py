@@ -159,3 +159,17 @@ def test_registering_the_stream_user_sends_only_the_opaque_id_and_a_fixed_name()
     stream.register_user("user-uuid", "key", "s3cret", httpx.Client(transport=httpx.MockTransport(handler)))
     assert _claims(seen["auth"]) == {"server": True, "iat": _claims(seen["auth"])["iat"]}
     assert seen["body"] == b'{"users":{"user-uuid":{"id":"user-uuid","name":"Patient","role":"user"}}}'
+
+
+def test_the_confirm_on_a_call_is_answered_in_the_calls_language(client, monkeypatch):
+    signed_in(monkeypatch)
+    call_id = client.post("/assistant/call", headers={"Authorization": "Bearer good", "X-Language": "de"}).json()["call_id"]
+    seen = {}
+    class Graph:
+        def invoke(self, command, config):
+            seen["language"] = config["configurable"]["session"].language
+            return {"messages": [api.AIMessage("Gebucht.")]}
+    monkeypatch.setattr(api, "assistant", Graph())
+    client.post(f"/assistant/call/{call_id}/confirm", json={"thread": "call-xxxxxxxx", "accept": True},
+                headers={"Authorization": "Bearer good"})   # the button sends no language of its own
+    assert seen["language"] == "de"

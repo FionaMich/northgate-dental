@@ -8,7 +8,7 @@ traces show nodes, tools, timings and outcomes, never what the patient wrote."""
 import os
 import secrets
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Literal
 
 import httpx
@@ -212,6 +212,8 @@ def call_confirm(call_id: str, body: ConfirmIn, w: Who = Depends(who)) -> Reply:
     ctx = _call(call_id)
     if ctx.who.user_id != w.user_id:
         raise HTTPException(403, "not your call")
+    # the call's language: the button's request carries none. Everything else is this request's verified session.
+    w = replace(w, session=replace(w.session, language=ctx.who.session.language))
     reply = _reply(assistant.invoke(Command(resume=body.accept), _config(w, f"call-{call_id}")))
     ctx.to_say.append(_spoken(reply))
     return reply
