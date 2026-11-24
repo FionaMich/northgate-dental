@@ -38,16 +38,19 @@ The patient has already been greeted and told who you are. Never greet again or 
 the patient says hello or gives their name. Use their first name at most once.
 
 You know nothing about the clinics, the patient's visits or prices except what a tool returns, so call the tool first
-and answer from its result. Act at once: never ask "would you like me to check?", and never ask the patient for
-something a tool can tell you.
+and answer from its result. Act at once, in the same turn: never say you are going to check or look something up,
+never ask "would you like me to check?", and never ask the patient for something a tool can tell you. Whatever
+language the patient writes in, choose and call tools exactly as you would for the same request in English; only
+your final words are in {language}.
 
 How to do each job:
 - Hours, address or phone: call clinic_info, then answer for the day the patient means.
 - Pay a bill: call pay_link (with no ref it is for the patient's next visit), then say the secure payment link is
   ready and give the link exactly as the tool returned it. Never write a link yourself.
-- Book a visit: call services for the clinic to get the service code, then find_slots for the first day of the period
-  the patient means, and offer the earliest time. Ask only for what is missing (the clinic or the kind of visit).
-- The patient says yes to a time you offered: call book_visit with the same clinic, the same service code and that
+- Book a visit: call find_slots with the clinic, the kind of visit as one English word (cleaning, exam, filling) and
+  the first day of the period the patient means, then offer the earliest time it returns. Ask only for what is
+  missing (the clinic or the kind of visit).
+- The patient says yes to a time you offered: call book_visit with the same clinic, the same kind of visit and that
   time's slot. Do not ask anything again.
 - The patient's visits: call my_visits. To cancel, call cancel_visit with the ref.
 - Shop products: call shop_search.
@@ -61,6 +64,11 @@ Rules you never break:
 - Never say or show a ref or slot code; they are for your tools only.
 - Never ask for or repeat a date of birth, insurance number or address; you already know who the patient is.
 - If you are unsure, hand over to the team rather than guess."""
+
+
+NUDGE = ("(Reminder from the system, not the patient.) You replied without calling a tool. If the patient's last "
+         "message is one of the jobs in your instructions, call the right tool now with what you already know. "
+         "If no tool applies, repeat your reply.")
 
 
 def _day(d: date) -> str:
@@ -90,9 +98,17 @@ def assistant(state: State, config: RunnableConfig) -> dict:
     session = tools._session(config)
     language = safety.texts().get(session.language, safety.texts()["en"])["name"]
     model = config["configurable"].get("model") or model_for("assistant")
-    reply = model.bind_tools(tools.ALL).invoke(
-        [SystemMessage(PROMPT.format(today=_day(date.today()), tomorrow=_day(date.today() + timedelta(days=1)),
-                                      next_monday=_day(date.today() + timedelta(days=7 - date.today().weekday())), language=language)), *state["messages"]])
+    bound = model.bind_tools(tools.ALL)
+    history = [SystemMessage(PROMPT.format(today=_day(date.today()), tomorrow=_day(date.today() + timedelta(days=1)),
+                                      next_monday=_day(date.today() + timedelta(days=7 - date.today().weekday())), language=language)), *state["messages"]]
+    reply = bound.invoke(history)
+    since = max((i for i, m in enumerate(state["messages"]) if isinstance(m, HumanMessage)), default=0)
+    used_a_tool = any(isinstance(m, ToolMessage) for m in state["messages"][since:])
+    if not getattr(reply, "tool_calls", None) and not used_a_tool:
+        # A small model sometimes says "I will check" and stops. One second look, before the patient sees anything.
+        second = bound.invoke([*history, reply, HumanMessage(NUDGE)])
+        if getattr(second, "tool_calls", None):
+            reply = second
     return {"messages": [reply]}
 
 

@@ -91,7 +91,10 @@ def _ids(s: Session, clinic_code: str, service_code: str) -> tuple[str, str, str
 
 def _named(s: Session, clinic_code: str, service_code: str) -> tuple[str, str, str, str, str]:
     loc = _get(s, "/locations", select="id,time_zone,name", code=f"eq.{clinic_code}")
-    svc = _get(s, "/services", select="id,name", code=f"eq.{service_code}")
+    svc = _get(s, "/services", select="id,name,code", code=f"eq.{service_code}")
+    word = "".join(c for c in service_code if c.isalnum() or c == " ").strip()
+    if not svc and word:  # the model gave a word ("cleaning") instead of a code: one step fewer for a small model
+        svc = _get(s, "/services", select="id,name,code", name=f"ilike.*{word}*", order="code", limit="1")
     if not loc or not svc:
         raise ToolRefused("unknown clinic or service code")
     return loc[0]["id"], svc[0]["id"], loc[0]["time_zone"], loc[0].get("name", clinic_code), svc[0].get("name", service_code)
@@ -106,14 +109,15 @@ def _card(s: Session, action: str, detail: str) -> dict:
 
 @tool
 def find_slots(clinic_code: str, service_code: str, day: str, config: RunnableConfig) -> str:
-    """Free times for a service at a clinic, for one day (YYYY-MM-DD) and the two days after it. Each line gives a time
-    and a slot reference to pass to book_visit."""
+    """Free times for a service at a clinic, for one day (YYYY-MM-DD) and the two days after it. service_code is a code
+    from services, or one English word for the kind of visit (cleaning, exam, filling, whitening). Each line gives a
+    time and a slot reference to pass to book_visit, earliest first."""
     s = _session(config)
-    loc, svc, tz = _ids(s, clinic_code, service_code)
+    loc, svc, tz, _, service = _named(s, clinic_code, service_code)
     date.fromisoformat(day)
     slots = _rpc(s, "available_slots", loc=loc, service=svc, from_day=day, days=3) or []
     lines = [f"{_local(x['starts_at'], tz)} (slot {x['starts_at']}|{x['practitioner_id']})" for x in slots[:12]]
-    return "\n".join(lines) or "No free times on those days."
+    return f"{service}, free times:\n" + "\n".join(lines) if lines else "No free times on those days."
 
 
 @tool

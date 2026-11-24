@@ -16,6 +16,7 @@ Run: `uv run nora-voice`; it then claims calls the API lists as pending and join
 import asyncio
 import logging
 import os
+import re
 import time
 from typing import AsyncIterator
 
@@ -36,6 +37,9 @@ INTERNAL = {"X-Internal-Key": os.environ.get("ASSISTANT_INTERNAL_KEY", "")}
 NORA_VOICE_ID = os.environ.get("NORA_VOICE_ID", "u91OxrFDaRINovYRRue2")
 NORA_VOICE_MODEL = os.environ.get("NORA_VOICE_MODEL", "eleven_flash_v2_5")
 QUIET, MAX_QUESTION = 1.0, 30     # seconds of quiet that end the caller's turn; longest question kept
+LINK = re.compile(r"https?://\S+")
+PAY_LABEL = {"en": "Pay securely", "fr": "Payer en toute sécurité", "nl": "Veilig betalen", "de": "Sicher bezahlen",
+             "es": "Pagar de forma segura", "it": "Paga in sicurezza", "lt": "Mokėti saugiai", "sv": "Betala säkert"}
 EARS_HINT = "Nora at Northgate Dental."   # spelling of the names a caller is likely to say; never patient data
 
 
@@ -49,8 +53,9 @@ class NoraBrain(llm.LLM):
     """The 'LLM' seen by Vision Agents: a thin bridge to the assistant API for one call. It holds no prompt, no tools
     and no identity: the API knows who is on the call from the session it kept when the call was started."""
 
-    def __init__(self, call_id: str, http: httpx.AsyncClient):
+    def __init__(self, call_id: str, http: httpx.AsyncClient, language: str = "en"):
         super().__init__()
+        self.language = language
         self.call_id = call_id
         self.http = http
         self.agent: Agent | None = None
@@ -73,6 +78,11 @@ class NoraBrain(llm.LLM):
             card = reply["confirm"]
             spoken = f"{card.get('title', '')} {card.get('detail', '')}".strip()
             await self._event({"kind": "confirm", "card": card})   # the buttons appear; nothing is booked by voice
+        link = LINK.search(spoken)
+        if link:   # a web address is for tapping, not for reading aloud: it becomes a button on the call screen
+            spoken = LINK.sub("", spoken).rstrip(" :\n") + "."
+            await self._event({"kind": "link", "url": link.group(0).rstrip(".,"),
+                               "label": PAY_LABEL.get(self.language, PAY_LABEL["en"])})
         await self._event({"kind": "caption", "who": "nora", "text": spoken})
         if not spoken:
             self.floor.nora = False   # nothing to say, so nothing will end her turn
@@ -146,7 +156,7 @@ def whisper_model(language: str) -> str:
 
 async def create_agent(language: str = "en", call_id: str = "", **kwargs) -> Agent:
     http = httpx.AsyncClient()
-    brain = NoraBrain(call_id, http)
+    brain = NoraBrain(call_id, http, language)
     agent = Agent(
         edge=getstream.Edge(),
         agent_user=User(name="Nora", id="nora"),      # the app trusts events from this id only
