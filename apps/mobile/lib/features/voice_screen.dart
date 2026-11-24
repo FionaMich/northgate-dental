@@ -232,7 +232,7 @@ class _VoiceScreenState extends ConsumerState<VoiceScreen> {
                       switch (_mood) {
                         NoraMood.listening => 'Listening…',
                         NoraMood.thinking =>
-                          'Nora is thinking… this can take up to a minute',
+                          'Nora is thinking… one moment',
                         NoraMood.speaking => 'Nora is speaking',
                         NoraMood.idle =>
                           _voiceAvailable ? 'Tap the microphone and speak' : 'Voice is not available on this phone in this language',
