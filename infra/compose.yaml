@@ -142,6 +142,23 @@ services:
     networks: [app]
     mem_limit: 512m
 
+  # Nora's voice (ADR 0015, 0016): joins the Stream calls the assistant lists, transcribes on this machine, asks the
+  # assistant over the private network and speaks through ElevenLabs. Outbound only; nothing listens.
+  voice:
+    <<: *defaults
+    build: ../services/voice
+    image: northgate-voice:local
+    profiles: [voice]                   # it polls the assistant and waits for it, so no start order is needed
+    environment:
+      ASSISTANT_URL: http://assistant:8100
+      ASSISTANT_INTERNAL_KEY: ${ASSISTANT_INTERNAL_KEY:-}
+      STREAM_API_KEY: ${STREAM_API_KEY:-}
+      STREAM_API_SECRET: ${STREAM_API_SECRET:-}
+      ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
+    volumes: [voice_models:/home/app/models]   # speech models for the other languages, downloaded once
+    networks: [app]
+    mem_limit: 2g
+
   # Monitoring (ADR 0017): Alloy scrapes the assistant's /metrics on the private network and writes to Grafana Cloud.
   # Started once the three GRAFANA_PROM_* values are in .env: docker compose --profile monitoring up -d alloy
   alloy:
@@ -219,6 +236,7 @@ networks:
 
 volumes:
   alloy_data: {}
+  voice_models: {}
   ollama_models: {}
   n8n_db: {}
   n8n_data: {}
