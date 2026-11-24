@@ -16,6 +16,7 @@ import 'care_widgets.dart';
 import 'dentist_screen.dart';
 import 'plan_screen.dart';
 import 'shell.dart';
+import 'team_chat_screen.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -149,6 +150,8 @@ class _Body extends ConsumerWidget {
         Reveal(child: next != null ? _NextVisit(next) : const _BookPrompt()),
         const SizedBox(height: 22),
         const Reveal(child: _AskReceptionist()),
+        const SizedBox(height: 10),
+        const Reveal(child: _MessageTeam()),
         const SizedBox(height: 22),
         if (_recentAftercare(care) case (final visit, final sheet)) ...[
           Reveal(
@@ -923,6 +926,56 @@ class _OurServices extends ConsumerWidget {
           ),
         ),
       ],
+    ),
+  );
+}
+
+/// Opens the patient's chat with the clinic team: real people, replying during opening hours.
+class _MessageTeam extends ConsumerWidget {
+  const _MessageTeam();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) => Semantics(
+    container: true,
+    button: true,
+    child: Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(22),
+      child: InkWell(
+        key: const Key('open-team-chat-home'),
+        borderRadius: BorderRadius.circular(22),
+        onTap: () => openTeamChat(context, ref),
+        child: const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+          child: Row(
+            children: [
+              Icon(Icons.support_agent_rounded, color: Palette.teal, size: 28),
+              SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Message our team',
+                      style: TextStyle(
+                        fontSize: 15.5,
+                        fontWeight: FontWeight.w700,
+                        color: Palette.deepSea,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Real people, replying during opening hours',
+                      style: TextStyle(fontSize: 13, color: Palette.muted),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded, color: Palette.muted),
+            ],
+          ),
+        ),
+      ),
     ),
   );
 }

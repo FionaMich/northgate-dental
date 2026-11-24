@@ -573,4 +573,13 @@ const nl = <String, String>{
   '1 visit': '1 bezoek',
   'treated': 'behandeld',
   'finding': 'bevinding',
+  'Northgate team': 'Northgate-team',
+  'Replies during opening hours': 'Antwoordt tijdens openingstijden',
+  'You are writing to the Northgate team, not to Nora. For an emergency, call 911.': 'U schrijft naar het Northgate-team, niet naar Nora. Bel bij nood 911.',
+  'The team chat is unavailable right now. Please call your clinic.': 'De chat met het team is nu niet beschikbaar. Bel uw kliniek.',
+  'Message to the team': 'Bericht aan het team',
+  'Your message was not sent. Please try again.': 'Uw bericht is niet verzonden. Probeer het opnieuw.',
+  'Chat with the team': 'Chatten met het team',
+  'Message our team': 'Stuur ons team een bericht',
+  'Real people, replying during opening hours': 'Echte mensen, die antwoorden tijdens openingstijden',
 };

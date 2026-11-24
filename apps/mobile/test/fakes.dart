@@ -6,6 +6,7 @@ import 'package:dental/data/care_repository.dart';
 import 'package:dental/data/shop_repository.dart';
 import 'package:dental/data/assistant_repository.dart';
 import 'package:dental/data/call_repository.dart';
+import 'package:dental/data/team_chat_repository.dart';
 import 'package:dental/data/aligner_reminders.dart';
 import 'package:dental/data/wear_log.dart';
 import 'package:dental/data/voice_engine.dart';
@@ -660,5 +661,56 @@ class FakeCallRepository implements CallRepository {
     final call = FakeNoraCall();
     calls.add(call);
     return call;
+  }
+}
+
+class FakeTeamChat implements TeamChat {
+  final controller = StreamController<List<TeamMessage>>.broadcast();
+  final typingController = StreamController<bool>.broadcast();
+  final sent = <String>[];
+  bool opened = false, closed = false;
+  int keystrokes = 0;
+  var _all = <TeamMessage>[];
+
+  /// Shows [messages] as the whole conversation.
+  void show(List<TeamMessage> messages) => controller.add(_all = messages);
+
+  @override
+  Stream<List<TeamMessage>> get messages => controller.stream;
+  @override
+  Stream<bool> get teamTyping => typingController.stream;
+  @override
+  Future<void> open() async => opened = true;
+  @override
+  Future<void> send(String text) async {
+    sent.add(text);
+    show([
+      ..._all,
+      TeamMessage(
+        id: 'm${_all.length}',
+        text: text,
+        mine: true,
+        at: DateTime(2026, 11, 25, 10, 5),
+      ),
+    ]);
+  }
+
+  @override
+  void typing() => keystrokes += 1;
+  @override
+  Future<void> close() async => closed = true;
+}
+
+class FakeTeamChatRepository implements TeamChatRepository {
+  FakeTeamChatRepository({this.available = true});
+  final bool available;
+  final chats = <FakeTeamChat>[];
+
+  @override
+  Future<TeamChat> start() async {
+    if (!available) throw const TeamChatUnavailable();
+    final chat = FakeTeamChat();
+    chats.add(chat);
+    return chat;
   }
 }

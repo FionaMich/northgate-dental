@@ -573,4 +573,13 @@ const sv = <String, String>{
   '1 visit': '1 besök',
   'treated': 'behandlad',
   'finding': 'fynd',
+  'Northgate team': 'Northgate-teamet',
+  'Replies during opening hours': 'Svarar under öppettiderna',
+  'You are writing to the Northgate team, not to Nora. For an emergency, call 911.': 'Du skriver till Northgate-teamet, inte till Nora. Ring 911 i nödfall.',
+  'The team chat is unavailable right now. Please call your clinic.': 'Chatten med teamet är inte tillgänglig just nu. Ring din klinik.',
+  'Message to the team': 'Meddelande till teamet',
+  'Your message was not sent. Please try again.': 'Ditt meddelande skickades inte. Försök igen.',
+  'Chat with the team': 'Chatta med teamet',
+  'Message our team': 'Skriv till vårt team',
+  'Real people, replying during opening hours': 'Riktiga människor, som svarar under öppettiderna',
 };

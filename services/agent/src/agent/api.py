@@ -122,6 +122,7 @@ def _spoken(reply: "Reply") -> str:
 class Reply(BaseModel):
     reply: str | None = None
     confirm: dict | None = None   # a booking or cancellation waiting for the patient's button
+    team: bool = False            # this turn was passed to the clinic team: the app offers the team chat
 
 
 def _config(w: Who, thread: str) -> dict:
@@ -139,8 +140,11 @@ def _run(channel: str, w: Who, what, thread: str) -> Reply:
 def _reply(out: dict) -> Reply:
     if out.get("__interrupt__"):
         return Reply(confirm=out["__interrupt__"][0].value)
-    last = next((m for m in reversed(out["messages"]) if isinstance(m, AIMessage) and m.content), None)
-    return Reply(reply=str(last.content) if last else None)
+    messages = out["messages"]
+    last = next((m for m in reversed(messages) if isinstance(m, AIMessage) and m.content), None)
+    since = max((i for i, m in enumerate(messages) if isinstance(m, HumanMessage)), default=0)
+    team = any(c["name"] == "handoff_to_staff" for m in messages[since:] if isinstance(m, AIMessage) for c in (m.tool_calls or []))
+    return Reply(reply=str(last.content) if last else None, team=team)
 
 
 @app.get("/metrics", include_in_schema=False)
@@ -190,6 +194,46 @@ def start_call(w: Who = Depends(who)) -> CallTicket:
     calls[call_id] = CallCtx(who=w, started=now)
     metrics.CALLS.labels(w.session.language).inc()
     return CallTicket(api_key=key, token=stream.user_token(w.user_id, secret), user_id=w.user_id, call_id=call_id)
+
+
+class TeamChatTicket(BaseModel):
+    """What the app needs to open the patient's conversation with the clinic team (ADR 0018)."""
+    api_key: str
+    token: str
+    user_id: str
+    channel_id: str
+    team_id: str = stream.TEAM
+
+
+@app.post("/assistant/team-chat", response_model=TeamChatTicket)
+def team_chat(w: Who = Depends(who)) -> TeamChatTicket:
+    """The signed-in patient's own channel with the team, and a one-hour token for it. The channel is named after the
+    verified session, so nobody can ask for someone else's."""
+    conf = stream.settings()
+    if conf is None:
+        raise HTTPException(503, "team chat is not available")
+    key, secret = conf
+    try:
+        channel = stream.team_channel(w.user_id, key, secret)
+    except httpx.HTTPError:
+        raise HTTPException(503, "team chat is not available")
+    return TeamChatTicket(api_key=key, token=stream.user_token(w.user_id, secret), user_id=w.user_id, channel_id=channel)
+
+
+class TeamReplyIn(BaseModel):
+    message: str = Field(min_length=1, max_length=2000)
+
+
+@app.post("/assistant/team-chat/{channel_id}/reply", status_code=204, dependencies=[Depends(internal)])
+def team_chat_reply(channel_id: str, body: TeamReplyIn) -> None:
+    """A reply from the team. Internal key only: the staff portal will call this once it exists."""
+    conf = stream.settings()
+    if conf is None or not channel_id.startswith("team-"):
+        raise HTTPException(404, "no such conversation")
+    try:
+        stream.team_reply(channel_id, body.message, *conf)
+    except httpx.HTTPError:
+        raise HTTPException(502, "the reply was not delivered")
 
 
 class TurnIn(BaseModel):

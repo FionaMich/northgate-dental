@@ -45,6 +45,34 @@ def register_user(user_id: str, key: str, secret: str, http: httpx.Client | None
     r.raise_for_status()
 
 
+CHAT_API = os.environ.get("STREAM_CHAT_URL", "https://chat.stream-io-api.com")
+TEAM = "northgate-team"   # the one Stream user staff write as; who typed a reply is recorded on our side, not at Stream
+
+
+def _server(key: str, secret: str, http: httpx.Client | None, path: str, body: dict) -> dict:
+    client = http or httpx.Client(timeout=10)
+    r = client.post(f"{CHAT_API}{path}", params={"api_key": key}, json=body,
+                    headers={"Authorization": _jwt({"server": True, "iat": int(time.time())}, secret), "stream-auth-type": "jwt"})
+    r.raise_for_status()
+    return r.json()
+
+
+def team_channel(user_id: str, key: str, secret: str, http: httpx.Client | None = None) -> str:
+    """The patient's one conversation with the clinic team (ADR 0018), made if it does not exist. Stream learns the
+    opaque user ID and the fixed name "Patient", as for calls; the words written in the chat are stored by Stream."""
+    channel = f"team-{user_id}"
+    _server(key, secret, http, "/users", {"users": {user_id: {"id": user_id, "name": "Patient", "role": "user"},
+                                                     TEAM: {"id": TEAM, "name": "Northgate team", "role": "admin"}}})
+    _server(key, secret, http, f"/channels/messaging/{channel}/query",
+            {"data": {"members": [user_id, TEAM], "created_by_id": TEAM}})
+    return channel
+
+
+def team_reply(channel: str, text: str, key: str, secret: str, http: httpx.Client | None = None) -> None:
+    """A message from the team into a patient's conversation: for the staff portal, and for the demo until it exists."""
+    _server(key, secret, http, f"/channels/messaging/{channel}/message", {"message": {"text": text, "user_id": TEAM}})
+
+
 def settings() -> tuple[str, str] | None:
     """API key and secret from the environment, or None when Stream is not configured (development without calls)."""
     key, secret = os.environ.get("STREAM_API_KEY"), os.environ.get("STREAM_API_SECRET")
