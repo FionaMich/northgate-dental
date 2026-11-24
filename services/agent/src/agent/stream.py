@@ -70,6 +70,8 @@ def team_channel(user_id: str, key: str, secret: str, http: httpx.Client | None 
 
 def team_reply(channel: str, text: str, key: str, secret: str, http: httpx.Client | None = None) -> None:
     """A message from the team into a patient's conversation: for the staff portal, and for the demo until it exists."""
+    # Whoever answers has read what came before: the patient's ticks turn blue.
+    _server(key, secret, http, f"/channels/messaging/{channel}/read", {"user_id": TEAM})
     _server(key, secret, http, f"/channels/messaging/{channel}/message", {"message": {"text": text, "user_id": TEAM}})
 
 

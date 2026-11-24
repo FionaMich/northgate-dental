@@ -196,7 +196,8 @@ def test_only_the_internal_key_can_write_as_the_team(client, monkeypatch):
     assert client.post(url, json={"message": "Hello"}, headers={"X-Internal-Key": "wrong"}).status_code == 401
     assert sent == []
     assert client.post(url, json={"message": "Hello, this is Sam."}, headers={"X-Internal-Key": "internal"}).status_code == 204
-    assert sent == [("/channels/messaging/team-user-1/message", {"message": {"text": "Hello, this is Sam.", "user_id": "northgate-team"}})]
+    assert sent == [("/channels/messaging/team-user-1/read", {"user_id": "northgate-team"}),
+                    ("/channels/messaging/team-user-1/message", {"message": {"text": "Hello, this is Sam.", "user_id": "northgate-team"}})]
     assert client.post("/assistant/team-chat/other/reply", json={"message": "x"}, headers={"X-Internal-Key": "internal"}).status_code == 404
 
 
