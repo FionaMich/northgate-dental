@@ -14,23 +14,37 @@ void main() {
   });
 
   testWidgets('tapping a tooth tells its story in plain words', (tester) async {
-    await tester.pumpWidget(const MaterialApp(
-      home: Scaffold(
-        body: SingleChildScrollView(
-          child: SizedBox(
-            width: 360,
-            child: ToothChart(
-              procedures: [Procedure(service: 'Composite filling, one surface', status: 'planned', tooth: '14', surface: 'O')],
-              findings: [Finding(tooth: '14', surface: 'O', condition: 'caries')],
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: SizedBox(
+              width: 360,
+              child: ToothChart(
+                procedures: [
+                  Procedure(
+                    service: 'Composite filling, one surface',
+                    status: 'planned',
+                    tooth: '14',
+                    surface: 'O',
+                  ),
+                ],
+                findings: [
+                  Finding(tooth: '14', surface: 'O', condition: 'caries'),
+                ],
+              ),
             ),
           ),
         ),
       ),
-    ));
+    );
     await tester.tap(find.bySemanticsLabel(RegExp('^Tooth 14:')));
     await tester.pumpAndSettle();
     expect(find.text('Upper left first molar'), findsOneWidget);
-    expect(find.text('Planned: Composite filling, one surface (biting surface)'), findsOneWidget);
+    expect(
+      find.text('Planned: Composite filling, one surface (biting surface)'),
+      findsOneWidget,
+    );
     expect(find.text('Decay (biting surface)'), findsOneWidget);
   });
 }

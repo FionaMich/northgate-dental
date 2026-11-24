@@ -266,36 +266,64 @@ class _BagRow extends ConsumerWidget {
                       color: Palette.muted,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    dollars(line.cents),
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w800,
-                      color: Palette.deepSea,
-                    ),
+                  const SizedBox(height: 6),
+                  // Price and quantity share a row, so the product name keeps the full width.
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          dollars(line.cents),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            color: Palette.deepSea,
+                          ),
+                        ),
+                      ),
+                      DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: Palette.mist,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              tooltip: line.quantity == 1 ? 'Remove' : 'Fewer',
+                              visualDensity: VisualDensity.compact,
+                              iconSize: 20,
+                              onPressed: () =>
+                                  bag.setQuantity(p.id, line.quantity - 1),
+                              icon: Icon(
+                                line.quantity == 1
+                                    ? Icons.delete_outline_rounded
+                                    : Icons.remove_rounded,
+                              ),
+                            ),
+                            Text(
+                              '${line.quantity}',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            IconButton(
+                              tooltip: 'More',
+                              visualDensity: VisualDensity.compact,
+                              iconSize: 20,
+                              onPressed: line.quantity >= 10
+                                  ? null
+                                  : () => bag.setQuantity(
+                                      p.id,
+                                      line.quantity + 1,
+                                    ),
+                              icon: const Icon(Icons.add_rounded),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ),
-            IconButton(
-              tooltip: line.quantity == 1 ? 'Remove' : 'Fewer',
-              onPressed: () => bag.setQuantity(p.id, line.quantity - 1),
-              icon: Icon(
-                line.quantity == 1
-                    ? Icons.delete_outline_rounded
-                    : Icons.remove_rounded,
-              ),
-            ),
-            Text(
-              '${line.quantity}',
-              style: const TextStyle(fontWeight: FontWeight.w700),
-            ),
-            IconButton(
-              tooltip: 'More',
-              onPressed: line.quantity >= 10
-                  ? null
-                  : () => bag.setQuantity(p.id, line.quantity + 1),
-              icon: const Icon(Icons.add_rounded),
             ),
           ],
         ),

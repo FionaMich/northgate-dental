@@ -135,6 +135,8 @@ services:
       LANGSMITH_PROJECT: northgate-assistant
       LANGSMITH_HIDE_INPUTS: "true"
       LANGSMITH_HIDE_OUTPUTS: "true"
+      STREAM_API_KEY: ${STREAM_API_KEY:-}          # Stream Video (ADR 0015); empty means calls are unavailable
+      STREAM_API_SECRET: ${STREAM_API_SECRET:-}
     networks: [app]
     mem_limit: 512m
 

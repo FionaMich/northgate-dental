@@ -109,17 +109,11 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
           slot: slot,
           service: services.firstWhere((s) => s.id == _service),
           clinic: clinics.firstWhere((c) => c.id == _clinic),
+          replaces: widget.replaces?.id,
         ),
       );
       if (!mounted) return;
       if (booked == true) {
-        if (widget.replaces case final old?) {
-          try {
-            await ref.read(careRepositoryProvider).cancel(old.id);
-          } on BookingError {
-            // The new visit stands; the old one stays visible so the patient can cancel it by hand.
-          }
-        }
         ref.invalidate(careSummaryProvider);
         if (mounted) Navigator.of(context).pop();
       } else {
@@ -819,8 +813,10 @@ class _HoldSheet extends ConsumerStatefulWidget {
     required this.slot,
     required this.service,
     required this.clinic,
+    this.replaces,
   });
   final String appointmentId;
+  final String? replaces; // the visit this booking moves, if rescheduling
   final Slot slot;
   final BookableService service;
   final Clinic clinic;
@@ -862,7 +858,9 @@ class _HoldSheetState extends ConsumerState<_HoldSheet> {
       _error = null;
     });
     try {
-      await ref.read(careRepositoryProvider).confirm(widget.appointmentId);
+      await ref
+          .read(careRepositoryProvider)
+          .confirm(widget.appointmentId, replaces: widget.replaces);
       _timer?.cancel();
       if (mounted) setState(() => _booked = true);
     } on BookingError catch (e) {

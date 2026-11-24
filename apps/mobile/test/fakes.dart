@@ -7,6 +7,7 @@ import 'package:dental/data/shop_repository.dart';
 import 'package:dental/data/assistant_repository.dart';
 import 'package:dental/data/aligner_reminders.dart';
 import 'package:dental/data/wear_log.dart';
+import 'package:dental/data/voice_engine.dart';
 
 /// In-memory stand-in for Supabase, so widget tests run without a network.
 class FakeAccountRepository implements AccountRepository {
@@ -346,8 +347,12 @@ class FakeCareRepository implements CareRepository {
   }
 
   @override
-  Future<void> confirm(String appointmentId) async {
-    calls.add('confirm:$appointmentId');
+  Future<void> confirm(String appointmentId, {String? replaces}) async {
+    calls.add(
+      replaces == null
+          ? 'confirm:$appointmentId'
+          : 'reschedule:$appointmentId replaces $replaces',
+    );
     final h = _held!;
     final before = byPatient[h.patient] ?? const CareSummary();
     byPatient[h.patient] = CareSummary(
@@ -564,5 +569,50 @@ class FakeAssistantRepository implements AssistantRepository {
   ) async {
     answers.add(accept);
     return AssistantTurn(reply: accept ? 'Booked.' : 'No problem.');
+  }
+}
+
+/// Hears whatever the test queues and records what Nora says; no microphone or speaker.
+class FakeVoiceEngine implements VoiceEngine {
+  FakeVoiceEngine({
+    this.available = true,
+    this.packMissing = false,
+    this.longSpeech = false,
+  });
+  final bool available;
+  final bool packMissing;
+
+  /// Nora's speech lasts until stopSpeaking(), so a test can interrupt her.
+  final bool longSpeech;
+  Completer<void>? _talking;
+  final heard = <String>[];
+  final spoken = <String>[];
+
+  @override
+  Future<bool> canListen(String language) async => available;
+
+  @override
+  Future<String> listen(
+    String language,
+    void Function(String words) onWords,
+  ) async {
+    if (packMissing) throw const VoiceUnavailable();
+    final words = heard.isEmpty ? '' : heard.removeAt(0);
+    onWords(words);
+    return words;
+  }
+
+  @override
+  Future<void> stopListening() async {}
+
+  @override
+  Future<void> speak(String text, String language) async {
+    spoken.add('$language:$text');
+    if (longSpeech) await (_talking = Completer<void>()).future;
+  }
+
+  @override
+  Future<void> stopSpeaking() async {
+    if (_talking?.isCompleted == false) _talking!.complete();
   }
 }

@@ -1,6 +1,6 @@
 # Northgate receptionist assistant
 
-LangGraph service for the patient app's chat: safety gate first (red flags in 7 languages skip the model), then the
+LangGraph service for the patient app's chat: safety gate first (red flags in 8 languages skip the model), then the
 model with tools that act as the signed-in patient, bookings and cancellations confirmed by the patient's button, and a
 grounding check on prices and times. See the main README for the design.
 

@@ -132,6 +132,84 @@ ThemeData northgateTheme() {
         fontWeight: FontWeight.w500,
       ),
     ),
+    // Plain page headers match the bold hero titles instead of Material's light default.
+    appBarTheme: const AppBarTheme(
+      backgroundColor: Palette.mist,
+      foregroundColor: Palette.deepSea,
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      scrolledUnderElevation: 0.5,
+      titleTextStyle: TextStyle(
+        fontFamily: uiFont,
+        fontSize: 20,
+        fontWeight: FontWeight.w800,
+        letterSpacing: -0.4,
+        color: Palette.deepSea,
+      ),
+    ),
+    // Every chip (suggestions, clinic pickers, filters) looks like the shop's pills: white with a hairline,
+    // solid teal with white text when chosen.
+    chipTheme: ChipThemeData(
+      backgroundColor: Colors.white,
+      selectedColor: Palette.teal,
+      checkmarkColor: Colors.white,
+      side: WidgetStateBorderSide.resolveWith(
+        (s) => BorderSide(
+          color: s.contains(WidgetState.selected) ? Palette.teal : Palette.line,
+        ),
+      ),
+      shape: const StadiumBorder(),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      labelStyle: const TextStyle(
+        fontFamily: uiFont,
+        fontSize: 14,
+        fontWeight: FontWeight.w700,
+        color: Palette.deepSea,
+      ),
+      secondaryLabelStyle: const TextStyle(
+        fontFamily: uiFont,
+        fontSize: 14,
+        fontWeight: FontWeight.w700,
+        color: Colors.white,
+      ),
+      iconTheme: const IconThemeData(color: Palette.teal, size: 18),
+    ),
+    segmentedButtonTheme: SegmentedButtonThemeData(
+      style: ButtonStyle(
+        backgroundColor: WidgetStateProperty.resolveWith(
+          (s) => s.contains(WidgetState.selected) ? Palette.teal : Colors.white,
+        ),
+        foregroundColor: WidgetStateProperty.resolveWith(
+          (s) =>
+              s.contains(WidgetState.selected) ? Colors.white : Palette.deepSea,
+        ),
+        iconColor: WidgetStateProperty.resolveWith(
+          (s) => s.contains(WidgetState.selected) ? Colors.white : Palette.teal,
+        ),
+        side: const WidgetStatePropertyAll(BorderSide(color: Palette.line)),
+        minimumSize: const WidgetStatePropertyAll(Size.fromHeight(48)),
+        textStyle: const WidgetStatePropertyAll(
+          TextStyle(
+            fontFamily: uiFont,
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        foregroundColor: Palette.teal,
+        side: const BorderSide(color: Palette.line, width: 1.5),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        minimumSize: const Size(0, 48),
+        textStyle: const TextStyle(
+          fontFamily: uiFont,
+          fontSize: 15,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    ),
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
         foregroundColor: Palette.teal,
@@ -144,3 +222,9 @@ ThemeData northgateTheme() {
     ),
   );
 }
+
+/// Cancel and other undo-style actions: a quiet red outline, so it reads as a button but never outweighs the main one.
+final dangerOutline = OutlinedButton.styleFrom(
+  foregroundColor: Palette.error,
+  side: BorderSide(color: Palette.error.withValues(alpha: 0.35), width: 1.5),
+);

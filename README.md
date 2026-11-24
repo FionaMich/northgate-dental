@@ -350,7 +350,7 @@ A small shop inside the patient app for the products our dentists and hygienists
 </details>
 
 <details>
-<summary><b>The receptionist assistant: LangGraph, 7 languages, safety first</b></summary>
+<summary><b>The receptionist assistant: LangGraph, 8 languages, safety first</b></summary>
 
 A virtual receptionist in the patient app, benchmarked on OralSync's "Lisa" (the leading AI receptionist for Dutch dental practices), without the phone line. It books, moves and cancels visits, answers questions about the clinics, payments and the shop, and hands anything else to the team with a written summary.
 
@@ -362,7 +362,7 @@ A virtual receptionist in the patient app, benchmarked on OralSync's "Lisa" (the
 
 ```mermaid
 flowchart TD
-  msg[Patient message, any of 7 languages] --> gate{Safety gate<br/>red-flag rules in all seven languages}
+  msg[Patient message, any of 8 languages] --> gate{Safety gate<br/>red-flag rules in all eight languages}
   gate -->|red flag| emergency[Fixed emergency text: 911, 988, the clinic<br/>urgent handover with the flags, not the words]
   gate -->|safe| model[Assistant model<br/>Gemma 4 on Ollama]
   model -->|tool call| tools[Tools act as the signed-in patient<br/>row level security applies]
@@ -396,7 +396,7 @@ flowchart TD
 | Nothing is booked or cancelled without the patient | LangGraph pauses (`interrupt`) until the patient presses Confirm; declining books nothing (tested) |
 | No invented prices or times | A grounding check replaces a reply whose price or time no tool returned, and really hands it over |
 
-**Languages:** English, French, Dutch, German, Spanish, Lithuanian and Swedish (Fiona's choice, 23 November 2026). Every non-English safety text is marked draft until a native speaker reviews it, as health messaging requires.
+**Languages:** English, French, Dutch, German, Spanish, Italian, Lithuanian and Swedish (Fiona's choice, 23 November 2026). Every non-English safety text is marked draft until a native speaker reviews it, as health messaging requires.
 
 **Model:** `model_for(role)` picks the model from one setting. The demo runs Gemma 4 on Ollama, so nothing leaves our own machines. On a CPU a reply takes 30 to 60 seconds, so the app says so while it waits; Amazon Bedrock is one setting away if speed matters more than keeping everything in-house.
 
@@ -592,6 +592,40 @@ Each principle below comes from a well-known software engineering book, and each
 
 </details>
 
+## Patient emails
+
+Every email the practice sends is built by the worker from one shared frame: tables instead of modern CSS so Gmail, Apple Mail and Outlook render it the same, system fonts, dark mode, one main button, and the clinic's number as a tap-to-call link. Service emails carry no images at all, so nothing is fetched and nothing breaks when images are blocked. Campaign emails add one hero picture, an offer card and up to three reasons, in the style of a well-run Mailchimp account, and always carry one-click unsubscribe.
+
+<p align="center">
+  <img src=".github/readme/emails/promotion-spring.png" width="24%" alt="Spring whitening offer: hero photo, offer card, one button, three reasons">
+  <img src=".github/readme/emails/promotion-christmas.png" width="24%" alt="December offer with a gold accent and a family photo">
+  <img src=".github/readme/emails/confirmation.png" width="24%" alt="Booking confirmed, with a date tile and a change-or-cancel button">
+  <img src=".github/readme/emails/reschedule.png" width="24%" alt="A moved visit: the old time struck through, the new time shown">
+</p>
+<p align="center">
+  <img src=".github/readme/emails/receipt.png" width="24%" alt="Payment receipt with the PDF attached">
+  <img src=".github/readme/emails/checkin-1d.png" width="24%" alt="Day-after check-in with the emergency path">
+</p>
+
+<details>
+<summary><b>What an expert email marketer would check, and how each email passes</b></summary>
+
+| Check | How it is done here |
+| --- | --- |
+| Subject and preview text do the selling | Subjects carry the day and time (never the treatment, because subjects show on lock screens); a hidden preheader sets the inbox preview |
+| One job per email | Exactly one main button: change or cancel, pay, tell us how you are, or book the offer |
+| Pictures that help, text that survives without them | Campaign hero photos are hosted in a public Supabase Storage bucket at a fixed address with alt text; service emails have no images, so they render in full even when images are blocked |
+| No tracking pixels | The picture address is the same for every recipient; a test refuses a per-recipient query string |
+| Mobile first | 600 px card that goes full width under 620 px; the three reasons stack on a phone |
+| Dark mode | `prefers-color-scheme` swaps the card and ink colours |
+| Deliverability | Plain-text part on every email; one-click unsubscribe (`List-Unsubscribe` headers) on campaigns; Resend idempotency keys so retries never double-send |
+| Consent | Campaigns go only to patients who opted in; the footer says why they got it |
+| Privacy | First name, service, time, clinic and phone only; no surname, record number or clinical detail; campaigns never mention anyone's treatment (tested) |
+
+The pictures were generated for the fictional practice (no stock licence to track, no real people) and cropped to 3:2 at 1200 by 800 pixels.
+
+</details>
+
 ## What the patient app does
 
 <details>
@@ -608,7 +642,7 @@ Each principle below comes from a well-known software engineering book, and each
   - directions and a call button;
   - the services offered and the team at that clinic.
 - **Visit records:** the reason for the visit, a sculpted tooth chart (tap any tooth), what was done, the findings and the treatment plan.
-- **Receptionist assistant:** chat in 7 languages to book, move, cancel or pay, with confirm buttons, and a handover to the team for anything else.
+- **Receptionist assistant:** chat in 8 languages to book, move, cancel or pay, with confirm buttons, and a handover to the team for anything else.
 - **Documents from the practice:** visit summaries and X-rays, opened in an in-app PDF viewer.
 - **Reminders and recall:** visit reminders the evening before and on the day, check-up recall, and aftercare sheets after treatment.
 - **Clear aligner timer** with in-app notifications.
@@ -622,6 +656,39 @@ Each principle below comes from a well-known software engineering book, and each
 ## Deployments
 
 <details>
+<summary><b>24 November 2026: campaign emails with pictures, Stream call tokens, the LangSmith and Stream decisions</b></summary>
+
+**What was built:**
+- the campaign email redesign: hero picture, offer card, three reasons, gold accent for December; two campaigns (spring whitening, December treat) sent to the staging inbox through Resend;
+- `POST /assistant/stream-token` is the address (the earlier `/stream/token` name was not proxied by Nginx);
+- a public `marketing` bucket in Supabase Storage for campaign pictures (migration `20261124000100_marketing_assets.sql`), created on staging and holding both pictures;
+- `POST /assistant/stream-token` in the assistant service: a one-hour Stream Video token for the signed-in patient, signed on the server with the standard library (no SDK), refused without a valid session or when Stream is not configured;
+- two decisions recorded: LangSmith tracing with inputs and outputs hidden (ADR 0014) and Stream as the call transport with Nora's brain unchanged (ADR 0015).
+
+**How it was proved:**
+- worker: 24 tests, including that a campaign button never points at the bare site root and that a picture address cannot carry a per-recipient tracker;
+- assistant: 37 tests, including a token that names only the user ID and dies after an hour, and no token without a session;
+- both campaign emails delivered and read back from the inbox, pictures loading from the public bucket.
+
+**Commands:**
+
+```bash
+cd services/worker && uv run pytest -q
+cd services/agent && uv run pytest -q
+supabase projects api-keys --project-ref <staging ref> -o json        # the service key, never printed
+curl -X POST "$SUPABASE_URL/storage/v1/bucket" -H "Authorization: Bearer <service key>" -d '{"id":"marketing","name":"marketing","public":true}'
+curl -X POST "$SUPABASE_URL/storage/v1/object/marketing/emails/promo-spring.jpg" -H "Authorization: Bearer <service key>" -H "Content-Type: image/jpeg" --data-binary @.github/readme/emails/promo-spring.jpg
+scripts/shot.sh file://.../spring.html docs/media/emails/promotion-spring-phone.png phone
+```
+
+**Screenshots still to take:**
+- [ ] Gmail on the phone: the December email with the picture loaded, light and dark mode
+- [ ] Supabase staging, Storage: the `marketing` bucket with the two pictures
+- [ ] Stream dashboard: the app's region and the three call types once created
+
+</details>
+
+<details>
 <summary><b>22 November 2026: the receptionist assistant, the sculpted tooth chart, LangSmith</b></summary>
 
 **What was built and merged (PRs #93 and #94):**
@@ -633,7 +700,7 @@ Each principle below comes from a well-known software engineering book, and each
 **Not yet live:** the assistant on the VM. Gemma needs about 6 GB of memory and the VM has about 4 GB free; it goes live on the free Ampere A1 (24 GB) as soon as Oracle has capacity, or sooner with more memory on the current VM.
 
 **How it was proved:**
-- 28 assistant tests: emergencies caught in all seven languages, ordinary questions left alone, the model never called on a red flag, clinical questions handed over, bookings waiting for the button, invented prices refused;
+- 28 assistant tests: emergencies caught in all eight languages, ordinary questions left alone, the model never called on a red flag, clinical questions handed over, bookings waiting for the button, invented prices refused;
 - 457 database tests, 72 app tests;
 - Gemma 4 on the laptop called the booking tool correctly from Spanish (and, before the language change, Haitian Creole).
 
@@ -949,7 +1016,7 @@ infra/scripts/restore-test.sh s3://<bucket>/nightly/<file>.dump.age ~/.config/no
 | `infra/` | The server: Compose stack, Nginx configuration, certificate, backup, restore and hardening scripts, and their tests |
 | `services/worker/` | Notification worker: reads Supabase Queues, sends confirmations and reminders (Python, psycopg, Resend) |
 | `infra/terraform/oci/`, `infra/terraform/aws/` | Oracle network, load balancer, bastion and VM; AWS audit trail and account baseline |
-| `services/agent/` | The receptionist assistant: LangGraph graph, safety gate, tools, fixed texts in 7 languages, FastAPI |
+| `services/agent/` | The receptionist assistant: LangGraph graph, safety gate, tools, fixed texts in 8 languages, FastAPI |
 | `n8n/` | n8n workflows: SDK source (`sdk/`), exported JSON (`workflows/`) and the notes script |
 | `services/synthdata/` | Test data generator |
 | `scripts/` | Local helpers: database tests, canary scan, guards, mobile toolchain setup |

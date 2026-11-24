@@ -40,7 +40,7 @@ def test_one_booking_sends_one_confirmation_and_logs_no_canary(conn, capsys):
     run_once(conn, sender)   # the event becomes a confirmation request
     run_once(conn, sender)   # the request is sent
     run_once(conn, sender)   # nothing left
-    assert [(to, m.subject) for to, m, _ in sender.sent] == [("fiona.test@example.com", "Your visit is booked")]
+    assert [(to, m.subject) for to, m, _ in sender.sent] == [("fiona.test@example.com", "You're booked: Wednesday 7 April at 10:00")]
     assert "Zyxwq" in sender.sent[0][1].text
 
     conn.execute("select pgmq.send('notifications', jsonb_build_object('type', 'confirmation', 'appointment_id', "
@@ -79,7 +79,7 @@ def test_a_paid_visit_sends_one_receipt_with_the_amount(conn):
     sender = FakeSender()
     for _ in range(3):
         run_once(conn, sender)
-    receipts = [m for _, m, _ in sender.sent if m.subject == "Payment received"]
+    receipts = [m for _, m, _ in sender.sent if m.subject.startswith("Receipt: ")]
     cents = payment["amount_cents"]
     assert len(receipts) == 1
     assert f"${cents // 100:,}.{cents % 100:02d}" in receipts[0].text
@@ -98,7 +98,7 @@ def test_a_worried_check_in_alerts_the_clinic_once_and_the_patient_email_has_a_c
 
     sender = FakeSender()
     run_once(conn, sender, link_base="https://n8n.example/webhook", alert_to="clinic@example.com")
-    checkin_mail = [m for _, m, _ in sender.sent if m.subject == "How are you feeling?"]
+    checkin_mail = [m for _, m, _ in sender.sent if m.subject.startswith("How are you feeling")]
     assert len(checkin_mail) == 1 and "https://n8n.example/webhook/checkin?t=" in checkin_mail[0].text
 
     token = checkin_mail[0].text.split("checkin?t=")[1].split()[0]
@@ -111,3 +111,26 @@ def test_a_worried_check_in_alerts_the_clinic_once_and_the_patient_email_has_a_c
     assert len(alerts) == 1 and alerts[0][0] == "clinic@example.com"
     assert "bleeding" not in alerts[0][1].text, "the alert carries IDs, never what the patient wrote"
     assert str(appointment)
+
+
+def test_a_moved_visit_sends_one_moved_email_and_no_cancellation(conn):
+    conn.execute("insert into auth.users (id, email, aud, role, email_confirmed_at) values (%s, 'fiona.test@example.com',"
+                 " 'authenticated', 'authenticated', now())", (USER,))
+    conn.execute("insert into patient_links (profile_id, patient_id) values (%s, '30000000-0000-4000-8000-000000000099')", (USER,))
+    visit = """insert into appointments (patient_id, location_id, practitioner_id, service_id, starts_at, ends_at, status, replaces)
+        select '30000000-0000-4000-8000-000000000099', l.id, pr.id, s.id, %s, %s::timestamptz + interval '1 hour', 'booked', %s
+        from locations l, practitioners pr, services s
+        where l.code = 'quincy' and pr.profile_id = '10000000-0000-4000-8000-000000000013' and s.code = 'D1110' returning id"""
+    old = conn.execute(visit, ("2027-04-07 14:00+00", "2027-04-07 14:00+00", None)).fetchone()["id"]
+    sender = FakeSender()
+    for _ in range(3):
+        run_once(conn, sender)
+    sender.sent.clear()
+
+    # What reschedule_booking does in one transaction: the new visit, naming the old one, and the old one cancelled.
+    conn.execute(visit, ("2027-04-08 13:00+00", "2027-04-08 13:00+00", old))
+    conn.execute("update appointments set status = 'cancelled' where id = %s", (old,))
+    for _ in range(3):
+        run_once(conn, sender)
+    assert [m.subject for _, m, _ in sender.sent] == ["Your visit has moved to Thursday 8 April at 09:00"]
+    assert "Wednesday 7 April at 10:00" in sender.sent[0][1].text, "the email shows the time it moved from"

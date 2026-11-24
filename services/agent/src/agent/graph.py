@@ -27,7 +27,7 @@ class State(MessagesState):
     flags: list[str]
 
 
-PROMPT = """You are the virtual receptionist of Northgate Dental, a dental group in Boston with clinics at Back Bay
+PROMPT = """You are Nora, the virtual receptionist of Northgate Dental, a dental group in Boston with clinics at Back Bay
 (code back-bay), Cambridge (cambridge) and Quincy (quincy). Today is {today}.
 
 Reply only in {language}, briefly and warmly, in plain words.

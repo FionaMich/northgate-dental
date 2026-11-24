@@ -9,7 +9,8 @@ import 'package:material_ui/material_ui.dart';
 import 'fakes.dart';
 
 Future<void> pumpWithIntro(WidgetTester tester) async {
-  tester.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(disableAnimations: true);
+  tester.platformDispatcher.accessibilityFeaturesTestValue =
+      const FakeAccessibilityFeatures(disableAnimations: true);
   addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
   await tester.pumpWidget(
     ProviderScope(
@@ -26,17 +27,26 @@ Future<void> pumpWithIntro(WidgetTester tester) async {
 }
 
 void main() {
-  testWidgets('the intro shows the brand, then stays for a minute, then hands over to sign-in', (tester) async {
-    await pumpWithIntro(tester);
-    expect(find.text('Healthy smiles across Boston'), findsOneWidget);
-    await tester.pump(const Duration(seconds: 59));
-    expect(find.text('Healthy smiles across Boston'), findsOneWidget, reason: 'still showing just before the minute');
-    await tester.pump(const Duration(seconds: 1));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const Key('sign-in')), findsOneWidget);
-  });
+  testWidgets(
+    'the intro shows the brand, then stays for a minute, then hands over to sign-in',
+    (tester) async {
+      await pumpWithIntro(tester);
+      expect(find.text('Healthy smiles across Boston'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 59));
+      expect(
+        find.text('Healthy smiles across Boston'),
+        findsOneWidget,
+        reason: 'still showing just before the minute',
+      );
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('sign-in')), findsOneWidget);
+    },
+  );
 
-  testWidgets('a tap continues to the next screen straight away', (tester) async {
+  testWidgets('a tap continues to the next screen straight away', (
+    tester,
+  ) async {
     await pumpWithIntro(tester);
     await tester.tap(find.byType(IntroScreen));
     await tester.pumpAndSettle();

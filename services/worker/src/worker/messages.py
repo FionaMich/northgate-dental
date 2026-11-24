@@ -2,9 +2,11 @@
 and at most one link: a single-use token that names nobody (cancel, check-in or pay).
 No surname, no clinical detail, no record number (Meta and email providers sign no BAA)."""
 
+import re
 from dataclasses import dataclass
 from datetime import datetime
 from html import escape
+from urllib.parse import urlparse
 from zoneinfo import ZoneInfo
 
 
@@ -16,8 +18,9 @@ class Context:
     clinic_name: str
     clinic_phone: str | None
     service_name: str
-    amount_cents: int | None = None  # receipts and statements
-    link: str | None = None          # cancel, check-in or pay link
+    amount_cents: int | None = None             # receipts and statements
+    link: str | None = None                     # cancel, check-in or pay link
+    previous_starts_at: datetime | None = None  # a moved visit: the time it moved from
 
 
 @dataclass(frozen=True)
@@ -25,6 +28,41 @@ class Message:
     subject: str
     text: str
     html: str
+
+
+@dataclass(frozen=True)
+class Promotion:
+    """A marketing email: the same for every recipient except the first name. Never about anyone's treatment.
+
+    The hero image is a static picture we host (a stock-style photograph, no text in it, no tracking pixel); email
+    clients that block images show `hero_alt` instead. `points` are up to three short reasons under the offer."""
+    subject: str
+    preheader: str
+    headline: str
+    body: str
+    offer: str
+    cta_label: str
+    cta_link: str
+    ends: str
+    hero_image: str | None = None
+    hero_alt: str = ""
+    points: tuple[tuple[str, str], ...] = ()
+    eyebrow: str = "For you"
+    accent: str = "#1FBFA2"     # the eyebrow and offer border; the Christmas edition uses gold
+
+    def __post_init__(self) -> None:
+        # A campaign button must land somewhere specific, never a bare site root (Fiona, 2026-11-24).
+        cta = urlparse(self.cta_link)
+        if cta.scheme != "https" or not cta.netloc or cta.path in ("", "/"):
+            raise ValueError("cta_link must be an https page, not the site root")
+        if len(self.points) > 3:
+            raise ValueError("at most three points")
+        # shortcut: refuses a query string only; a per-recipient path would pass. Upgrade to a fixed allow-listed
+        # bucket address when W22 builds campaigns.
+        if self.hero_image and (urlparse(self.hero_image).query or urlparse(self.hero_image).fragment):
+            raise ValueError("hero_image is the same address for everyone: no query string, so no tracking pixel")
+        if not re.fullmatch(r"#[0-9A-Fa-f]{6}", self.accent):
+            raise ValueError("accent is a six-digit hex colour")
 
 
 def decide(event: dict) -> str | None:
@@ -37,9 +75,15 @@ def decide(event: dict) -> str | None:
     return None
 
 
-def when(ctx: Context) -> str:
-    local = ctx.starts_at.astimezone(ZoneInfo(ctx.time_zone))
+def when(ctx: Context, at: datetime | None = None) -> str:
+    local = (at or ctx.starts_at).astimezone(ZoneInfo(ctx.time_zone))
     return f"{local:%A} {local.day} {local:%B} at {local:%H:%M}"
+
+
+def phone_label(phone: str) -> str:
+    """+16175550130 reads as (617) 555-0130; anything else is shown as stored."""
+    d = phone.removeprefix("+1")
+    return f"({d[:3]}) {d[3:6]}-{d[6:]}" if len(d) == 10 and d.isdigit() else phone
 
 
 def dollars(cents: int) -> str:
@@ -47,52 +91,174 @@ def dollars(cents: int) -> str:
 
 
 def render(kind: str, ctx: Context) -> Message:
-    clinic = f"Northgate Dental, {ctx.clinic_name}"
-    call = f"Call us on {ctx.clinic_phone}." if ctx.clinic_phone else "Call your clinic."
-    visit = f"your {ctx.service_name} on {when(ctx)} at {clinic}"
-    cancel = f"Need to cancel? Use this link: {ctx.link} " if ctx.link else "To change or cancel, open the Northgate Dental app. "
-    if kind.startswith("reminder:") or kind == "confirmation":
-        lead = {
-            "confirmation": ("Your visit is booked", f"Your {ctx.service_name} is booked for {when(ctx)} at {clinic}."),
-            "reminder:72h": ("Your visit is in 3 days", f"A reminder: your {ctx.service_name} is on {when(ctx)} at {clinic}."),
-            "reminder:24h": ("Your visit is tomorrow", f"A reminder: your {ctx.service_name} is tomorrow, {when(ctx)}, at {clinic}."),
-            "reminder:6h": ("Your visit is today", f"A reminder: your {ctx.service_name} is today, {when(ctx)}, at {clinic}."),
-        }[kind]
-        after = cancel + call
+    """Subjects carry the day and time, never the treatment (they show on lock screens); the body has the minimum."""
+    e, name, at = escape, ctx.first_name, when(ctx)
+    where = f"Northgate Dental, {ctx.clinic_name}"
+    details = [("When", at), ("Where", where), ("For", ctx.service_name)]
+    manage = ("Change or cancel", ctx.link) if ctx.link else None
+    no_link = "To change or cancel, open the Northgate Dental app."
+    if kind == "confirmation":
+        subject, pre = f"You're booked: {at}", f"Your {ctx.service_name} at {ctx.clinic_name} is confirmed."
+        eyebrow, headline = "Visit confirmed", f"You're booked, {name}"
+        intro, cta, note = f"Your {ctx.service_name} is confirmed. We'll send a reminder before the day.", manage, \
+            "Please arrive 10 minutes early and bring your dental plan card if you have one."
+    elif kind.startswith("reminder:"):
+        lead = {"72h": ("In 3 days", f"See you in 3 days, {name}"), "24h": ("Tomorrow", f"See you tomorrow, {name}"),
+                "6h": ("Today", f"See you today, {name}")}[kind.split(":")[1]]
+        subject, pre = f"{lead[0]}: your visit on {at}", f"Your {ctx.service_name} at {ctx.clinic_name}. Can't make it? Change it in a tap."
+        eyebrow, headline = "Visit reminder", lead[1]
+        intro, cta, note = f"A friendly reminder of your {ctx.service_name}.", manage, \
+            "Can't make it? Changing your visit frees the time for another patient."
+    elif kind == "reschedule":
+        was = when(ctx, ctx.previous_starts_at) if ctx.previous_starts_at else None
+        subject, pre = f"Your visit has moved to {at}", f"Your {ctx.service_name} is now {at}."
+        eyebrow, headline = "Visit moved", f"All set, {name}: your visit has moved"
+        intro, cta, note = f"Your {ctx.service_name} is now on the new time below. The old time is released.", manage, None
+        details = ([("Was", was)] if was else []) + [("Now", at), ("Where", where), ("For", ctx.service_name)]
     elif kind == "cancellation":
-        lead = ("Your visit is cancelled", f"Your {ctx.service_name} on {when(ctx)} at {clinic} is cancelled.")
-        after = "To book again, open the Northgate Dental app. " + call
+        subject, pre = f"Your visit on {at} is cancelled", "Book again whenever suits you, it takes under a minute."
+        eyebrow, headline = "Visit cancelled", f"Your visit is cancelled, {name}"
+        intro, cta, note = f"We've cancelled your {ctx.service_name}. Nothing else is needed from you.", None, \
+            "Whenever you're ready, book again in the Northgate Dental app in under a minute."
     elif kind == "receipt":
-        lead = ("Payment received", f"We received your payment of {dollars(ctx.amount_cents)} for {visit}. Thank you.")
-        after = call
+        amount = dollars(ctx.amount_cents)
+        subject, pre = f"Receipt: {amount} paid to Northgate Dental", "Thank you. Your receipt is attached as a PDF."
+        eyebrow, headline = "Payment received", f"Thank you, {name}"
+        intro, cta, note = f"We received your payment of {amount}. Your receipt is attached for your records, dental plan or HSA.", \
+            None, "Card payments are processed by Stripe; Northgate Dental never sees your card number."
+        details = [("Paid", amount), ("Visit", at), ("Where", where), ("For", ctx.service_name)]
     elif kind.startswith("checkin:"):
-        lead = ("How are you feeling?", f"We hope you are recovering well after {visit}. "
-                                        f"Tell us how you are, it takes a few seconds: {ctx.link}")
-        after = ("If you have bleeding that will not stop, swelling that spreads, a fever, or trouble breathing or "
-                 f"swallowing, do not wait for us to reply: {call} In an emergency call 911.")
+        subject, pre = f"How are you feeling, {name}?", "Two quick questions about your recovery. It takes a few seconds."
+        eyebrow, headline = "Checking in", f"How are you feeling, {name}?"
+        intro = f"We hope you're recovering well after your {ctx.service_name}. Tell us how you are; a clinician reads every answer."
+        cta, note, details = ("Tell us how you are", ctx.link) if ctx.link else None, None, [("Visit", at), ("Where", where)]
     elif kind.startswith("statement:"):
-        lead = ("Your balance with Northgate Dental", f"Your balance of {dollars(ctx.amount_cents)} for {visit} is still "
-                                                      f"open. You can pay securely here: {ctx.link}")
-        after = "Questions about your bill? " + call
+        amount = dollars(ctx.amount_cents)
+        subject, pre = f"Your balance of {amount} is ready to pay", "Pay securely in a minute with card, Apple Pay or Google Pay."
+        eyebrow, headline = "Your balance", f"{amount} to pay, {name}"
+        intro, cta, note = f"Your balance for your {ctx.service_name} is still open. You can pay securely online.", \
+            ("Pay securely", ctx.link) if ctx.link else None, None
+        details = [("Balance", amount), ("Visit", at), ("Where", where)]
     else:
         raise KeyError(kind)
-    subject, body = lead
-    text = f"Hello {ctx.first_name},\n\n{body}\n\n{after}\n\nNorthgate Dental\n"
-    html = (
-        '<div style="font-family:system-ui,sans-serif;max-width:520px;margin:auto;color:#0b2b2a">'
-        '<p style="font-size:20px;font-weight:700;margin:0 0 4px">Northgate <span style="color:#137c6c">Dental</span></p>'
-        '<p style="font-size:12px;letter-spacing:.15em;color:#4c6361;margin:0 0 24px">BACK BAY · CAMBRIDGE · QUINCY</p>'
-        f"<p>Hello {escape(ctx.first_name)},</p><p>{_linked(body, ctx.link)}</p><p>{_linked(after, ctx.link)}</p></div>"
-    )
-    return Message(subject, text, html)
+
+    call = f"Call {ctx.clinic_name} on {phone_label(ctx.clinic_phone)}." if ctx.clinic_phone else "Call your clinic."
+    urgent = ("If you have bleeding that will not stop, swelling that spreads, a fever, or trouble breathing or "
+              f"swallowing, do not wait for us to reply: {call} In an emergency call 911.") if kind.startswith("checkin:") else None
+    lines = [f"Hello {name},", intro, "\n".join(f"{k}: {v}" for k, v in details)]
+    lines += [f"{cta[0]}: {cta[1]}"] if cta else ([no_link] if kind == "confirmation" or kind.startswith("reminder:")
+                                                 or kind == "reschedule" else [])
+    lines += [x for x in (note, urgent) if x] + [f"Questions? {call}", "Northgate Dental"]
+    text = "\n\n".join(lines) + "\n"
+
+    show_tile = kind != "receipt" and not kind.startswith("statement:")
+    rows = "".join(
+        f'<tr><td style="padding:10px 0;border-top:1px solid #E3ECEA;width:84px;color:#5B706E;font-size:14px;vertical-align:top">'
+        f'{e(k)}</td><td class="ink" style="padding:10px 0;border-top:1px solid #E3ECEA;color:#0B2B2A;font-size:16px;'
+        f'font-weight:600;{"text-decoration:line-through;color:#8A9C9A;font-weight:400;" if k == "Was" else ""}">{e(v)}</td></tr>'
+        for k, v in details if not (show_tile and k in ("When", "Now", "Visit")))  # the tile already shows the time
+    local = ctx.starts_at.astimezone(ZoneInfo(ctx.time_zone))
+    tile = (f'<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 18px"><tr>'
+            f'<td width="64" align="center" style="width:64px;height:64px;border-radius:16px;background:#137C6C;color:#FFFFFF">'
+            f'<div style="font-size:13px;line-height:16px;padding-top:9px">{local:%a}</div>'
+            f'<div style="font-size:26px;line-height:30px;font-weight:800">{local.day}</div></td>'
+            f'<td style="padding-left:16px"><div class="ink" style="font-size:22px;font-weight:800;color:#0B2B2A">{local:%H:%M}</div>'
+            f'<div style="font-size:14px;color:#5B706E">{local:%A} {local.day} {local:%B} &middot; {e(ctx.clinic_name)}</div></td>'
+            f'</tr></table>')
+    body = (f'<p class="ink" style="margin:0 0 20px;font-size:16px;line-height:25px;color:#0B2B2A">{e(intro)}</p>'
+            + (tile if show_tile else "") +
+            f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-bottom:1px solid #E3ECEA">'
+            f'{rows}</table>')
+    if cta:
+        body += _button(*cta)
+    elif kind == "confirmation" or kind.startswith("reminder:") or kind == "reschedule":
+        body += _p(no_link, top=22)
+    if note:
+        body += _p(note, top=18)
+    if urgent:
+        body += (f'<div style="margin-top:22px;padding:16px 18px;border-radius:14px;background:#FFF4F2;color:#7A271A;'
+                 f'font-size:14px;line-height:21px">{e(urgent)}</div>')
+    return Message(subject, text, _layout(pre, eyebrow, headline, body, ctx.clinic_name, ctx.clinic_phone))
 
 
-def _linked(text: str, link: str | None) -> str:
-    """Escapes the text and turns the link, if present, into an anchor."""
-    if not link or link not in text:
-        return escape(text)
-    before, after = text.split(link, 1)
-    return f'{escape(before)}<a href="{escape(link)}" style="color:#137c6c">{escape(link)}</a>{escape(after)}'
+def render_promotion(first_name: str, promo: Promotion, unsubscribe: str) -> Message:
+    """A campaign email (only to patients who opted in to offers). Same frame as the service emails, plus a hero
+    image, an offer card, up to three reasons and one-click unsubscribe."""
+    e = escape
+    text = (f"Hello {first_name},\n\n{promo.headline}\n\n{promo.body}\n\n{promo.offer}, until {promo.ends}.\n\n"
+            + "".join(f"{t}: {d}\n" for t, d in promo.points) + f"\n{promo.cta_label}: {promo.cta_link}\n\n"
+            f"Northgate Dental\n\nYou get offers because you said yes to them. Unsubscribe: {unsubscribe}\n")
+    # The picture is itself a link to the offer: Gmail then treats it as a link, not a loose image with a download button.
+    hero = (f'<tr><td><a href="{e(promo.cta_link)}" style="display:block;text-decoration:none">'
+            f'<img src="{e(promo.hero_image)}" alt="{e(promo.hero_alt)}" width="600" height="400" '
+            f'style="display:block;width:100%;height:auto;max-height:400px;object-fit:cover;border:0;background:#0B2B2A" />'
+            f'</a></td></tr>' if promo.hero_image else "")
+    points = ""
+    if promo.points:
+        cells = "".join(
+            f'<td class="pt" width="{100 // len(promo.points)}%" style="padding:0 10px 0 0;vertical-align:top">'
+            f'<p style="margin:0 0 6px;font-size:12px;font-weight:800;letter-spacing:0.6px;text-transform:uppercase;'
+            f'color:#137C6C">{e(t)}</p><p class="ink" style="margin:0;font-size:14px;line-height:21px;color:#0B2B2A">'
+            f'{e(d)}</p></td>' for t, d in promo.points)
+        points = (f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:30px;'
+                  f'border-top:1px solid #E3ECEA"><tr><td style="height:24px"></td></tr><tr>{cells}</tr></table>')
+    body = (f'<p class="ink" style="margin:0 0 22px;font-size:16px;line-height:25px;color:#0B2B2A">{e(promo.body)}</p>'
+            f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td style="padding:22px;'
+            f'border-radius:16px;background:#E8F6F2;border:1px dashed {e(promo.accent)}">'
+            f'<p style="margin:0;font-size:22px;line-height:28px;font-weight:800;color:#0B2B2A">{e(promo.offer)}</p>'
+            f'<p style="margin:6px 0 0;font-size:14px;color:#3E5654">Until {e(promo.ends)}, at all three clinics.</p>'
+            f'</td></tr></table>' + _button(promo.cta_label, promo.cta_link) + points)
+    footer = (f'You get offers because you said yes to them. <a href="{e(unsubscribe)}" style="color:#5B706E;'
+              f'text-decoration:underline">Unsubscribe</a> in one click.')
+    headline = f"{first_name}, {promo.headline[0].lower()}{promo.headline[1:]}"
+    return Message(promo.subject, text, _layout(promo.preheader, promo.eyebrow, headline, body, None, None, footer,
+                                                hero=hero, accent=promo.accent))
+
+
+def _p(text: str, top: int = 0) -> str:
+    return f'<p style="margin:{top}px 0 0;font-size:14px;line-height:21px;color:#5B706E">{escape(text)}</p>'
+
+
+def _button(label: str, link: str) -> str:
+    """A button that works in every client, Outlook included: a padded table cell, not a styled link alone."""
+    return (f'<table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:26px"><tr>'
+            f'<td style="border-radius:999px;background:#137C6C"><a href="{escape(link)}" style="display:inline-block;'
+            f'padding:15px 30px;font-size:16px;font-weight:700;color:#FFFFFF;text-decoration:none;border-radius:999px">'
+            f'{escape(label)}</a></td></tr></table>')
+
+
+def _layout(preheader: str, eyebrow: str, headline: str, body: str, clinic: str | None, phone: str | None,
+            footer: str | None = None, hero: str = "", accent: str = "#1FBFA2") -> str:
+    """The frame every patient email shares: inbox preview, brand band, card, help line, footer. Self-contained:
+    system fonts and, for service emails, no images, so nothing is fetched and nothing breaks when images are blocked.
+    Campaigns may add one hero image row (with alt text) above the band."""
+    e = escape
+    help_line = (f'Questions? Call {e(clinic)} on <a href="tel:{e(phone)}" style="color:#137C6C;font-weight:700;'
+                 f'text-decoration:none">{e(phone_label(phone))}</a>' if phone else "")
+    footer = footer or "You get this email because you have a visit with us. Please don't reply with medical questions."
+    return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark"><title>{e(headline)}</title>
+<style>
+@media (max-width:620px){{.card{{width:100%!important;border-radius:0!important}}.px{{padding-left:24px!important;padding-right:24px!important}}h1{{font-size:26px!important;line-height:32px!important}}.pt{{display:block!important;width:100%!important;padding:0 0 18px!important}}}}
+@media (prefers-color-scheme:dark){{.bg{{background:#06201F!important}}.card{{background:#0E2F2D!important}}.ink{{color:#EAF4F2!important}}}}
+</style></head>
+<body style="margin:0;padding:0;background:#EEF3F2">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent">{e(preheader)}&#8199;&#847;&#8199;&#847;&#8199;&#847;</div>
+<table role="presentation" class="bg" width="100%" cellpadding="0" cellspacing="0" style="background:#EEF3F2;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
+<tr><td align="center" style="padding:32px 12px">
+<table role="presentation" class="card" width="600" cellpadding="0" cellspacing="0" style="width:600px;max-width:600px;background:#FFFFFF;border-radius:24px;overflow:hidden">
+{hero}<tr><td class="px" style="background:#0B2B2A;padding:30px 44px 34px">
+<p style="margin:0;font-size:19px;font-weight:800;color:#FFFFFF;letter-spacing:-0.2px">Northgate <span style="color:{e(accent)}">Dental</span></p>
+<p style="margin:3px 0 30px;font-size:12px;color:#A9DCD1">Back Bay &middot; Cambridge &middot; Quincy</p>
+<p style="margin:0 0 8px;font-size:14px;font-weight:700;color:{e(accent)}">{e(eyebrow)}</p>
+<h1 style="margin:0;font-size:30px;line-height:36px;font-weight:800;color:#FFFFFF;letter-spacing:-0.5px">{e(headline)}</h1>
+</td></tr>
+<tr><td class="px" style="padding:34px 44px 8px">{body}</td></tr>
+{f'<tr><td class="px" style="padding:26px 44px 34px"><p class="ink" style="margin:0;padding-top:22px;border-top:1px solid #E3ECEA;font-size:15px;line-height:22px;color:#0B2B2A">{help_line}</p></td></tr>' if help_line else '<tr><td style="height:30px"></td></tr>'}
+</table>
+<p style="margin:20px 0 0;max-width:520px;font-size:12px;line-height:18px;color:#6B7F7D">{footer}<br>Northgate Dental &middot; Back Bay, Cambridge and Quincy, Massachusetts</p>
+</td></tr></table></body></html>"""
 
 
 def receipt_document(ctx: Context, receipt_number: str, paid_on: str) -> str:

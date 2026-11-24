@@ -26,7 +26,9 @@ Appointment visitIn(int days, String id) {
 }
 
 void main() {
-  testWidgets('Visits lists every booked visit, not just the next one', (tester) async {
+  testWidgets('Visits lists every booked visit, not just the next one', (
+    tester,
+  ) async {
     final care = FakeCareRepository({
       'p-elena': CareSummary(upcoming: [visitIn(3, 'a-1'), visitIn(20, 'a-2')]),
     });
@@ -37,25 +39,32 @@ void main() {
     expect(find.byKey(const Key('upcoming-a-2')), findsOneWidget);
   });
 
-  testWidgets('rescheduling books the new time first, then cancels the old visit', (tester) async {
-    final care = FakeCareRepository({
-      'p-elena': CareSummary(upcoming: [visitIn(3, 'a-1')]),
-    });
-    await pumpApp(tester, FakeAccountRepository(patients: [elena]), care: care);
-    await signIn(tester);
-    await tapKey(tester, 'tab-appointments');
-    await tapKey(tester, 'reschedule-a-1');
-    expect(find.text('Book a visit'), findsOneWidget);
-    await tapKey(tester, 'day-0');
-    await tapKey(tester, 'slot-0');
-    await tapTicking(tester, 'hold');
-    await tapTicking(tester, 'confirm-booking');
-    await tapKey(tester, 'booking-done');
-    expect(care.calls, [
-      'hold:back-bay:cleaning',
-      'confirm:a-1',
-      'cancel:a-1',
-    ], reason: 'old visit cancelled only after the new one is confirmed');
-    expect(care.heldWith, 'dr-1', reason: 'same dentist as before');
-  });
+  testWidgets(
+    'rescheduling moves the visit in one step: the new time is booked and the old visit cancelled together',
+    (tester) async {
+      final care = FakeCareRepository({
+        'p-elena': CareSummary(upcoming: [visitIn(3, 'a-1')]),
+      });
+      await pumpApp(
+        tester,
+        FakeAccountRepository(patients: [elena]),
+        care: care,
+      );
+      await signIn(tester);
+      await tapKey(tester, 'tab-appointments');
+      await tapKey(tester, 'reschedule-a-1');
+      expect(find.text('Book a visit'), findsOneWidget);
+      await tapKey(tester, 'day-0');
+      await tapKey(tester, 'slot-0');
+      await tapTicking(tester, 'hold');
+      await tapTicking(tester, 'confirm-booking');
+      await tapKey(tester, 'booking-done');
+      expect(
+        care.calls,
+        ['hold:back-bay:cleaning', 'reschedule:a-1 replaces a-1'],
+        reason: 'one database step, so the patient gets one "your visit has moved" email and never two visits',
+      );
+      expect(care.heldWith, 'dr-1', reason: 'same dentist as before');
+    },
+  );
 }

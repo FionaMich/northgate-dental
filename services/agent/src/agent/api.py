@@ -15,7 +15,7 @@ from langchain_core.messages import AIMessage, HumanMessage
 from langgraph.types import Command
 from pydantic import BaseModel, Field
 
-from . import graph, safety
+from . import graph, safety, stream
 from .tools import Session
 
 if os.environ.get("LANGSMITH_API_KEY"):
@@ -31,7 +31,7 @@ LINK_BASE = os.environ.get("LINK_BASE", "")
 app = FastAPI(title="Northgate assistant", docs_url=None, redoc_url=None, openapi_url=None)
 assistant = graph.build()
 
-Language = Literal["en", "fr", "nl", "de", "es", "lt", "sv"]
+Language = Literal["en", "fr", "nl", "de", "es", "it", "lt", "sv"]
 
 
 @dataclass(frozen=True)
@@ -66,6 +66,12 @@ class ChatIn(BaseModel):
 class ConfirmIn(BaseModel):
     thread: str = Field(pattern=r"^[A-Za-z0-9-]{8,64}$")
     accept: bool
+
+
+class StreamToken(BaseModel):
+    api_key: str
+    token: str
+    user_id: str
 
 
 class Reply(BaseModel):
@@ -103,3 +109,13 @@ def chat(body: ChatIn, w: Who = Depends(who)) -> Reply:
 @app.post("/assistant/confirm", response_model=Reply)
 def confirm(body: ConfirmIn, w: Who = Depends(who)) -> Reply:
     return _reply(assistant.invoke(Command(resume=body.accept), _config(w, body.thread)))
+
+
+@app.post("/assistant/stream-token", response_model=StreamToken)  # under /assistant/, the prefix Nginx proxies
+def stream_token(w: Who = Depends(who)) -> StreamToken:
+    """A one-hour Stream Video token for the signed-in patient (ADR 0015). The Stream user is the Supabase user ID."""
+    conf = stream.settings()
+    if conf is None:
+        raise HTTPException(503, "calls are not available")
+    key, secret = conf
+    return StreamToken(api_key=key, token=stream.user_token(w.user_id, secret), user_id=w.user_id)

@@ -314,21 +314,19 @@ class _VisitCard extends StatelessWidget {
                     onPressed: onReschedule,
                     style: OutlinedButton.styleFrom(
                       minimumSize: const Size.fromHeight(46),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
                     ),
                     child: const Text('Reschedule'),
                   ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: TextButton(
+                  child: OutlinedButton(
                     key: Key('cancel-${a.id}'),
                     onPressed: onCancel,
-                    style: TextButton.styleFrom(
-                      foregroundColor: Palette.error,
-                      minimumSize: const Size.fromHeight(46),
+                    style: dangerOutline.copyWith(
+                      minimumSize: const WidgetStatePropertyAll(
+                        Size.fromHeight(46),
+                      ),
                     ),
                     child: const Text('Cancel'),
                   ),

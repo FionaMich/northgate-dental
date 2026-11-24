@@ -19,8 +19,18 @@ final visit = Visit(
   dentist: 'Dr Amara Okafor',
   reason: 'Six-monthly check-up',
   procedures: const [
-    Procedure(service: 'Comprehensive oral exam', status: 'completed', feeCents: 14000),
-    Procedure(service: 'Composite filling, one surface', status: 'planned', tooth: '14', surface: 'O', feeCents: 21000),
+    Procedure(
+      service: 'Comprehensive oral exam',
+      status: 'completed',
+      feeCents: 14000,
+    ),
+    Procedure(
+      service: 'Composite filling, one surface',
+      status: 'planned',
+      tooth: '14',
+      surface: 'O',
+      feeCents: 21000,
+    ),
   ],
   findings: const [
     Finding(tooth: '14', surface: 'O', condition: 'caries'),
@@ -49,7 +59,9 @@ final docs = [
   ),
 ];
 
-Future<(FakeCareRepository, List<String>)> openRecords(WidgetTester tester) async {
+Future<(FakeCareRepository, List<String>)> openRecords(
+  WidgetTester tester,
+) async {
   final opened = <String>[];
   final care = FakeCareRepository({
     'p-elena': CareSummary(visits: [visit], documents: docs),
@@ -61,8 +73,12 @@ Future<(FakeCareRepository, List<String>)> openRecords(WidgetTester tester) asyn
     extra: [
       documentOpenerProvider.overrideWithValue((url) async => opened.add(url)),
       // The real viewer needs the PDF engine; tests show a stand-in with the size of the loaded file.
-      pdfBytesLoaderProvider.overrideWithValue((url) async => Uint8List.fromList(List.filled(42, 1))),
-      pdfViewProvider.overrideWithValue((bytes) => Text('PDF of ${bytes.length} bytes')),
+      pdfBytesLoaderProvider.overrideWithValue(
+        (url) async => Uint8List.fromList(List.filled(42, 1)),
+      ),
+      pdfViewProvider.overrideWithValue(
+        (bytes) => Text('PDF of ${bytes.length} bytes'),
+      ),
     ],
   );
   await signIn(tester);
@@ -71,31 +87,54 @@ Future<(FakeCareRepository, List<String>)> openRecords(WidgetTester tester) asyn
 }
 
 void main() {
-  testWidgets('a visit opens with the dentist, reason, tooth chart, what was done with fees, and findings', (tester) async {
-    await openRecords(tester);
-    await tapKey(tester, 'visit-v-1');
-    expect(find.text('Dr Amara Okafor'), findsOneWidget);
-    expect(find.text('Six-monthly check-up'), findsOneWidget);
-    expect(find.bySemanticsLabel(RegExp('Tooth 14: treatment planned, finding')), findsOneWidget);
-    expect(find.bySemanticsLabel(RegExp('Tooth 3: finding')), findsOneWidget);
-    expect(find.textContaining('tooth 14, top surface'), findsWidgets);
-    expect(find.text('\$210.00'), findsOneWidget);
-    expect(find.text('Decay'), findsOneWidget);
-    expect(find.text('\$350.00'), findsOneWidget, reason: 'the total of the visit');
-  });
+  testWidgets(
+    'a visit opens with the dentist, reason, tooth chart, what was done with fees, and findings',
+    (tester) async {
+      await openRecords(tester);
+      await tapKey(tester, 'visit-v-1');
+      expect(find.text('Dr Amara Okafor'), findsOneWidget);
+      expect(find.text('Six-monthly check-up'), findsOneWidget);
+      expect(
+        find.bySemanticsLabel(RegExp('Tooth 14: treatment planned, finding')),
+        findsOneWidget,
+      );
+      expect(find.bySemanticsLabel(RegExp('Tooth 3: finding')), findsOneWidget);
+      expect(find.textContaining('tooth 14, top surface'), findsWidgets);
+      expect(find.text('\$210.00'), findsOneWidget);
+      expect(find.text('Decay'), findsOneWidget);
+      expect(
+        find.text('\$350.00'),
+        findsOneWidget,
+        reason: 'the total of the visit',
+      );
+    },
+  );
 
-  testWidgets('a visit summary opens in the app\'s own PDF viewer; downloading is optional', (tester) async {
-    final (care, opened) = await openRecords(tester);
-    expect(find.text('DOCUMENTS'), findsOneWidget);
-    expect(find.text('Visit summary, 2026-08-22'), findsOneWidget);
-    await tapKey(tester, 'doc-d-2');
-    expect(care.calls, ['link:p-elena/v-1-summary.pdf']);
-    expect(find.text('PDF of 42 bytes'), findsOneWidget, reason: 'shown inside the app');
-    expect(opened, isEmpty, reason: 'nothing leaves the app unless the patient asks');
-    await tester.tap(find.byTooltip('Download'));
-    await tester.pumpAndSettle();
-    expect(opened, ['https://files.test/p-elena/v-1-summary.pdf?token=short']);
-  });
+  testWidgets(
+    'a visit summary opens in the app\'s own PDF viewer; downloading is optional',
+    (tester) async {
+      final (care, opened) = await openRecords(tester);
+      expect(find.text('DOCUMENTS'), findsOneWidget);
+      expect(find.text('Visit summary, 2026-08-22'), findsOneWidget);
+      await tapKey(tester, 'doc-d-2');
+      expect(care.calls, ['link:p-elena/v-1-summary.pdf']);
+      expect(
+        find.text('PDF of 42 bytes'),
+        findsOneWidget,
+        reason: 'shown inside the app',
+      );
+      expect(
+        opened,
+        isEmpty,
+        reason: 'nothing leaves the app unless the patient asks',
+      );
+      await tester.tap(find.byTooltip('Download'));
+      await tester.pumpAndSettle();
+      expect(opened, [
+        'https://files.test/p-elena/v-1-summary.pdf?token=short',
+      ]);
+    },
+  );
 
   testWidgets('an X-ray opens in the app viewer', (tester) async {
     final (care, _) = await openRecords(tester);

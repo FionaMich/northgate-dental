@@ -10,6 +10,7 @@ const assistantLanguages = {
   'nl': 'Nederlands',
   'de': 'Deutsch',
   'es': 'Español',
+  'it': 'Italiano',
   'lt': 'Lietuvių',
   'sv': 'Svenska',
 };

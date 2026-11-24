@@ -4,6 +4,7 @@ import 'data/account_repository.dart';
 import 'data/assistant_repository.dart';
 import 'data/care_repository.dart';
 import 'data/shop_repository.dart';
+import 'data/voice_engine.dart';
 
 /// Set in main.dart (Supabase) and in tests (a fake).
 final accountRepositoryProvider = Provider<AccountRepository>(
@@ -153,3 +154,6 @@ final bagProvider = NotifierProvider<Bag, Map<String, BagLine>>(Bag.new);
 final assistantRepositoryProvider = Provider<AssistantRepository>(
   (ref) => throw UnimplementedError('override in main or tests'),
 );
+
+/// The phone's speech recogniser and voice for the Nora voice screen (tests: a fake).
+final voiceEngineProvider = Provider<VoiceEngine>((ref) => DeviceVoiceEngine());

@@ -51,6 +51,12 @@ def handle_event(conn, msg: dict) -> None:
     key = f"appointment:{event['appointment_id']}:v{event['version']}"
     if conn.execute("select private.mark_processed('worker', %s) as first", (key,)).fetchone()["first"]:
         kind = decide(event)
+        if kind in ("confirmation", "cancellation"):
+            moved = conn.execute("select * from private.reschedule_of(%s)", (event["appointment_id"],)).fetchone()
+            if kind == "confirmation" and moved["moved_from"]:
+                kind = "reschedule"   # one "your visit has moved" email ...
+            elif kind == "cancellation" and moved["replaced_by"]:
+                kind = None           # ... instead of a cancellation as well
         if kind:
             conn.execute("select pgmq.send('notifications', %s)", (json.dumps(
                 {"type": kind, "appointment_id": event["appointment_id"]}),))
@@ -65,7 +71,7 @@ def link_for(conn, link_base: str, kind: str, appointment: str, request: dict) -
     """A single-use link for the email, issued inside the send's transaction (a failed send discards it too)."""
     if not link_base:
         return None
-    if kind == "confirmation" or kind.startswith("reminder:"):
+    if kind in ("confirmation", "reschedule") or kind.startswith("reminder:"):
         purpose, args = "cancel", (appointment, "cancel", None, None)
     elif kind.startswith("checkin:"):
         purpose, args = "checkin", (appointment, "checkin", request["kind"], None)
@@ -128,8 +134,10 @@ def handle_notification(conn, msg: dict, sender, link_base: str = "", pdf_url: s
             (appointment, ctx["patient_id"], kind, f"{kind}.v1")).fetchone()
         if claimed:
             link = link_for(conn, link_base, kind, appointment, request)
+            moved_from = conn.execute("select moved_from from private.reschedule_of(%s)", (appointment,)).fetchone()[
+                "moved_from"] if kind == "reschedule" else None
             context = Context(ctx["first_name"], ctx["starts_at"], ctx["time_zone"], ctx["clinic_name"],
-                              ctx["clinic_phone"], ctx["service_name"], amount, link)
+                              ctx["clinic_phone"], ctx["service_name"], amount, link, moved_from)
             attachments = receipt_pdf(pdf_url, context, request["payment_id"]) if kind == "receipt" else None
             provider_id = sender.send(ctx["email"], render(kind, context), idempotency_key=f"{appointment}:{kind}:email",
                                       attachments=attachments)
