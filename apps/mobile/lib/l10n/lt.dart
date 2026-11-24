@@ -573,4 +573,13 @@ const lt = <String, String>{
   '1 visit': '1 vizitas',
   'treated': 'gydyta',
   'finding': 'radinys',
+  'Northgate team': '„Northgate“ komanda',
+  'Replies during opening hours': 'Atsako darbo valandomis',
+  'You are writing to the Northgate team, not to Nora. For an emergency, call 911.': 'Rašote „Northgate“ komandai, ne Norai. Skubiu atveju skambinkite 911.',
+  'The team chat is unavailable right now. Please call your clinic.': 'Pokalbis su komanda šiuo metu nepasiekiamas. Paskambinkite į kliniką.',
+  'Message to the team': 'Žinutė komandai',
+  'Your message was not sent. Please try again.': 'Žinutė neišsiųsta. Bandykite dar kartą.',
+  'Chat with the team': 'Rašyti komandai',
+  'Message our team': 'Parašykite mūsų komandai',
+  'Real people, replying during opening hours': 'Tikri žmonės, atsakantys darbo valandomis',
 };

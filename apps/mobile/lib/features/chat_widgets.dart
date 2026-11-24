@@ -220,12 +220,15 @@ class ChatComposer extends StatelessWidget {
     required this.label,
     this.enabled = true,
     this.canSend = true,
+    this.fieldKey = const Key('assistant-input'),
+    this.sendKey = const Key('assistant-send'),
   });
 
   final TextEditingController controller;
   final VoidCallback onSend;
   final String hint, label;
   final bool enabled, canSend;
+  final Key fieldKey, sendKey;
 
   @override
   Widget build(BuildContext context) => SafeArea(
@@ -245,7 +248,7 @@ class ChatComposer extends StatelessWidget {
               child: Semantics(
                 label: tr(label), // the hint alone is not read as the field's name by every screen reader
                 child: TextField(
-                  key: const Key('assistant-input'),
+                  key: fieldKey,
                   controller: controller,
                   enabled: enabled,
                   minLines: 1,
@@ -270,7 +273,7 @@ class ChatComposer extends StatelessWidget {
           SizedBox.square(
             dimension: 48,
             child: IconButton.filled(
-              key: const Key('assistant-send'),
+              key: sendKey,
               onPressed: canSend ? onSend : null,
               style: IconButton.styleFrom(backgroundColor: Palette.teal),
               icon: const Icon(Icons.send_rounded, size: 21),

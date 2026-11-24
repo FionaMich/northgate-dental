@@ -173,3 +173,36 @@ def test_the_confirm_on_a_call_is_answered_in_the_calls_language(client, monkeyp
     client.post(f"/assistant/call/{call_id}/confirm", json={"thread": "call-xxxxxxxx", "accept": True},
                 headers={"Authorization": "Bearer good"})   # the button sends no language of its own
     assert seen["language"] == "de"
+
+
+def test_the_team_chat_ticket_is_for_the_patients_own_channel_and_tells_stream_no_name(client, monkeypatch):
+    signed_in(monkeypatch)
+    sent = []
+    monkeypatch.setattr(api.stream, "_server", lambda key, secret, http, path, body: sent.append((path, body)) or {})
+    ticket = client.post("/assistant/team-chat", headers={"Authorization": "Bearer good"}).json()
+    assert ticket["channel_id"] == "team-user-1" and ticket["user_id"] == "user-1" and ticket["team_id"] == "northgate-team"
+    users = next(body for path, body in sent if path == "/users")["users"]
+    assert users["user-1"] == {"id": "user-1", "name": "Patient", "role": "user"}, "an opaque ID and a fixed name, nothing else"
+    channel = next(body for path, body in sent if path.endswith("/query"))
+    assert sorted(channel["data"]["members"]) == ["northgate-team", "user-1"]
+    assert client.post("/assistant/team-chat").status_code == 422, "no session, no ticket"
+
+
+def test_only_the_internal_key_can_write_as_the_team(client, monkeypatch):
+    sent = []
+    monkeypatch.setattr(api.stream, "_server", lambda key, secret, http, path, body: sent.append((path, body)) or {})
+    monkeypatch.setattr(api, "INTERNAL_KEY", "internal")
+    url = "/assistant/team-chat/team-user-1/reply"
+    assert client.post(url, json={"message": "Hello"}, headers={"X-Internal-Key": "wrong"}).status_code == 401
+    assert sent == []
+    assert client.post(url, json={"message": "Hello, this is Sam."}, headers={"X-Internal-Key": "internal"}).status_code == 204
+    assert sent == [("/channels/messaging/team-user-1/message", {"message": {"text": "Hello, this is Sam.", "user_id": "northgate-team"}})]
+    assert client.post("/assistant/team-chat/other/reply", json={"message": "x"}, headers={"X-Internal-Key": "internal"}).status_code == 404
+
+
+def test_a_reply_that_handed_over_tells_the_app_to_offer_the_team_chat():
+    handed = {"messages": [api.HumanMessage("a person please"),
+                           api.AIMessage("", tool_calls=[{"name": "handoff_to_staff", "args": {}, "id": "1"}]),
+                           api.AIMessage("I've passed this to our team.")]}
+    assert api._reply(handed).team is True
+    assert api._reply({"messages": [api.HumanMessage("hours?"), api.AIMessage("We open at 07:00.")]}).team is False

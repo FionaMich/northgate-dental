@@ -17,8 +17,11 @@ const assistantLanguages = {
 
 /// What the assistant said, or a booking or cancellation waiting for the patient's button.
 class AssistantTurn {
-  const AssistantTurn({this.reply, this.confirm});
+  const AssistantTurn({this.reply, this.confirm, this.team = false});
   final String? reply;
+
+  /// Nora passed this to the clinic team: the app offers the team chat.
+  final bool team;
   final Map<String, dynamic>? confirm;
 }
 
@@ -82,6 +85,7 @@ class HttpAssistantRepository implements AssistantRepository {
   AssistantTurn _turn(Map<String, dynamic> j) => AssistantTurn(
     reply: j['reply'] as String?,
     confirm: j['confirm'] as Map<String, dynamic>?,
+    team: j['team'] == true,
   );
 
   @override

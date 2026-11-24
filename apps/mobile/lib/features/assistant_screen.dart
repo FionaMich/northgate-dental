@@ -9,6 +9,7 @@ import '../state.dart';
 import '../data/call_repository.dart';
 import 'chat_widgets.dart';
 import 'nora_call_screen.dart';
+import 'team_chat_screen.dart';
 import 'voice_screen.dart';
 
 /// Chat with Northgate's virtual receptionist, in the patient's language. It always opens by saying it is an AI;
@@ -40,6 +41,8 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> {
   String _language = appLanguage.value; // Nora starts in the app's language
   bool _waiting = false;
   Map<String, dynamic>? _confirm;
+  bool _teamOffered =
+      false; // Nora passed something to the team in this conversation
 
   bool _startingCall = false;
 
@@ -122,6 +125,7 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> {
         }
         if (turn.reply != null) _lines.add(_Line(turn.reply!));
         _confirm = turn.confirm;
+        _teamOffered = _teamOffered || turn.team;
       });
     } on AssistantError catch (e) {
       if (mounted) setState(() => _lines.add(_Line(e.message)));
@@ -320,6 +324,19 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> {
                     ),
                   if (_confirm != null)
                     _ConfirmCard(confirm: _confirm!, onAnswer: _answer),
+                  if (_teamOffered && !_waiting)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: Align(
+                        alignment: AlignmentDirectional.centerStart,
+                        child: FilledButton.tonalIcon(
+                          key: const Key('open-team-chat'),
+                          onPressed: () => openTeamChat(context, ref),
+                          icon: const Icon(Icons.support_agent_rounded),
+                          label: const Text('Chat with the team'),
+                        ),
+                      ),
+                    ),
                   if (_waiting) const ChatTyping(who: 'Nora'),
                 ],
               ),

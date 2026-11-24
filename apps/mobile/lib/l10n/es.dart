@@ -573,4 +573,13 @@ const es = <String, String>{
   '1 visit': '1 cita',
   'treated': 'tratado',
   'finding': 'hallazgo',
+  'Northgate team': 'Equipo de Northgate',
+  'Replies during opening hours': 'Responde en horario de apertura',
+  'You are writing to the Northgate team, not to Nora. For an emergency, call 911.': 'Está escribiendo al equipo de Northgate, no a Nora. En caso de emergencia, llame al 911.',
+  'The team chat is unavailable right now. Please call your clinic.': 'El chat con el equipo no está disponible en este momento. Llame a su clínica.',
+  'Message to the team': 'Mensaje para el equipo',
+  'Your message was not sent. Please try again.': 'Su mensaje no se ha enviado. Inténtelo de nuevo.',
+  'Chat with the team': 'Chatear con el equipo',
+  'Message our team': 'Escribir a nuestro equipo',
+  'Real people, replying during opening hours': 'Personas reales, que responden en horario de apertura',
 };
