@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 
-import 'package:material_ui/material_ui.dart';
+import 'package:dental/ui.dart';
 
 /// Honour the phone's "reduce motion" setting everywhere.
 bool reduceMotion(BuildContext context) =>

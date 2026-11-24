@@ -2,6 +2,7 @@ import 'package:dental/app.dart';
 import 'package:dental/features/aligner_screen.dart';
 import 'package:dental/data/account_repository.dart';
 import 'package:dental/features/intro_screen.dart';
+import 'package:dental/l10n/l10n.dart';
 import 'package:dental/state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -212,5 +213,50 @@ void main() {
     expect(repo.signOutCalls, 1);
     expect(find.byKey(const Key('sign-in')), findsOneWidget);
     expect(find.textContaining('signed out'), findsOneWidget);
+  });
+
+  testWidgets(
+    'in French the sign-in screen, its form labels and its errors are French',
+    (tester) async {
+      appLanguage.value = 'fr';
+      addTearDown(() => appLanguage.value = 'en');
+      await pumpApp(tester, FakeAccountRepository());
+      expect(find.text('Bon retour'), findsOneWidget);
+      expect(find.text('Mot de passe'), findsOneWidget, reason: 'a form label');
+      await signIn(tester, password: 'wrong');
+      expect(
+        find.text('Cet e-mail et ce mot de passe ne correspondent pas.'),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets('choosing a language in Profile changes the app at once', (
+    tester,
+  ) async {
+    addTearDown(() => appLanguage.value = 'en');
+    await pumpApp(
+      tester,
+      FakeAccountRepository(
+        patients: [
+          const LinkedPatient(id: 'p-elena', name: 'Elena Marsh', isSelf: true),
+        ],
+      ),
+    );
+    await signIn(tester);
+    await tapKey(tester, 'tab-profile');
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('open-language')),
+      200,
+    );
+    await tapKey(tester, 'open-language');
+    await tapKey(tester, 'app-language-de');
+    expect(appLanguage.value, 'de');
+    expect(find.text('SPRACHE'), findsOneWidget, reason: 'the group heading');
+    expect(
+      find.text('Zahlungen'),
+      findsOneWidget,
+      reason: 'a row that was already on screen',
+    );
   });
 }

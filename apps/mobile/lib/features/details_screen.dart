@@ -1,6 +1,6 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:material_ui/material_ui.dart';
+import 'package:dental/ui.dart';
 
 import '../data/account_repository.dart';
 import '../design/motion.dart';
@@ -214,9 +214,7 @@ class _DetailsFormState extends ConsumerState<_DetailsForm> {
                   autofillHints: const [AutofillHints.streetAddressLine1],
                   textInputAction: TextInputAction.next,
                   validator: (v) => _required(v, 'Enter your street address.'),
-                  decoration: const InputDecoration(
-                    labelText: 'Street address',
-                  ),
+                  decoration: InputDecoration(labelText: tr('Street address')),
                 ),
                 const SizedBox(height: 14),
                 TextFormField(
@@ -224,8 +222,8 @@ class _DetailsFormState extends ConsumerState<_DetailsForm> {
                   controller: _line2,
                   autofillHints: const [AutofillHints.streetAddressLine2],
                   textInputAction: TextInputAction.next,
-                  decoration: const InputDecoration(
-                    labelText: 'Apartment or suite (optional)',
+                  decoration: InputDecoration(
+                    labelText: tr('Apartment or suite (optional)'),
                   ),
                 ),
                 const SizedBox(height: 14),
@@ -236,7 +234,7 @@ class _DetailsFormState extends ConsumerState<_DetailsForm> {
                   autofillHints: const [AutofillHints.addressCity],
                   textInputAction: TextInputAction.next,
                   validator: (v) => _required(v, 'Enter your city or town.'),
-                  decoration: const InputDecoration(labelText: 'City or town'),
+                  decoration: InputDecoration(labelText: tr('City or town')),
                 ),
                 const SizedBox(height: 14),
                 Row(
@@ -258,7 +256,7 @@ class _DetailsFormState extends ConsumerState<_DetailsForm> {
                             RegExp(r'^[A-Za-z]{2}$').hasMatch((v ?? '').trim())
                             ? null
                             : '2 letters',
-                        decoration: const InputDecoration(labelText: 'State'),
+                        decoration: InputDecoration(labelText: tr('State')),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -278,9 +276,7 @@ class _DetailsFormState extends ConsumerState<_DetailsForm> {
                                 .hasMatch((v ?? '').trim())
                             ? null
                             : 'Enter a 5-digit ZIP code.',
-                        decoration: const InputDecoration(
-                          labelText: 'ZIP code',
-                        ),
+                        decoration: InputDecoration(labelText: tr('ZIP code')),
                       ),
                     ),
                   ],
@@ -397,7 +393,7 @@ class _ClinicCard extends StatelessWidget {
   Widget build(BuildContext context) => Semantics(
     button: true,
     selected: selected,
-    label: '${clinic.name}, ${clinic.address}',
+    label: tr('${clinic.name}, ${clinic.address}'),
     child: Pressable(
       onTap: onTap,
       child: Material(

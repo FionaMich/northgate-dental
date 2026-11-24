@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:material_ui/material_ui.dart';
+import 'package:dental/ui.dart';
 
 import '../data/assistant_repository.dart';
 import '../data/voice_engine.dart';
@@ -231,8 +231,7 @@ class _VoiceScreenState extends ConsumerState<VoiceScreen> {
                     Text(
                       switch (_mood) {
                         NoraMood.listening => 'Listening…',
-                        NoraMood.thinking =>
-                          'Nora is thinking… one moment',
+                        NoraMood.thinking => 'Nora is thinking… one moment',
                         NoraMood.speaking => 'Nora is speaking',
                         NoraMood.idle =>
                           _voiceAvailable ? 'Tap the microphone and speak' : 'Voice is not available on this phone in this language',
@@ -346,9 +345,11 @@ class _VoiceScreenState extends ConsumerState<VoiceScreen> {
               Semantics(
                 button: true,
                 enabled: _voiceAvailable,
-                label: _mood == NoraMood.listening
-                    ? 'Stop listening'
-                    : 'Speak to Nora',
+                label: tr(
+                  _mood == NoraMood.listening
+                      ? 'Stop listening'
+                      : 'Speak to Nora',
+                ),
                 child: GestureDetector(
                   key: const Key('voice-mic'),
                   onTap:

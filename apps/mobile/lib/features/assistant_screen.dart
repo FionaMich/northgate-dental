@@ -1,7 +1,7 @@
 import 'dart:math';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:material_ui/material_ui.dart';
+import 'package:dental/ui.dart';
 
 import '../data/assistant_repository.dart';
 import '../design/tokens.dart';
@@ -37,7 +37,7 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> {
     24,
     (_) => Random.secure().nextInt(16).toRadixString(16),
   ).join();
-  String _language = 'en';
+  String _language = appLanguage.value; // Nora starts in the app's language
   bool _waiting = false;
   Map<String, dynamic>? _confirm;
 
@@ -255,7 +255,7 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> {
         actions: [
           IconButton(
             key: const Key('open-voice'),
-            tooltip: 'Talk to Nora',
+            tooltip: tr('Talk to Nora'),
             icon: const Icon(Icons.graphic_eq_rounded),
             onPressed: _startingCall ? null : _openVoice,
           ),

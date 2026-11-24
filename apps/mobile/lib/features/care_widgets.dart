@@ -1,4 +1,4 @@
-import 'package:material_ui/material_ui.dart';
+import 'package:dental/ui.dart';
 
 import '../data/care_repository.dart';
 import '../design/art.dart';
@@ -163,7 +163,7 @@ class VisitTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final detail = visit.procedures.isEmpty
         ? visit.location
-        : '${visit.procedures.length} procedure${visit.procedures.length == 1 ? '' : 's'} · ${visit.location}';
+        : '${visit.procedures.length} ${tr(visit.procedures.length == 1 ? 'procedure' : 'procedures')} · ${visit.location}';
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(18),
@@ -455,7 +455,7 @@ class RowGroup extends StatelessWidget {
       Padding(
         padding: const EdgeInsets.fromLTRB(6, 0, 6, 10),
         child: Text(
-          title.toUpperCase(),
+          tr(title).toUpperCase(),
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w700,
