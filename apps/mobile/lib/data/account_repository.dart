@@ -3,7 +3,12 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// A patient record this sign-in may see: their own, or a child's through proxy access.
 class LinkedPatient {
-  const LinkedPatient({required this.id, required this.name, required this.isSelf, this.detailsConfirmed = true});
+  const LinkedPatient({
+    required this.id,
+    required this.name,
+    required this.isSelf,
+    this.detailsConfirmed = true,
+  });
   final String id;
   final String name;
   final bool isSelf;
@@ -35,7 +40,14 @@ class Clinic {
 
 /// The preferred clinic (the record's home location) and home address.
 class PatientDetails {
-  const PatientDetails({this.clinicId, this.line1 = '', this.line2 = '', this.city = '', this.state = '', this.zip = ''});
+  const PatientDetails({
+    this.clinicId,
+    this.line1 = '',
+    this.line2 = '',
+    this.city = '',
+    this.state = '',
+    this.zip = '',
+  });
   final String? clinicId;
   final String line1, line2, city, state, zip;
 
@@ -55,13 +67,19 @@ class PatientDetails {
 
 /// An address the US Census Bureau knows, in its official form.
 class AddressMatch {
-  const AddressMatch({required this.line1, required this.city, required this.state, required this.zip});
+  const AddressMatch({
+    required this.line1,
+    required this.city,
+    required this.state,
+    required this.zip,
+  });
   final String line1, city, state, zip;
 
   String get oneLine => '$line1, $city, $state $zip';
 }
 
-const addressServiceError = 'We could not check your address right now. Please try again in a minute.';
+const addressServiceError =
+    'We could not check your address right now. Please try again in a minute.';
 
 /// Seed and staff data name clinics "Back Bay (synthetic)"; the patient app shows the plain name (decision 2026-11-19).
 String clinicLabel(String name) => name.replaceAll(' (synthetic)', '');
@@ -95,13 +113,22 @@ abstract class AccountRepository {
   Future<List<LinkedPatient>> linkedPatients();
 
   /// Creates a record for a new adult patient and links it to this account.
-  Future<void> registerNewPatient({required String given, required String family, required DateTime birthDate, required String sex});
+  Future<void> registerNewPatient({
+    required String given,
+    required String family,
+    required DateTime birthDate,
+    required String sex,
+  });
 
   /// Links the record that uses this sign-in's confirmed email, if the date of birth matches.
   Future<LinkOutcome> linkByBirthDate(DateTime birthDate);
 
   /// Creates a patient account; Supabase emails a 6-digit code to confirm the address.
-  Future<void> signUp({required String name, required String email, required String password});
+  Future<void> signUp({
+    required String name,
+    required String email,
+    required String password,
+  });
 
   /// Confirms the sign-up code; success signs the new patient in.
   Future<void> verifySignUpCode(String email, String code);
@@ -119,7 +146,12 @@ abstract class AccountRepository {
   Future<List<Clinic>> clinics();
 
   /// Checks a US home address (through our verify-address function, run in the US). Empty when it does not exist.
-  Future<List<AddressMatch>> verifyAddress({required String line1, required String city, required String state, required String zip});
+  Future<List<AddressMatch>> verifyAddress({
+    required String line1,
+    required String city,
+    required String state,
+    required String zip,
+  });
   Future<PatientDetails> details(String patientId);
 
   /// Saves the clinic and address for a record this sign-in may see; marks the details confirmed.
@@ -133,13 +165,16 @@ abstract final class PasswordRules {
   static bool hasUpper(String p) => p.contains(RegExp('[A-Z]'));
   static bool hasLower(String p) => p.contains(RegExp('[a-z]'));
   static bool hasDigit(String p) => p.contains(RegExp('[0-9]'));
-  static bool ok(String p) => longEnough(p) && hasUpper(p) && hasLower(p) && hasDigit(p);
+  static bool ok(String p) =>
+      longEnough(p) && hasUpper(p) && hasLower(p) && hasDigit(p);
 }
 
-const codeError = 'That code is not right or has expired. Check the latest email, or ask for a new code.';
+const codeError =
+    'That code is not right or has expired. Check the latest email, or ask for a new code.';
 
 /// Supabase could not deliver the code email (on staging: any address other than the Resend account owner's).
-const emailSendError = 'We could not send a code to that email address. Check it is typed correctly, or try another address.';
+const emailSendError =
+    'We could not send a code to that email address. Check it is typed correctly, or try another address.';
 const tooManyError = 'Too many tries. Please wait a minute, then try again.';
 
 class SupabaseAccountRepository implements AccountRepository {
@@ -150,19 +185,29 @@ class SupabaseAccountRepository implements AccountRepository {
   bool get isSignedIn => _db.auth.currentSession != null;
 
   @override
-  Stream<bool> signedInChanges() => _db.auth.onAuthStateChange.map((s) => s.session != null);
+  Stream<bool> signedInChanges() =>
+      _db.auth.onAuthStateChange.map((s) => s.session != null);
 
   @override
   Future<void> signIn(String email, String password) async {
     try {
-      await _db.auth.signInWithPassword(email: email.trim(), password: password);
+      await _db.auth.signInWithPassword(
+        email: email.trim(),
+        password: password,
+      );
     } on AuthException {
       throw const AccountError('That email and password do not match.');
     }
-    final profile = await _db.from('profiles').select('role').eq('id', _db.auth.currentUser!.id).maybeSingle();
+    final profile = await _db
+        .from('profiles')
+        .select('role')
+        .eq('id', _db.auth.currentUser!.id)
+        .maybeSingle();
     if (profile?['role'] != 'patient') {
       await _db.auth.signOut();
-      throw const AccountError('Staff accounts sign in to the portal, not the patient app.');
+      throw const AccountError(
+        'Staff accounts sign in to the portal, not the patient app.',
+      );
     }
     await _sendSignInCode(email.trim());
   }
@@ -183,17 +228,24 @@ class SupabaseAccountRepository implements AccountRepository {
   String? get currentEmail => _db.auth.currentUser?.email;
 
   @override
-  Future<bool> sessionVerified() async => await _db.rpc('session_is_verified') == true;
+  Future<bool> sessionVerified() async =>
+      await _db.rpc('session_is_verified') == true;
 
   @override
   Future<void> verifySignInCode(String email, String code) async {
     try {
-      await _db.auth.verifyOTP(type: OtpType.email, email: email.trim(), token: code.trim());
+      await _db.auth.verifyOTP(
+        type: OtpType.email,
+        email: email.trim(),
+        token: code.trim(),
+      );
       await _db.rpc('finish_sign_in_code');
     } on AuthException catch (e) {
       throw _authError(e, fallback: codeError);
     } on PostgrestException {
-      throw const AccountError('Your password step has expired. Please sign in again.');
+      throw const AccountError(
+        'Your password step has expired. Please sign in again.',
+      );
     }
   }
 
@@ -205,7 +257,11 @@ class SupabaseAccountRepository implements AccountRepository {
 
   @override
   Future<List<LinkedPatient>> linkedPatients() async {
-    final self = await _db.from('patient_links').select('patient_id').eq('profile_id', _db.auth.currentUser!.id).maybeSingle();
+    final self = await _db
+        .from('patient_links')
+        .select('patient_id')
+        .eq('profile_id', _db.auth.currentUser!.id)
+        .maybeSingle();
     final rows = await _db
         .from('patients')
         .select('id, given_name, family_name, details_confirmed_at')
@@ -224,22 +280,40 @@ class SupabaseAccountRepository implements AccountRepository {
   @visibleForTesting
   static AccountError authErrorForTest(AuthException e) => _authError(e);
 
-  static AccountError _authError(AuthException e, {String fallback = 'That did not work. Please try again.'}) {
-    if (e.statusCode == '429' || (e.code ?? '').contains('rate_limit')) return const AccountError(tooManyError);
-    if (e.code == 'weak_password') {
-      return const AccountError('Choose a stronger password: 10 or more characters with upper and lower case letters and a number.');
+  static AccountError _authError(
+    AuthException e, {
+    String fallback = 'That did not work. Please try again.',
+  }) {
+    if (e.statusCode == '429' || (e.code ?? '').contains('rate_limit')) {
+      return const AccountError(tooManyError);
     }
-    if (e.code == 'otp_expired' || e.code == 'otp_disabled') return const AccountError(codeError);
-    if (e.message.toLowerCase().contains('sending') && e.message.toLowerCase().contains('email')) {
+    if (e.code == 'weak_password') {
+      return const AccountError(
+        'Choose a stronger password: 10 or more characters with upper and lower case letters and a number.',
+      );
+    }
+    if (e.code == 'otp_expired' || e.code == 'otp_disabled') {
+      return const AccountError(codeError);
+    }
+    if (e.message.toLowerCase().contains('sending') &&
+        e.message.toLowerCase().contains('email')) {
       return const AccountError(emailSendError);
     }
     return AccountError(fallback);
   }
 
   @override
-  Future<void> signUp({required String name, required String email, required String password}) async {
+  Future<void> signUp({
+    required String name,
+    required String email,
+    required String password,
+  }) async {
     try {
-      await _db.auth.signUp(email: email.trim(), password: password, data: {'display_name': name.trim()});
+      await _db.auth.signUp(
+        email: email.trim(),
+        password: password,
+        data: {'display_name': name.trim()},
+      );
     } on AuthException catch (e) {
       throw _authError(e);
     }
@@ -248,8 +322,14 @@ class SupabaseAccountRepository implements AccountRepository {
   @override
   Future<void> verifySignUpCode(String email, String code) async {
     try {
-      await _db.auth.verifyOTP(type: OtpType.signup, email: email.trim(), token: code.trim());
-      await _db.rpc('finish_sign_in_code'); // the sign-up code verifies a new account's first session
+      await _db.auth.verifyOTP(
+        type: OtpType.signup,
+        email: email.trim(),
+        token: code.trim(),
+      );
+      await _db.rpc(
+        'finish_sign_in_code',
+      ); // the sign-up code verifies a new account's first session
     } on AuthException catch (e) {
       throw _authError(e, fallback: codeError);
     } on PostgrestException {
@@ -281,7 +361,11 @@ class SupabaseAccountRepository implements AccountRepository {
   @override
   Future<void> verifyResetCode(String email, String code) async {
     try {
-      await _db.auth.verifyOTP(type: OtpType.recovery, email: email.trim(), token: code.trim());
+      await _db.auth.verifyOTP(
+        type: OtpType.recovery,
+        email: email.trim(),
+        token: code.trim(),
+      );
     } on AuthException catch (e) {
       throw _authError(e, fallback: codeError);
     }
@@ -297,18 +381,31 @@ class SupabaseAccountRepository implements AccountRepository {
   }
 
   @override
-  Future<void> registerNewPatient({required String given, required String family, required DateTime birthDate, required String sex}) async {
+  Future<void> registerNewPatient({
+    required String given,
+    required String family,
+    required DateTime birthDate,
+    required String sex,
+  }) async {
     final day =
         '${birthDate.year.toString().padLeft(4, '0')}-${birthDate.month.toString().padLeft(2, '0')}-${birthDate.day.toString().padLeft(2, '0')}';
     try {
-      await _db.rpc('register_new_patient', params: {'given': given, 'family': family, 'birth_date': day, 'sex': sex});
+      await _db.rpc(
+        'register_new_patient',
+        params: {
+          'given': given,
+          'family': family,
+          'birth_date': day,
+          'sex': sex,
+        },
+      );
     } on PostgrestException catch (e) {
       final m = e.message.toLowerCase();
       throw AccountError(switch (m) {
-        _ when m.contains('already uses this email') =>
-          'A record already uses your email. Choose "I am already a patient" and confirm your date of birth.',
+        _ when m.contains('already uses this email') => 'A record already uses your email. Choose "I am already a patient" and confirm your date of birth.',
         _ when m.contains('under 18') => 'Patients under 18 are registered by a parent or guardian at the practice.',
-        _ when m.contains('already has a record') => 'This account already has a record.',
+        _ when m.contains('already has a record') =>
+          'This account already has a record.',
         _ => 'Registering did not work. Please try again.',
       });
     }
@@ -322,10 +419,18 @@ class SupabaseAccountRepository implements AccountRepository {
     required String zip,
   }) async {
     try {
-      final res = await _db.functions.invoke('verify-address', body: {'street': line1, 'city': city, 'state': state, 'zip': zip});
+      final res = await _db.functions.invoke(
+        'verify-address',
+        body: {'street': line1, 'city': city, 'state': state, 'zip': zip},
+      );
       return [
         for (final m in (res.data as Map)['matches'] as List)
-          AddressMatch(line1: m['line1'] as String, city: m['city'] as String, state: m['state'] as String, zip: m['zip'] as String),
+          AddressMatch(
+            line1: m['line1'] as String,
+            city: m['city'] as String,
+            state: m['state'] as String,
+            zip: m['zip'] as String,
+          ),
       ];
     } on FunctionException {
       throw const AccountError(addressServiceError);
@@ -336,7 +441,9 @@ class SupabaseAccountRepository implements AccountRepository {
   Future<List<Clinic>> clinics() async {
     final rows = await _db
         .from('locations')
-        .select('id, name, address_line, city, state, postal_code, phone, photo_key, time_zone, location_hours(weekday, opens, closes)')
+        .select(
+          'id, name, address_line, city, state, postal_code, phone, photo_key, time_zone, location_hours(weekday, opens, closes)',
+        )
         .eq('active', true)
         .order('name', ascending: true);
     return [
@@ -354,7 +461,11 @@ class SupabaseAccountRepository implements AccountRepository {
           timeZone: r['time_zone'] as String? ?? 'America/New_York',
           hours: [
             for (final h in (r['location_hours'] as List? ?? const []))
-              (h['weekday'] as int, (h['opens'] as String).substring(0, 5), (h['closes'] as String).substring(0, 5)),
+              (
+                h['weekday'] as int,
+                (h['opens'] as String).substring(0, 5),
+                (h['closes'] as String).substring(0, 5),
+              ),
           ]..sort((a, b) => a.$1.compareTo(b.$1)),
         ),
     ];
@@ -364,7 +475,9 @@ class SupabaseAccountRepository implements AccountRepository {
   Future<PatientDetails> details(String patientId) async {
     final r = await _db
         .from('patients')
-        .select('home_location_id, address_line1, address_line2, city, state, postal_code')
+        .select(
+          'home_location_id, address_line1, address_line2, city, state, postal_code',
+        )
         .eq('id', patientId)
         .single();
     return PatientDetails(
@@ -403,9 +516,13 @@ class SupabaseAccountRepository implements AccountRepository {
 
   @override
   Future<LinkOutcome> linkByBirthDate(DateTime d) async {
-    final day = '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+    final day =
+        '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
     try {
-      final result = await _db.rpc('link_by_birth_date', params: {'birth_date': day});
+      final result = await _db.rpc(
+        'link_by_birth_date',
+        params: {'birth_date': day},
+      );
       return switch (result) {
         'linked' => LinkOutcome.linked,
         'locked' => LinkOutcome.locked,

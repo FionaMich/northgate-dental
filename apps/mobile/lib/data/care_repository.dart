@@ -1,8 +1,20 @@
 import 'dart:typed_data';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:timezone/data/latest.dart' as tzdata;
+import 'package:timezone/timezone.dart' as tz;
 
 import 'account_repository.dart' show clinicLabel;
+
+// shortcut: Northgate's three clinics share Boston's zone; read locations.time_zone when a clinic elsewhere opens.
+final _clinicZone = () {
+  tzdata.initializeTimeZones();
+  return tz.getLocation('America/New_York');
+}();
+
+/// A visit time in the clinic's own time, whatever zone the phone is in (a phone in Nairobi showed 18:00 for 10:00).
+DateTime clinicTime(String iso) =>
+    tz.TZDateTime.from(DateTime.parse(iso), _clinicZone);
 
 class Appointment {
   const Appointment({
@@ -17,8 +29,12 @@ class Appointment {
     this.clinicId,
     this.serviceId,
     this.dentistId,
+    this.priceCents,
   });
   final String id, service, location, status;
+
+  /// The clinic's price for this service, in whole cents; what the patient pays in the app.
+  final int? priceCents;
   final String? dentist, dentistPhoto;
 
   /// For rescheduling: book the same service with the same dentist at the same clinic.
@@ -26,8 +42,46 @@ class Appointment {
   final DateTime startsAt, endsAt;
 }
 
+/// A payment for one visit: open (pending) or paid. Expired Checkout attempts are left out.
+class Payment {
+  const Payment({
+    required this.id,
+    required this.appointmentId,
+    required this.amountCents,
+    required this.status,
+    required this.service,
+    required this.location,
+    required this.visitAt,
+    this.paidAt,
+  });
+  final String id, appointmentId, status, service, location;
+  final int amountCents;
+  final DateTime visitAt;
+  final DateTime? paidAt;
+  bool get paid => status == 'paid';
+}
+
+class PaymentError implements Exception {
+  const PaymentError(this.message);
+  final String message;
+  @override
+  String toString() => message;
+}
+
+/// Where the pay page lives (n8n's W06 behind the WAF); a build can point elsewhere with --dart-define=LINK_BASE=...
+const linkBase = String.fromEnvironment(
+  'LINK_BASE',
+  defaultValue: 'https://n8n.84-12-126-31.sslip.io/webhook',
+);
+
 class Procedure {
-  const Procedure({required this.service, required this.status, this.tooth, this.surface, this.feeCents});
+  const Procedure({
+    required this.service,
+    required this.status,
+    this.tooth,
+    this.surface,
+    this.feeCents,
+  });
   final String service, status;
   final String? tooth, surface;
 
@@ -82,7 +136,11 @@ class PracticeDocument {
 }
 
 class PlanPhase {
-  const PlanPhase({required this.sequence, required this.name, this.procedures = const []});
+  const PlanPhase({
+    required this.sequence,
+    required this.name,
+    this.procedures = const [],
+  });
   final int sequence;
   final String name;
   final List<Procedure> procedures;
@@ -99,8 +157,19 @@ class Plan {
 
 /// Everything the home, records and plan screens show for one person.
 class CareSummary {
-  const CareSummary({this.upcoming = const [], this.visits = const [], this.plans = const [], this.documents = const []});
+  const CareSummary({
+    this.upcoming = const [],
+    this.visits = const [],
+    this.plans = const [],
+    this.documents = const [],
+    this.payments = const [],
+  });
   final List<Appointment> upcoming;
+  final List<Payment> payments; // newest first
+
+  /// The payment for a visit, if one was started.
+  Payment? paymentFor(String appointmentId) =>
+      payments.where((p) => p.appointmentId == appointmentId).firstOrNull;
   final List<Visit> visits; // newest first
   final List<Plan> plans;
   final List<PracticeDocument> documents; // newest first
@@ -126,7 +195,13 @@ String categoryPhoto(String category) => switch (category) {
 
 /// A service patients may book themselves at a clinic.
 class BookableService {
-  const BookableService({required this.id, required this.name, required this.minutes, this.summary = '', this.specialty = 'general'});
+  const BookableService({
+    required this.id,
+    required this.name,
+    required this.minutes,
+    this.summary = '',
+    this.specialty = 'general',
+  });
   final String id, name;
   final int minutes;
 
@@ -153,7 +228,11 @@ class BookableService {
 
 /// A free time from `available_slots`, with the dentist the server matched to it.
 class Slot {
-  const Slot({required this.practitionerId, required this.startsAt, required this.endsAt});
+  const Slot({
+    required this.practitionerId,
+    required this.startsAt,
+    required this.endsAt,
+  });
   final String practitionerId;
   final DateTime startsAt, endsAt;
 }
@@ -175,7 +254,8 @@ class Dentist {
   /// Clinic ID to clinic name, where this person works.
   final Map<String, String> clinics;
 
-  String? get photoAsset => photoKey == null ? null : 'assets/images/team/$photoKey.jpg';
+  String? get photoAsset =>
+      photoKey == null ? null : 'assets/images/team/$photoKey.jpg';
 }
 
 /// A booking problem safe to show as it is.
@@ -189,13 +269,22 @@ const holdExpiredError = 'Your hold has run out. Please pick a time again.';
 
 /// An insurance card on file; staff check it in the coverage queue.
 class Coverage {
-  const Coverage({required this.id, required this.payer, required this.memberId, required this.status});
+  const Coverage({
+    required this.id,
+    required this.payer,
+    required this.memberId,
+    required this.status,
+  });
   final String id, payer, memberId, status;
 }
 
 /// A dental plan patients can pick when adding a card.
 class InsurancePlan {
-  const InsurancePlan({required this.id, required this.name, required this.kind});
+  const InsurancePlan({
+    required this.id,
+    required this.name,
+    required this.kind,
+  });
   final String id, name;
 
   /// commercial, medicaid (MassHealth) or medicare.
@@ -208,7 +297,8 @@ class CoverageError implements Exception {
   final String message;
 }
 
-const uploadError = 'We could not save your card. Check your connection and try again.';
+const uploadError =
+    'We could not save your card. Check your connection and try again.';
 
 /// Reads one patient's care and books visits. Row level security and the booking functions decide what is allowed.
 abstract class CareRepository {
@@ -222,14 +312,28 @@ abstract class CareRepository {
   Future<List<Dentist>> dentists();
 
   /// Free times over [days] days from [fromDay], one per dentist and start time, soonest first.
-  Future<List<Slot>> slots(String clinicId, String serviceId, DateTime fromDay, {int days = 14});
+  Future<List<Slot>> slots(
+    String clinicId,
+    String serviceId,
+    DateTime fromDay, {
+    int days = 14,
+  });
 
   /// Holds the time for 10 minutes and returns the held appointment's ID. Nothing is booked yet.
-  Future<String> hold({required String clinicId, required String serviceId, required Slot slot, required String patientId});
+  Future<String> hold({
+    required String clinicId,
+    required String serviceId,
+    required Slot slot,
+    required String patientId,
+  });
 
   /// Turns a hold into a booking. Only the server's answer makes it confirmed.
-  Future<void> confirm(String appointmentId);
+  /// Books a held slot. With [replaces], moves that visit here in the same step (reschedule_booking).
+  Future<void> confirm(String appointmentId, {String? replaces});
   Future<void> cancel(String appointmentId);
+
+  /// A single-use link to Stripe Checkout for one of the patient's own visits, at the price-list amount.
+  Future<Uri> payLink(String appointmentId);
 
   Future<List<Coverage>> coverages(String patientId);
   Future<List<InsurancePlan>> insurancePlans();
@@ -251,7 +355,9 @@ class SupabaseCareRepository implements CareRepository {
   final SupabaseClient _db;
 
   // Services hang off the location's price list (location_services), not the row itself.
-  static String? _serviceName(Map<String, dynamic> r) => ((r['location_services'] as Map?)?['services'] as Map?)?['name'] as String?;
+  static String? _serviceName(Map<String, dynamic> r) =>
+      ((r['location_services'] as Map?)?['services'] as Map?)?['name']
+          as String?;
 
   static Procedure _procedure(Map<String, dynamic> r) => Procedure(
     service: _serviceName(r) ?? 'Procedure',
@@ -269,12 +375,15 @@ class SupabaseCareRepository implements CareRepository {
           .from('appointments')
           .select(
             'id, starts_at, ends_at, status, location_id, service_id, practitioner_id, '
-            'location_services(services(name), locations(name)), practitioners(public_name, photo_key)',
+            'location_services(price_cents, services(name), locations(name)), practitioners(public_name, photo_key)',
           )
           .eq('patient_id', patientId)
           .inFilter('status', ['booked', 'arrived'])
           .gte('starts_at', now)
-          .order('starts_at', ascending: true), // soonest first (the client defaults to descending)
+          .order(
+            'starts_at',
+            ascending: true,
+          ), // soonest first (the client defaults to descending)
       _db
           .from('encounters')
           .select(
@@ -292,42 +401,92 @@ class SupabaseCareRepository implements CareRepository {
           .order('created_at', ascending: false),
       _db
           .from('patient_documents')
-          .select('id, encounter_id, kind, title, file_path, content_type, shared_at')
+          .select(
+            'id, encounter_id, kind, title, file_path, content_type, shared_at',
+          )
           .eq('patient_id', patientId)
           .order('shared_at', ascending: false),
+      _db
+          .from('payments')
+          .select(
+            'id, appointment_id, amount_cents, status, paid_at, appointments(starts_at, location_services(services(name), locations(name)))',
+          )
+          .eq('patient_id', patientId)
+          .neq('status', 'expired')
+          .order('created_at', ascending: false),
     ]);
-    String loc(Map<String, dynamic> r) => clinicLabel((r['locations'] as Map?)?['name'] as String? ?? 'Northgate Dental');
+    String loc(Map<String, dynamic> r) => clinicLabel(
+      (r['locations'] as Map?)?['name'] as String? ?? 'Northgate Dental',
+    );
     return CareSummary(
       upcoming: [
         for (final r in results[0])
           Appointment(
             id: r['id'] as String,
-            startsAt: DateTime.parse(r['starts_at'] as String).toLocal(),
-            endsAt: DateTime.parse(r['ends_at'] as String).toLocal(),
+            startsAt: clinicTime(r['starts_at'] as String),
+            endsAt: clinicTime(r['ends_at'] as String),
             service: _serviceName(r) ?? 'Appointment',
-            location: clinicLabel(((r['location_services'] as Map?)?['locations'] as Map?)?['name'] as String? ?? 'Northgate Dental'),
+            location: clinicLabel(
+              ((r['location_services'] as Map?)?['locations'] as Map?)?['name']
+                      as String? ??
+                  'Northgate Dental',
+            ),
             status: r['status'] as String,
             dentist: (r['practitioners'] as Map?)?['public_name'] as String?,
             dentistPhoto: (r['practitioners'] as Map?)?['photo_key'] as String?,
             clinicId: r['location_id'] as String?,
             serviceId: r['service_id'] as String?,
             dentistId: r['practitioner_id'] as String?,
+            priceCents:
+                (r['location_services'] as Map?)?['price_cents'] as int?,
+          ),
+      ],
+      payments: [
+        for (final r in results[4])
+          Payment(
+            id: r['id'] as String,
+            appointmentId: r['appointment_id'] as String,
+            amountCents: r['amount_cents'] as int,
+            status: r['status'] as String,
+            paidAt: r['paid_at'] == null
+                ? null
+                : DateTime.parse(r['paid_at'] as String).toLocal(),
+            visitAt: clinicTime(
+              (r['appointments'] as Map)['starts_at'] as String,
+            ),
+            service:
+                _serviceName(r['appointments'] as Map<String, dynamic>) ??
+                'Visit',
+            location: clinicLabel(
+              (((r['appointments'] as Map)['location_services']
+                              as Map?)?['locations']
+                          as Map?)?['name']
+                      as String? ??
+                  'Northgate Dental',
+            ),
           ),
       ],
       visits: [
         for (final r in results[1])
           Visit(
             id: r['id'] as String,
-            at: DateTime.parse(r['occurred_at'] as String).toLocal(),
+            at: clinicTime(r['occurred_at'] as String),
             kind: r['kind'] as String,
             location: loc(r),
             dentist: (r['practitioners'] as Map?)?['public_name'] as String?,
             dentistPhoto: (r['practitioners'] as Map?)?['photo_key'] as String?,
             reason: r['reason'] as String?,
-            procedures: [for (final p in (r['dental_procedures'] as List? ?? const [])) _procedure(p as Map<String, dynamic>)],
+            procedures: [
+              for (final p in (r['dental_procedures'] as List? ?? const []))
+                _procedure(p as Map<String, dynamic>),
+            ],
             findings: [
               for (final f in (r['tooth_conditions'] as List? ?? const []))
-                Finding(tooth: f['tooth'] as String, surface: f['surface'] as String?, condition: f['condition'] as String),
+                Finding(
+                  tooth: f['tooth'] as String,
+                  surface: f['surface'] as String?,
+                  condition: f['condition'] as String,
+                ),
             ],
           ),
       ],
@@ -353,7 +512,11 @@ class SupabaseCareRepository implements CareRepository {
                 PlanPhase(
                   sequence: ph['sequence'] as int,
                   name: ph['name'] as String,
-                  procedures: [for (final p in (ph['dental_procedures'] as List? ?? const [])) _procedure(p as Map<String, dynamic>)],
+                  procedures: [
+                    for (final p
+                        in (ph['dental_procedures'] as List? ?? const []))
+                      _procedure(p as Map<String, dynamic>),
+                  ],
                 ),
             ]..sort((a, b) => a.sequence.compareTo(b.sequence))),
           ),
@@ -364,54 +527,80 @@ class SupabaseCareRepository implements CareRepository {
   @override
   Future<String> documentLink(String path) async {
     try {
-      return await _db.storage.from('patient-documents').createSignedUrl(path, 300); // 5 minutes
+      return await _db.storage
+          .from('patient-documents')
+          .createSignedUrl(path, 300); // 5 minutes
     } on StorageException {
-      throw const CoverageError('We could not open that document. Check your connection and try again.');
+      throw const CoverageError(
+        'We could not open that document. Check your connection and try again.',
+      );
     }
   }
 
-  static String _day(DateTime d) => '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+  static String _day(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
-  static Never _bookingError(PostgrestException e) => throw BookingError(switch (e.code) {
-    '23P01' => slotTakenError,
-    '22023' => holdExpiredError,
-    '42501' => 'This visit cannot be booked in the app. Please call the practice.',
-    _ => 'Booking did not work. Please try again.',
-  });
+  static Never _bookingError(PostgrestException e) =>
+      throw BookingError(switch (e.code) {
+        '23P01' => slotTakenError,
+        '22023' => holdExpiredError,
+        '42501' =>
+          'This visit cannot be booked in the app. Please call the practice.',
+        _ => 'Booking did not work. Please try again.',
+      });
 
   @override
   Future<List<BookableService>> services(String clinicId) async {
     final rows = await _db
         .from('location_services')
-        .select('services(id, name, summary, duration_minutes, self_bookable, active, specialties(code))')
+        .select(
+          'services(id, name, summary, duration_minutes, self_bookable, active, specialties(code))',
+        )
         .eq('location_id', clinicId)
         .eq('active', true);
     final list = [
       for (final r in rows)
-        if (r['services'] case {'self_bookable': true, 'active': true} && final s)
+        if (r['services']
+            case {'self_bookable': true, 'active': true} && final s)
           BookableService(
             id: s['id'] as String,
             name: s['name'] as String,
             minutes: s['duration_minutes'] as int,
             summary: s['summary'] as String? ?? '',
-            specialty: (s['specialties'] as Map?)?['code'] as String? ?? 'general',
+            specialty:
+                (s['specialties'] as Map?)?['code'] as String? ?? 'general',
           ),
     ];
     return list..sort((a, b) => a.name.compareTo(b.name));
   }
 
   @override
-  Future<List<Slot>> slots(String clinicId, String serviceId, DateTime fromDay, {int days = 14}) async {
-    final rows =
-        await _db.rpc('available_slots', params: {'loc': clinicId, 'service': serviceId, 'from_day': _day(fromDay), 'days': days}) as List;
+  Future<List<Slot>> slots(
+    String clinicId,
+    String serviceId,
+    DateTime fromDay, {
+    int days = 14,
+  }) async {
+    final rows = await _db.rpc(
+      'available_slots',
+      params: {
+        'loc': clinicId,
+        'service': serviceId,
+        'from_day': _day(fromDay),
+        'days': days,
+      },
+    ) as List;
     final seen = <(String, DateTime)>{};
     return [
       for (final r in rows)
-        if (seen.add((r['practitioner_id'] as String, DateTime.parse(r['starts_at'] as String))))
+        if (seen.add((
+          r['practitioner_id'] as String,
+          DateTime.parse(r['starts_at'] as String),
+        )))
           Slot(
             practitionerId: r['practitioner_id'] as String,
-            startsAt: DateTime.parse(r['starts_at'] as String).toLocal(),
-            endsAt: DateTime.parse(r['ends_at'] as String).toLocal(),
+            startsAt: clinicTime(r['starts_at'] as String),
+            endsAt: clinicTime(r['ends_at'] as String),
           ),
     ]..sort((a, b) => a.startsAt.compareTo(b.startsAt));
   }
@@ -420,7 +609,9 @@ class SupabaseCareRepository implements CareRepository {
   Future<List<Dentist>> dentists() async {
     final rows = await _db
         .from('practitioners')
-        .select('id, public_name, title, focus, bio, photo_key, practitioner_roles(locations(id, name))')
+        .select(
+          'id, public_name, title, focus, bio, photo_key, practitioner_roles(locations(id, name))',
+        )
         .eq('active', true)
         .order('public_name', ascending: true);
     return [
@@ -435,14 +626,23 @@ class SupabaseCareRepository implements CareRepository {
             photoKey: r['photo_key'] as String?,
             clinics: {
               for (final role in (r['practitioner_roles'] as List? ?? const []))
-                if ((role as Map)['locations'] case {'id': final String id, 'name': final String name}) id: clinicLabel(name),
+                if ((role as Map)['locations'] case {
+                  'id': final String id,
+                  'name': final String name,
+                })
+                  id: clinicLabel(name),
             },
           ),
     ];
   }
 
   @override
-  Future<String> hold({required String clinicId, required String serviceId, required Slot slot, required String patientId}) async {
+  Future<String> hold({
+    required String clinicId,
+    required String serviceId,
+    required Slot slot,
+    required String patientId,
+  }) async {
     try {
       return await _db.rpc(
         'hold_slot',
@@ -460,9 +660,14 @@ class SupabaseCareRepository implements CareRepository {
   }
 
   @override
-  Future<void> confirm(String appointmentId) async {
+  Future<void> confirm(String appointmentId, {String? replaces}) async {
     try {
-      await _db.rpc('confirm_booking', params: {'appointment': appointmentId});
+      await (replaces == null
+          ? _db.rpc('confirm_booking', params: {'appointment': appointmentId})
+          : _db.rpc(
+              'reschedule_booking',
+              params: {'appointment': appointmentId, 'old': replaces},
+            ));
     } on PostgrestException catch (e) {
       _bookingError(e);
     }
@@ -471,9 +676,30 @@ class SupabaseCareRepository implements CareRepository {
   @override
   Future<void> cancel(String appointmentId) async {
     try {
-      await _db.rpc('cancel_appointment', params: {'appointment': appointmentId});
+      await _db.rpc(
+        'cancel_appointment',
+        params: {'appointment': appointmentId},
+      );
     } on PostgrestException catch (e) {
       _bookingError(e);
+    }
+  }
+
+  @override
+  Future<Uri> payLink(String appointmentId) async {
+    try {
+      final token = await _db.rpc(
+        'start_my_payment',
+        params: {'appointment': appointmentId},
+      ) as String;
+      return Uri.parse('$linkBase/pay?t=$token');
+    } on PostgrestException catch (e) {
+      if (e.message.contains('already paid')) {
+        throw const PaymentError('This visit is already paid.');
+      }
+      throw const PaymentError(
+        'We could not start the payment. Please try again, or pay at the clinic.',
+      );
     }
   }
 
@@ -497,8 +723,19 @@ class SupabaseCareRepository implements CareRepository {
 
   @override
   Future<List<InsurancePlan>> insurancePlans() async {
-    final rows = await _db.from('insurance_plans').select('id, name, kind').eq('active', true).order('name', ascending: true);
-    return [for (final r in rows) InsurancePlan(id: r['id'] as String, name: r['name'] as String, kind: r['kind'] as String)];
+    final rows = await _db
+        .from('insurance_plans')
+        .select('id, name, kind')
+        .eq('active', true)
+        .order('name', ascending: true);
+    return [
+      for (final r in rows)
+        InsurancePlan(
+          id: r['id'] as String,
+          name: r['name'] as String,
+          kind: r['kind'] as String,
+        ),
+    ];
   }
 
   @override
@@ -513,11 +750,18 @@ class SupabaseCareRepository implements CareRepository {
   }) async {
     final stamp = DateTime.now().millisecondsSinceEpoch;
     final bucket = _db.storage.from('coverage-cards');
-    String? upload(String side, Uint8List? bytes) => bytes == null ? null : '$patientId/$stamp-$side.jpg';
+    String? upload(String side, Uint8List? bytes) =>
+        bytes == null ? null : '$patientId/$stamp-$side.jpg';
     final frontPath = upload('front', front), backPath = upload('back', back);
     try {
       for (final (path, bytes) in [(frontPath, front), (backPath, back)]) {
-        if (path != null) await bucket.uploadBinary(path, bytes!, fileOptions: const FileOptions(contentType: 'image/jpeg'));
+        if (path != null) {
+          await bucket.uploadBinary(
+            path,
+            bytes!,
+            fileOptions: const FileOptions(contentType: 'image/jpeg'),
+          );
+        }
       }
       await _db.from('coverages').insert({
         'patient_id': patientId,

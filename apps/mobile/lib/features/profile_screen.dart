@@ -9,6 +9,8 @@ import 'aligner_screen.dart';
 import 'clinic_screen.dart';
 import 'coverage_screen.dart';
 import 'details_screen.dart';
+import 'bag_screen.dart' show OrdersScreen;
+import 'payments_screen.dart';
 
 /// The account: who is linked, their clinic and address, privacy, and signing out.
 class ProfileScreen extends ConsumerWidget {
@@ -19,7 +21,12 @@ class ProfileScreen extends ConsumerWidget {
     final people = ref.watch(linkedPatientsProvider).value ?? const [];
     final current = ref.watch(currentPatientProvider);
     final self = people.where((p) => p.isSelf).firstOrNull ?? current;
-    final initials = (self?.name ?? '').split(' ').where((w) => w.isNotEmpty).take(2).map((w) => w[0]).join();
+    final initials = (self?.name ?? '')
+        .split(' ')
+        .where((w) => w.isNotEmpty)
+        .take(2)
+        .map((w) => w[0])
+        .join();
     return ListView(
       padding: const EdgeInsets.only(bottom: 120),
       children: [
@@ -37,15 +44,25 @@ class ProfileScreen extends ConsumerWidget {
                 end: Alignment.bottomRight,
               ),
               shape: BoxShape.circle,
-              border: Border.all(color: Colors.white.withValues(alpha: 0.6), width: 2.5),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.6),
+                width: 2.5,
+              ),
               boxShadow: lift(1.2),
             ),
             child: Text(
               initials,
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: Palette.deepSea),
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                color: Palette.deepSea,
+              ),
             ),
           ),
-          facts: [if (people.length > 1) (Icons.group_rounded, '${people.length} people')],
+          facts: [
+            if (people.length > 1)
+              (Icons.group_rounded, '${people.length} people'),
+          ],
         ),
         OverHero(
           child: Padding(
@@ -67,7 +84,9 @@ class ProfileScreen extends ConsumerWidget {
                   rows: [
                     for (final p in people)
                       GroupRow(
-                        icon: p.isSelf ? Icons.person_rounded : Icons.child_care_rounded,
+                        icon: p.isSelf
+                            ? Icons.person_rounded
+                            : Icons.child_care_rounded,
                         tint: p.isSelf ? Tint.teal : Tint.violet,
                         title: p.name,
                         detail: p.isSelf ? 'You' : 'You manage their care',
@@ -80,12 +99,40 @@ class ProfileScreen extends ConsumerWidget {
                     title: 'Tools',
                     rows: [
                       GroupRow(
+                        key: const Key('open-payments'),
+                        icon: Icons.receipt_long_rounded,
+                        tint: Tint.teal,
+                        title: 'Payments',
+                        detail: 'Pay for visits and see your receipts',
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const PaymentsScreen(),
+                          ),
+                        ),
+                      ),
+                      GroupRow(
+                        key: const Key('open-orders'),
+                        icon: Icons.shopping_bag_rounded,
+                        tint: Tint.teal,
+                        title: 'Orders',
+                        detail: 'What you bought in the shop and where it is',
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const OrdersScreen(),
+                          ),
+                        ),
+                      ),
+                      GroupRow(
                         key: const Key('open-aligner'),
                         icon: Icons.timer_outlined,
                         tint: Tint.violet,
                         title: 'Aligner timer',
                         detail: 'Track wear against 22 hours a day',
-                        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => AlignerScreen(patient: self))),
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => AlignerScreen(patient: self),
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -113,8 +160,14 @@ class ProfileScreen extends ConsumerWidget {
                     backgroundColor: Colors.white,
                     foregroundColor: Palette.error,
                     side: const BorderSide(color: Color(0xFFF1C9C5)),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-                    textStyle: const TextStyle(fontFamily: uiFont, fontSize: 16, fontWeight: FontWeight.w700),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    textStyle: const TextStyle(
+                      fontFamily: uiFont,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ],
@@ -138,15 +191,32 @@ class _DetailsRow extends ConsumerWidget {
     final clinic = clinics.where((c) => c.id == details?.clinicId).firstOrNull;
     final address = details == null || details.line1.isEmpty
         ? 'No address yet'
-        : [details.line1, details.line2, details.city, '${details.state} ${details.zip}'].where((s) => s.trim().isNotEmpty).join(', ');
-    void edit() => Navigator.of(context).push(MaterialPageRoute(builder: (_) => DetailsScreen(patient: patient, editing: true)));
+        : [
+            details.line1,
+            details.line2,
+            details.city,
+            '${details.state} ${details.zip}',
+          ].where((s) => s.trim().isNotEmpty).join(', ');
+    void edit() => Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => DetailsScreen(patient: patient, editing: true),
+      ),
+    );
     return GroupRow(
       icon: Icons.location_on_rounded,
       tint: Tint.teal,
       title: clinic?.name ?? 'Choose a clinic',
       detail: address,
-      onTap: clinic == null ? edit : () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ClinicScreen(clinic: clinic))),
-      trailing: TextButton(key: const Key('edit-details'), onPressed: edit, child: const Text('Edit')),
+      onTap: clinic == null
+          ? edit
+          : () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => ClinicScreen(clinic: clinic)),
+            ),
+      trailing: TextButton(
+        key: const Key('edit-details'),
+        onPressed: edit,
+        child: const Text('Edit'),
+      ),
     );
   }
 }
@@ -157,7 +227,9 @@ Future<void> _confirmSignOut(BuildContext context, WidgetRef ref) async {
     backgroundColor: Colors.white,
     showDragHandle: true,
     isScrollControlled: true, // size to content and scroll on short screens instead of overflowing
-    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(32))),
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+    ),
     builder: (context) => SafeArea(
       child: SingleChildScrollView(
         child: Padding(
@@ -168,12 +240,20 @@ Future<void> _confirmSignOut(BuildContext context, WidgetRef ref) async {
             children: [
               const Center(child: IconTile(Icons.logout_rounded, size: 64)),
               const SizedBox(height: 18),
-              Text('Sign out of Northgate?', textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineMedium),
+              Text(
+                'Sign out of Northgate?',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.headlineMedium,
+              ),
               const SizedBox(height: 8),
               const Text(
                 'We remove your sign-in from this phone. You will need your email and password to come back.',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 15, height: 1.5, color: Palette.muted),
+                style: TextStyle(
+                  fontSize: 15,
+                  height: 1.5,
+                  color: Palette.muted,
+                ),
               ),
               const SizedBox(height: 24),
               FilledButton(
@@ -182,8 +262,14 @@ Future<void> _confirmSignOut(BuildContext context, WidgetRef ref) async {
                 style: FilledButton.styleFrom(
                   minimumSize: const Size.fromHeight(56),
                   backgroundColor: Palette.error,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-                  textStyle: const TextStyle(fontFamily: uiFont, fontSize: 16, fontWeight: FontWeight.w700),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  textStyle: const TextStyle(
+                    fontFamily: uiFont,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 child: const Text('Sign out'),
               ),
@@ -191,7 +277,9 @@ Future<void> _confirmSignOut(BuildContext context, WidgetRef ref) async {
               TextButton(
                 key: const Key('cancel-sign-out'),
                 onPressed: () => Navigator.of(context).pop(false),
-                style: TextButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+                style: TextButton.styleFrom(
+                  minimumSize: const Size.fromHeight(52),
+                ),
                 child: const Text('Stay signed in'),
               ),
             ],

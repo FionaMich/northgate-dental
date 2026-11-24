@@ -36,17 +36,32 @@ Path _shine(Size s) {
   final sx = s.width / 160, sy = s.height / 214;
   return Path()
     ..moveTo((64 - 20) * sx, (58 - 6) * sy)
-    ..cubicTo((74 - 20) * sx, (49 - 6) * sy, (88 - 20) * sx, (48 - 6) * sy, (98 - 20) * sx, (54 - 6) * sy);
+    ..cubicTo(
+      (74 - 20) * sx,
+      (49 - 6) * sy,
+      (88 - 20) * sx,
+      (48 - 6) * sy,
+      (98 - 20) * sx,
+      (54 - 6) * sy,
+    );
 }
 
 /// Flat outline mark, as drawn in the blueprint.
 class ToothMark extends StatelessWidget {
-  const ToothMark({super.key, this.height = 48, this.stroke = Palette.teal, this.fill = Palette.enamel});
+  const ToothMark({
+    super.key,
+    this.height = 48,
+    this.stroke = Palette.teal,
+    this.fill = Palette.enamel,
+  });
   final double height;
   final Color stroke, fill;
 
   @override
-  Widget build(BuildContext context) => CustomPaint(size: Size(height * 160 / 214, height), painter: _MarkPainter(stroke, fill));
+  Widget build(BuildContext context) => CustomPaint(
+    size: Size(height * 160 / 214, height),
+    painter: _MarkPainter(stroke, fill),
+  );
 }
 
 class _MarkPainter extends CustomPainter {
@@ -79,7 +94,8 @@ class _MarkPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_MarkPainter old) => old.stroke != stroke || old.fill != fill;
+  bool shouldRepaint(_MarkPainter old) =>
+      old.stroke != stroke || old.fill != fill;
 }
 
 /// The rendered enamel tooth used for depth on hero backgrounds.
@@ -90,7 +106,10 @@ class Tooth3D extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ExcludeSemantics(
-    child: CustomPaint(size: Size(height * 160 / 214, height * 1.12), painter: _Tooth3DPainter(crown)),
+    child: CustomPaint(
+      size: Size(height * 160 / 214, height * 1.12),
+      painter: _Tooth3DPainter(crown),
+    ),
   );
 }
 
@@ -103,7 +122,11 @@ class _Tooth3DPainter extends CustomPainter {
     final toothSize = Size(size.width, size.width * 214 / 160);
     final rect = Offset.zero & toothSize;
     canvas.drawOval(
-      Rect.fromCenter(center: Offset(size.width / 2, size.height * 0.96), width: size.width * 0.8, height: size.height * 0.07),
+      Rect.fromCenter(
+        center: Offset(size.width / 2, size.height * 0.96),
+        width: size.width * 0.8,
+        height: size.height * 0.07,
+      ),
       Paint()
         ..color = const Color(0xFF021614).withValues(alpha: 0.45)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12),
@@ -115,7 +138,12 @@ class _Tooth3DPainter extends CustomPainter {
         ..shader = const LinearGradient(
           begin: Alignment(-0.7, -1),
           end: Alignment(0.7, 1),
-          colors: [Colors.white, Color(0xFFEAF6F2), Color(0xFFB9DED4), Color(0xFF7FBFB0)],
+          colors: [
+            Colors.white,
+            Color(0xFFEAF6F2),
+            Color(0xFFB9DED4),
+            Color(0xFF7FBFB0),
+          ],
           stops: [0, 0.45, 0.8, 1],
         ).createShader(rect),
     );
@@ -175,7 +203,12 @@ class Orb extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        gradient: RadialGradient(center: const Alignment(-0.3, -0.4), radius: 0.75, colors: _tones[tone]!, stops: const [0, 0.4, 1]),
+        gradient: RadialGradient(
+          center: const Alignment(-0.3, -0.4),
+          radius: 0.75,
+          colors: _tones[tone]!,
+          stops: const [0, 0.4, 1],
+        ),
       ),
     ),
   );
@@ -194,47 +227,66 @@ class Lockup extends StatelessWidget {
     return Semantics(
       label: 'Northgate Dental',
       child: ExcludeSemantics(
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ToothMark(
-              height: markHeight,
-              stroke: onDark ? const Color(0xFF8FE3C8) : Palette.teal,
-              fill: onDark ? Colors.transparent : Palette.enamel,
-            ),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+        child: MediaQuery.withNoTextScaling(
+          // the lockup is artwork: it keeps its proportions at any text size, and shrinks if space is short
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text.rich(
-                  TextSpan(
-                    children: [
-                      TextSpan(
-                        text: 'Northgate ',
-                        style: TextStyle(fontWeight: FontWeight.w900, color: strong),
-                      ),
-                      TextSpan(
-                        text: 'Dental',
-                        style: TextStyle(fontWeight: FontWeight.w400, color: soft),
-                      ),
-                    ],
-                  ),
-                  style: TextStyle(fontFamily: logoFont, fontSize: markHeight * 0.5, height: 1),
+                ToothMark(
+                  height: markHeight,
+                  stroke: onDark ? const Color(0xFF8FE3C8) : Palette.teal,
+                  fill: onDark ? Colors.transparent : Palette.enamel,
                 ),
-                const SizedBox(height: 5),
-                Text(
-                  'BACK BAY · CAMBRIDGE · QUINCY',
-                  style: TextStyle(
-                    fontFamily: logoFont,
-                    fontSize: math.max(9, markHeight * 0.17),
-                    letterSpacing: 2.2,
-                    color: onDark ? const Color(0xFFA9DCD1) : const Color(0xFF4A5A63),
-                  ),
+                const SizedBox(width: 12),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text.rich(
+                      TextSpan(
+                        children: [
+                          TextSpan(
+                            text: 'Northgate ',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w900,
+                              color: strong,
+                            ),
+                          ),
+                          TextSpan(
+                            text: 'Dental',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w400,
+                              color: soft,
+                            ),
+                          ),
+                        ],
+                      ),
+                      style: TextStyle(
+                        fontFamily: logoFont,
+                        fontSize: markHeight * 0.5,
+                        height: 1,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      'BACK BAY · CAMBRIDGE · QUINCY',
+                      style: TextStyle(
+                        fontFamily: logoFont,
+                        fontSize: math.max(9, markHeight * 0.17),
+                        letterSpacing: 2.2,
+                        color: onDark
+                            ? const Color(0xFFA9DCD1)
+                            : const Color(0xFF4A5A63),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -257,7 +309,12 @@ void paintMintTooth(Canvas canvas, Size size) {
       ..shader = const LinearGradient(
         begin: Alignment(-0.7, -1),
         end: Alignment(0.7, 1),
-        colors: [Colors.white, Color(0xFFDFF8EF), Color(0xFF9EE3CC), Color(0xFF5BBFA6)],
+        colors: [
+          Colors.white,
+          Color(0xFFDFF8EF),
+          Color(0xFF9EE3CC),
+          Color(0xFF5BBFA6),
+        ],
         stops: [0, 0.4, 0.78, 1],
       ).createShader(rect),
   );

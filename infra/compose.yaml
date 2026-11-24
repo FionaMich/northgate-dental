@@ -71,11 +71,136 @@ services:
       timeout: 5s
       retries: 5
 
+  worker:
+    <<: *defaults
+    build: ../services/worker
+    image: northgate-worker:local
+    environment:
+      WORKER_DB_URL: ${WORKER_DB_URL:-}          # the northgate_worker_app login; the worker refuses to start without it
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      EMAIL_FROM: ${EMAIL_FROM:-Northgate Dental <onboarding@resend.dev>}
+      EMAIL_REDIRECT_TO: ${EMAIL_REDIRECT_TO:-}  # staging and the demo: every email to one inbox
+      LINK_BASE: https://n8n.${DOMAIN}/webhook          # cancel, check-in and pay links point at n8n's pages
+      CLINIC_ALERT_EMAIL: ${CLINIC_ALERT_EMAIL:-}       # where urgent check-in alerts go
+      PDF_URL: http://pdf:3000                     # receipts as PDF (T7); emails still go if it is down
+    networks: [app, data]                          # outbound only: Supabase and Resend; data reaches the PDF renderer
+    mem_limit: 128m
+    profiles: [worker]                             # started once its login and key are in .env
+
+  # T7: HTML to PDF for receipts and statements. Gotenberg wraps headless Chromium (the job the blueprint gives
+  # Puppeteer) as a maintained service, so there is no browser code of our own to keep patched. Internal network only,
+  # JavaScript off, and it may load nothing but the HTML it is sent.
+  pdf:
+    <<: *defaults
+    image: gotenberg/gotenberg:9.8.0-chromium
+    profiles: [worker]
+    command: ["gotenberg", "--chromium-disable-javascript=true", "--chromium-allow-list=^file:///tmp/.*",
+              "--api-timeout=20s", "--log-level=warn"]
+    networks: [data]
+    mem_limit: 768m
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:3000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
+  # Section 10: the receptionist assistant and its model. Gemma runs on the VM's CPU (decision 2026-11-22: no hosted
+  # model), so nothing a patient writes leaves our own server. Ollama has no published port; only the assistant calls it.
+  ollama:
+    <<: *defaults
+    image: ollama/ollama:0.40.15        # the version proven with Gemma 4 on the build laptop
+    profiles: [assistant]
+    environment:
+      OLLAMA_KEEP_ALIVE: "24h"          # keep Gemma loaded: loading takes longer than answering
+      OLLAMA_NUM_PARALLEL: "1"          # one conversation at a time on 4 threads; others wait their turn
+    volumes: [ollama_models:/root/.ollama]
+    networks: [app]                     # outbound only to pull the model once
+    mem_limit: 9g
+
+  assistant:
+    <<: *defaults
+    build: ../services/agent
+    image: northgate-assistant:local
+    profiles: [assistant]
+    depends_on: [ollama]
+    environment:
+      SUPABASE_URL: ${ASSISTANT_SUPABASE_URL:-}              # the project the app signs in to (staging for the demo)
+      SUPABASE_PUBLISHABLE_KEY: ${ASSISTANT_SUPABASE_KEY:-}  # publishable: grants nothing without the patient's token
+      MODEL_PROVIDER: ollama
+      OLLAMA_URL: http://ollama:11434
+      OLLAMA_MODEL: gemma4:e4b-it-qat
+      LINK_BASE: https://n8n.${DOMAIN}/webhook
+      LANGSMITH_API_KEY: ${LANGSMITH_API_KEY:-}
+      LANGSMITH_ENDPOINT: ${LANGSMITH_ENDPOINT:-https://aws.api.smith.langchain.com}
+      LANGSMITH_PROJECT: northgate-assistant
+      LANGSMITH_HIDE_INPUTS: "true"
+      LANGSMITH_HIDE_OUTPUTS: "true"
+      STREAM_API_KEY: ${STREAM_API_KEY:-}          # Stream Video (ADR 0015); empty means calls are unavailable
+      STREAM_API_SECRET: ${STREAM_API_SECRET:-}
+    networks: [app]
+    mem_limit: 512m
+
+  # n8n (blueprint section 41): automations triggered by time or events. Its editor is not on the internet: only
+  # /webhook/ is routed by the WAF; the editor is reached through a Bastion SSH tunnel to 127.0.0.1:5678.
+  n8n-db:
+    <<: *defaults
+    image: postgres:17.6-alpine
+    profiles: [n8n]
+    environment:
+      POSTGRES_DB: n8n
+      POSTGRES_USER: n8n
+      POSTGRES_PASSWORD: ${N8N_DB_PASSWORD:-}
+    volumes: [n8n_db:/var/lib/postgresql/data]
+    networks: [data]
+    mem_limit: 256m
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U n8n -d n8n"]
+      interval: 10s
+      retries: 10
+
+  n8n:
+    <<: *defaults
+    image: n8nio/n8n:2.43.7 # same version as the local build instance
+    profiles: [n8n]
+    depends_on:
+      n8n-db: { condition: service_healthy }
+    ports: ["127.0.0.1:5678:5678"] # editor via SSH tunnel only
+    environment:
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: n8n-db
+      DB_POSTGRESDB_DATABASE: n8n
+      DB_POSTGRESDB_USER: n8n
+      DB_POSTGRESDB_PASSWORD: ${N8N_DB_PASSWORD:-}
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:-} # encrypts stored credentials; kept off the backups
+      N8N_HOST: n8n.${DOMAIN}
+      N8N_PROTOCOL: https
+      WEBHOOK_URL: https://n8n.${DOMAIN}/
+      N8N_PROXY_HOPS: "1"
+      GENERIC_TIMEZONE: America/New_York
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "true"         # Code nodes cannot read server secrets (blueprint section 55)
+      EXECUTIONS_DATA_SAVE_ON_SUCCESS: none        # no payloads kept from successful runs
+      EXECUTIONS_DATA_PRUNE: "true"
+      EXECUTIONS_DATA_MAX_AGE: "168"               # failed runs kept 7 days for debugging
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_PERSONALIZATION_ENABLED: "false"
+      N8N_VERSION_NOTIFICATIONS_ENABLED: "false"
+      # Supabase signs its database certificates with its own root CA; trusting it lets n8n verify the connection
+      # instead of skipping the check. Fingerprint checked against Supabase's published copy (see infra/certs).
+      NODE_EXTRA_CA_CERTS: /certs/supabase-root-2021.crt
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./certs:/certs:ro,z
+    networks: [app, data]
+    mem_limit: 1g
+
 networks:
   edge: {}
   app: {}
   data: { internal: true } # no route in or out of the VM; only services on this network can reach Presidio
 
 volumes:
+  ollama_models: {}
+  n8n_db: {}
+  n8n_data: {}
   letsencrypt: {}
   certbot_www: {}

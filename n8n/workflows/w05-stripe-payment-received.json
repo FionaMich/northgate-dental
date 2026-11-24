@@ -1,0 +1,234 @@
+[
+  {
+    "updatedAt": "2026-11-21T15:49:03.105Z",
+    "createdAt": "2026-11-21T15:49:03.105Z",
+    "id": "mdCiqrhB8Kk9NbIa",
+    "name": "W05 Stripe payment received",
+    "description": null,
+    "active": true,
+    "isArchived": false,
+    "nodes": [
+      {
+        "id": "bd81fe6e-2202-4072-9718-7a80875f3181",
+        "name": "Stripe webhook",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2.1,
+        "position": [
+          0,
+          0
+        ],
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "stripe",
+          "responseMode": "responseNode",
+          "options": {
+            "rawBody": true
+          }
+        },
+        "webhookId": "57885b5f-3f62-4a55-a726-11651f54e9a9"
+      },
+      {
+        "id": "09292ce4-fa7b-46c5-82d3-a25a4c9304be",
+        "name": "Raw body as text",
+        "type": "n8n-nodes-base.extractFromFile",
+        "typeVersion": 1.1,
+        "position": [
+          220,
+          0
+        ],
+        "parameters": {
+          "operation": "text",
+          "binaryPropertyName": "data",
+          "destinationKey": "raw",
+          "options": {}
+        }
+      },
+      {
+        "id": "8967f0fb-42b3-47eb-ac28-7da84e7ba13b",
+        "name": "Record Stripe event",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.6,
+        "position": [
+          440,
+          0
+        ],
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "select private.record_stripe_event($1, $2) as result",
+          "options": {
+            "queryReplacement": "={{ [ $json.raw, $('Stripe webhook').item.json.headers['stripe-signature'] || '' ] }}"
+          }
+        },
+        "credentials": {
+          "postgres": {
+            "id": "ngPaymentsDb0001",
+            "name": "Northgate payments database"
+          }
+        },
+        "onError": "continueErrorOutput"
+      },
+      {
+        "id": "2c556693-8580-4431-9299-cbc8fbd524ca",
+        "name": "Refused",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.5,
+        "position": [
+          660,
+          100
+        ],
+        "parameters": {
+          "respondWith": "json",
+          "responseBody": "{\"received\": false}",
+          "options": {
+            "responseCode": 400
+          }
+        }
+      },
+      {
+        "id": "5d5ea6c3-40e0-4fa0-9407-08c862fbe28d",
+        "name": "Accepted",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.5,
+        "position": [
+          660,
+          -100
+        ],
+        "parameters": {
+          "respondWith": "json",
+          "responseBody": "={{ JSON.stringify({ received: $json.result }) }}",
+          "options": {
+            "responseCode": 200
+          }
+        }
+      },
+      {
+        "id": "335a5998-8ddd-55f7-ba38-b833cb799d28",
+        "name": "Note 1",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          -40,
+          -500
+        ],
+        "parameters": {
+          "content": "## W05 Stripe payment received\n**Trigger:** Stripe's webhook `POST /webhook/stripe`.\n\nn8n only relays: the raw body and `Stripe-Signature` header go to `record_stripe_event()`, which checks the HMAC, refuses events older than 5 minutes, ignores repeats, checks the amount, marks the payment paid and queues the receipt.\n\n**Answers:** 200 `recorded`, `duplicate` or `ignored`; 400 for anything refused.",
+          "width": 460,
+          "height": 300,
+          "color": 4
+        }
+      },
+      {
+        "id": "bf34cbbe-3fb6-55ff-9a19-09f86f955428",
+        "name": "Note 2",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          460,
+          -500
+        ],
+        "parameters": {
+          "content": "## Security and data\n- The signing secret is in Supabase Vault, loaded by GitHub Actions; never in n8n or Git.\n- The raw body is passed byte for byte; reformatting it would break the signature.\n- Failed runs keep no data: a Stripe event can carry the payer's email.",
+          "width": 460,
+          "height": 300,
+          "color": 3
+        }
+      }
+    ],
+    "connections": {
+      "Stripe webhook": {
+        "main": [
+          [
+            {
+              "node": "Raw body as text",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Raw body as text": {
+        "main": [
+          [
+            {
+              "node": "Record Stripe event",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Record Stripe event": {
+        "main": [
+          [
+            {
+              "node": "Accepted",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Refused",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "settings": {
+      "executionOrder": "v1",
+      "availableInMCP": true,
+      "saveDataErrorExecution": "none"
+    },
+    "staticData": null,
+    "meta": {
+      "aiBuilderAssisted": true,
+      "builderVariant": "mcp"
+    },
+    "nodeGroups": [
+      {
+        "id": "f7432ef4-b8f2-404a-865e-d05dca52d23f",
+        "name": "Record the payment",
+        "nodeIds": [
+          "09292ce4-fa7b-46c5-82d3-a25a4c9304be",
+          "8967f0fb-42b3-47eb-ac28-7da84e7ba13b",
+          "5d5ea6c3-40e0-4fa0-9407-08c862fbe28d",
+          "2c556693-8580-4431-9299-cbc8fbd524ca"
+        ],
+        "description": "Raw body and signature go to Postgres, which verifies, de-duplicates and records the payment."
+      }
+    ],
+    "pinData": null,
+    "versionId": "81bdc61f-168f-41c6-a52a-d3b20f847794",
+    "activeVersionId": "81bdc61f-168f-41c6-a52a-d3b20f847794",
+    "versionCounter": 1,
+    "triggerCount": 1,
+    "sourceWorkflowId": null,
+    "tags": [],
+    "shared": [
+      {
+        "updatedAt": "2026-11-21T15:49:03.120Z",
+        "createdAt": "2026-11-21T15:49:03.120Z",
+        "role": "workflow:owner",
+        "workflowId": "mdCiqrhB8Kk9NbIa",
+        "projectId": "yTfeI8wdsDslZW1u",
+        "project": {
+          "updatedAt": "2026-10-17T09:38:27.766Z",
+          "createdAt": "2026-10-17T00:55:03.185Z",
+          "id": "yTfeI8wdsDslZW1u",
+          "name": "Michelle Fiona <michelle.fiona.opiyo.ke@gmail.com>",
+          "type": "personal",
+          "icon": null,
+          "description": null,
+          "customTelemetryTags": [],
+          "creatorId": "17fb91b0-e8cf-459c-9b6e-ac07c51658e4"
+        }
+      }
+    ],
+    "versionMetadata": {
+      "name": "Initial version",
+      "description": "Created with 5 nodes: Stripe webhook, Raw body as text, Record Stripe event, Refused, Accepted"
+    }
+  }
+]

@@ -19,7 +19,7 @@ select set_eq(
 select is((select count(*)::int from patients where is_canary), 1, 'exactly one canary patient is loaded');
 select isnt_empty($$ select 1 from patients where mrn >= 'NG0000100' $$, 'generated patients are loaded');
 select is((select display_name from practitioners where profile_id = '10000000-0000-4000-8000-000000000011'),
-  'Dr Mei Chen (synthetic orthodontist)', 'Dr Chen is the orthodontist');
+  'Dr Mei Chen (orthodontist)', 'Dr Chen is the orthodontist');
 
 select is_empty(
   $$ select 1 from dental_procedures d join services s on s.id = d.service_id join locations l on l.id = d.location_id

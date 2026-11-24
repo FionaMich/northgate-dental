@@ -1,5 +1,5 @@
 name: dental
-description: "Northgate Dental patient app (synthetic data only)."
+description: "Northgate Dental patient app."
 publish_to: 'none'
 version: 0.2.0+2002
 
@@ -13,10 +13,12 @@ dependencies:
   flutter_riverpod: ^3.5.0
   flutter_secure_storage: ^11.2.0
   flutter_timezone: ^5.1.1
+  flutter_tts: ^4.2.5
   go_router: ^18.1.4
   image_picker: ^1.2.4
   material_ui: ^1.1.0
   pdfx: ^2.11.0
+  speech_to_text: ^7.5.0
   supabase_flutter: ^2.18.3
   timezone: ^0.11.2
   url_launcher: ^6.3.3
@@ -34,6 +36,8 @@ flutter:
     - assets/images/team/
     - assets/images/clinics/
     - assets/images/services/
+    - assets/images/shop/
+    - assets/images/nora/
 
   # Fonts ship inside the app; never fetched from a font URL at runtime (privacy: no user IP to Google).
   fonts:

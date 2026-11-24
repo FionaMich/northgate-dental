@@ -3,18 +3,30 @@ import 'dart:typed_data';
 
 import 'package:dental/data/account_repository.dart';
 import 'package:dental/data/care_repository.dart';
+import 'package:dental/data/shop_repository.dart';
+import 'package:dental/data/assistant_repository.dart';
 import 'package:dental/data/aligner_reminders.dart';
 import 'package:dental/data/wear_log.dart';
+import 'package:dental/data/voice_engine.dart';
 
 /// In-memory stand-in for Supabase, so widget tests run without a network.
 class FakeAccountRepository implements AccountRepository {
-  FakeAccountRepository({this.password = 'right', this.patients = const [], this.role = 'patient'});
+  FakeAccountRepository({
+    this.password = 'right',
+    this.patients = const [],
+    this.role = 'patient',
+  });
 
   final String password;
   final String role;
   List<LinkedPatient> patients;
   final List<LinkedPatient> patientsAfterLinking = const [
-    LinkedPatient(id: 'p-elena', name: 'Elena Marsh', isSelf: true, detailsConfirmed: false),
+    LinkedPatient(
+      id: 'p-elena',
+      name: 'Elena Marsh',
+      isSelf: true,
+      detailsConfirmed: false,
+    ),
   ];
   final _changes = StreamController<bool>.broadcast();
   bool _signedIn = false;
@@ -28,8 +40,14 @@ class FakeAccountRepository implements AccountRepository {
 
   @override
   Future<void> signIn(String email, String password) async {
-    if (password != this.password) throw const AccountError('That email and password do not match.');
-    if (role != 'patient') throw const AccountError('Staff accounts sign in to the portal, not the patient app.');
+    if (password != this.password) {
+      throw const AccountError('That email and password do not match.');
+    }
+    if (role != 'patient') {
+      throw const AccountError(
+        'Staff accounts sign in to the portal, not the patient app.',
+      );
+    }
     _signedIn = true;
     _verified = false; // password only: the emailed code is still needed
     _email = email;
@@ -54,7 +72,8 @@ class FakeAccountRepository implements AccountRepository {
   }
 
   @override
-  Future<void> resendSignInCode(String email) async => sent.add('signin-resend:$email');
+  Future<void> resendSignInCode(String email) async =>
+      sent.add('signin-resend:$email');
 
   @override
   Future<void> signOut() async {
@@ -74,7 +93,11 @@ class FakeAccountRepository implements AccountRepository {
   bool rateLimited = false;
 
   @override
-  Future<void> signUp({required String name, required String email, required String password}) async {
+  Future<void> signUp({
+    required String name,
+    required String email,
+    required String password,
+  }) async {
     if (rateLimited) throw const AccountError(tooManyError);
     sent.add('signup:$email');
   }
@@ -88,7 +111,8 @@ class FakeAccountRepository implements AccountRepository {
   }
 
   @override
-  Future<void> resendSignUpCode(String email) async => sent.add('resend:$email');
+  Future<void> resendSignUpCode(String email) async =>
+      sent.add('resend:$email');
 
   @override
   Future<void> sendPasswordReset(String email) async {
@@ -109,12 +133,32 @@ class FakeAccountRepository implements AccountRepository {
   final registered = <String>[];
 
   @override
-  Future<void> registerNewPatient({required String given, required String family, required DateTime birthDate, required String sex}) async {
-    if (DateTime(birthDate.year + 18, birthDate.month, birthDate.day).isAfter(DateTime.now())) {
-      throw const AccountError('Patients under 18 are registered by a parent or guardian at the practice.');
+  Future<void> registerNewPatient({
+    required String given,
+    required String family,
+    required DateTime birthDate,
+    required String sex,
+  }) async {
+    if (DateTime(
+      birthDate.year + 18,
+      birthDate.month,
+      birthDate.day,
+    ).isAfter(DateTime.now())) {
+      throw const AccountError(
+        'Patients under 18 are registered by a parent or guardian at the practice.',
+      );
     }
-    registered.add('$given $family ${birthDate.year}-${birthDate.month}-${birthDate.day} $sex');
-    patients = [LinkedPatient(id: 'p-new', name: '$given $family', isSelf: true, detailsConfirmed: false)];
+    registered.add(
+      '$given $family ${birthDate.year}-${birthDate.month}-${birthDate.day} $sex',
+    );
+    patients = [
+      LinkedPatient(
+        id: 'p-new',
+        name: '$given $family',
+        isSelf: true,
+        detailsConfirmed: false,
+      ),
+    ];
   }
 
   // Date-of-birth linking: Elena's record matches 04/12/1988; five misses lock it.
@@ -138,7 +182,14 @@ class FakeAccountRepository implements AccountRepository {
     required String state,
     required String zip,
   }) async => line1.toLowerCase().contains('city hall')
-      ? const [AddressMatch(line1: '1 City Hall Ave', city: 'Boston', state: 'MA', zip: '02108')]
+      ? const [
+          AddressMatch(
+            line1: '1 City Hall Ave',
+            city: 'Boston',
+            state: 'MA',
+            zip: '02108',
+          ),
+        ]
       : const [];
 
   // Clinic and address, in memory. Confirmed records already have Back Bay and an address on file.
@@ -153,30 +204,58 @@ class FakeAccountRepository implements AccountRepository {
       address: '1 Example Street, Boston, MA 02116',
       phone: '+16175550110',
       photoKey: 'back-bay',
-      hours: [(1, '08:00', '18:00'), (2, '08:00', '18:00'), (3, '08:00', '18:00'), (4, '08:00', '18:00'), (5, '08:00', '16:00')],
+      hours: [
+        (1, '08:00', '18:00'),
+        (2, '08:00', '18:00'),
+        (3, '08:00', '18:00'),
+        (4, '08:00', '18:00'),
+        (5, '08:00', '16:00'),
+      ],
     ),
-    Clinic(id: 'cambridge', name: 'Cambridge', address: '2 Example Avenue, Cambridge, MA 02139'),
-    Clinic(id: 'quincy', name: 'Quincy', address: '3 Example Road, Quincy, MA 02169'),
+    Clinic(
+      id: 'cambridge',
+      name: 'Cambridge',
+      address: '2 Example Avenue, Cambridge, MA 02139',
+    ),
+    Clinic(
+      id: 'quincy',
+      name: 'Quincy',
+      address: '3 Example Road, Quincy, MA 02169',
+    ),
   ];
 
   @override
   Future<PatientDetails> details(String patientId) async =>
       _details[patientId] ??
       (patients.any((p) => p.id == patientId && p.detailsConfirmed)
-          ? const PatientDetails(clinicId: 'back-bay', line1: '1 Example Street', city: 'Boston', state: 'MA', zip: '02116')
+          ? const PatientDetails(
+              clinicId: 'back-bay',
+              line1: '1 Example Street',
+              city: 'Boston',
+              state: 'MA',
+              zip: '02116',
+            )
           : const PatientDetails(clinicId: 'back-bay'));
 
   @override
   Future<void> saveDetails(String patientId, PatientDetails details) async {
     saved.add((patientId, details));
     _details[patientId] = details;
-    patients = [for (final p in patients) p.id == patientId ? LinkedPatient(id: p.id, name: p.name, isSelf: p.isSelf) : p];
+    patients = [
+      for (final p in patients)
+        p.id == patientId
+            ? LinkedPatient(id: p.id, name: p.name, isSelf: p.isSelf)
+            : p,
+    ];
   }
 }
 
 /// Care data and booking for widget tests, keyed by patient ID.
 class FakeCareRepository implements CareRepository {
-  FakeCareRepository([Map<String, CareSummary> byPatient = const {}, this.fail = false]) : byPatient = {...byPatient};
+  FakeCareRepository([
+    Map<String, CareSummary> byPatient = const {},
+    this.fail = false,
+  ]) : byPatient = {...byPatient};
   final Map<String, CareSummary> byPatient;
   final bool fail;
   final calls = <String>[];
@@ -188,6 +267,12 @@ class FakeCareRepository implements CareRepository {
   Future<CareSummary> summary(String patientId) async {
     if (fail) throw Exception('server refused the query');
     return byPatient[patientId] ?? const CareSummary();
+  }
+
+  @override
+  Future<Uri> payLink(String appointmentId) async {
+    calls.add('pay:$appointmentId');
+    return Uri.parse('https://pay.test/pay?t=token');
   }
 
   @override
@@ -208,7 +293,12 @@ class FakeCareRepository implements CareRepository {
   ];
 
   @override
-  Future<List<Slot>> slots(String clinicId, String serviceId, DateTime fromDay, {int days = 14}) async {
+  Future<List<Slot>> slots(
+    String clinicId,
+    String serviceId,
+    DateTime fromDay, {
+    int days = 14,
+  }) async {
     final day = DateTime(fromDay.year, fromDay.month, fromDay.day + 1);
     return [
       for (final (h, dr) in [(9, 'dr-1'), (10, 'dr-2'), (14, 'dr-1')])
@@ -243,7 +333,12 @@ class FakeCareRepository implements CareRepository {
   ];
 
   @override
-  Future<String> hold({required String clinicId, required String serviceId, required Slot slot, required String patientId}) async {
+  Future<String> hold({
+    required String clinicId,
+    required String serviceId,
+    required Slot slot,
+    required String patientId,
+  }) async {
     calls.add('hold:$clinicId:$serviceId');
     heldWith = slot.practitionerId;
     if (takeNextHold) throw const BookingError(slotTakenError);
@@ -252,8 +347,12 @@ class FakeCareRepository implements CareRepository {
   }
 
   @override
-  Future<void> confirm(String appointmentId) async {
-    calls.add('confirm:$appointmentId');
+  Future<void> confirm(String appointmentId, {String? replaces}) async {
+    calls.add(
+      replaces == null
+          ? 'confirm:$appointmentId'
+          : 'reschedule:$appointmentId replaces $replaces',
+    );
     final h = _held!;
     final before = byPatient[h.patient] ?? const CareSummary();
     byPatient[h.patient] = CareSummary(
@@ -277,12 +376,21 @@ class FakeCareRepository implements CareRepository {
   final _coverages = <String, List<Coverage>>{};
 
   @override
-  Future<List<Coverage>> coverages(String patientId) async => _coverages[patientId] ?? const [];
+  Future<List<Coverage>> coverages(String patientId) async =>
+      _coverages[patientId] ?? const [];
 
   @override
   Future<List<InsurancePlan>> insurancePlans() async => const [
-    InsurancePlan(id: 'plan-ppo', name: 'Harborline Dental PPO', kind: 'commercial'),
-    InsurancePlan(id: 'plan-masshealth', name: 'MassHealth Dental', kind: 'medicaid'),
+    InsurancePlan(
+      id: 'plan-ppo',
+      name: 'Harborline Dental PPO',
+      kind: 'commercial',
+    ),
+    InsurancePlan(
+      id: 'plan-masshealth',
+      name: 'MassHealth Dental',
+      kind: 'medicaid',
+    ),
   ];
 
   @override
@@ -296,10 +404,20 @@ class FakeCareRepository implements CareRepository {
     Uint8List? back,
   }) async {
     if (failUpload) throw const CoverageError(uploadError);
-    calls.add('coverage:$patientId:${planId ?? 'none'}:$payer:$memberId:front=${front?.length ?? 0}:back=${back?.length ?? 0}');
+    calls.add(
+      'coverage:$patientId:${planId ?? 'none'}:$payer:$memberId:front=${front?.length ?? 0}:back=${back?.length ?? 0}',
+    );
     _coverages
         .putIfAbsent(patientId, () => [])
-        .insert(0, Coverage(id: 'c-${calls.length}', payer: payer, memberId: memberId, status: 'pending_review'));
+        .insert(
+          0,
+          Coverage(
+            id: 'c-${calls.length}',
+            payer: payer,
+            memberId: memberId,
+            status: 'pending_review',
+          ),
+        );
   }
 
   @override
@@ -329,7 +447,8 @@ class MemoryWearStore implements WearStore {
   Future<void> write(String key, String value) async => values[key] = value;
 
   @override
-  Future<void> clearAll() async => values.removeWhere((k, _) => k.startsWith('aligner:'));
+  Future<void> clearAll() async =>
+      values.removeWhere((k, _) => k.startsWith('aligner:'));
 }
 
 /// Records reminders instead of scheduling phone notifications.
@@ -337,7 +456,8 @@ class FakeAlignerReminders implements AlignerReminders {
   final calls = <String>[];
 
   @override
-  Future<void> takenOut(DateTime at) async => calls.add('out:${at.hour}:${at.minute}');
+  Future<void> takenOut(DateTime at) async =>
+      calls.add('out:${at.hour}:${at.minute}');
 
   @override
   Future<void> backIn() async => calls.add('in');
@@ -346,5 +466,153 @@ class FakeAlignerReminders implements AlignerReminders {
   Future<void> clearAll() async => calls.add('clear');
 
   @override
-  Future<void> visitsBooked(List<DateTime> starts) async => calls.add('visits:${starts.length}');
+  Future<void> visitsBooked(List<DateTime> starts) async =>
+      calls.add('visits:${starts.length}');
+}
+
+class FakeShopRepository implements ShopRepository {
+  FakeShopRepository({this.refuseWith, this.items = catalogue});
+  final String? refuseWith;
+  final List<ShopProduct> items;
+  final placed = <String>[];
+
+  static const catalogue = [
+    ShopProduct(
+      id: 'brush',
+      name: 'Sonic electric toothbrush',
+      category: 'brush',
+      summary: 'Two-minute timer.',
+      description: 'The brush our hygienists recommend most.',
+      priceCents: 7900,
+      imageKey: 'sonic-brush',
+      tags: ['Everyday'],
+    ),
+    ShopProduct(
+      id: 'heads',
+      name: 'Replacement brush heads, 2 pack',
+      category: 'brush',
+      summary: 'Change every three months.',
+      description: 'Soft bristles.',
+      priceCents: 1400,
+      imageKey: 'brush-heads',
+      refillMonths: 3,
+    ),
+    ShopProduct(
+      id: 'fluoride',
+      name: 'High-fluoride toothpaste',
+      category: 'prescription',
+      summary: 'Prescription strength.',
+      description: 'Your dentist approves it first.',
+      priceCents: 1800,
+      imageKey: 'high-fluoride',
+      rule: 'prescription',
+    ),
+  ];
+
+  @override
+  Future<List<ShopProduct>> products() async => items;
+
+  @override
+  Future<Uri> checkout(
+    List<BagLine> lines, {
+    required String fulfilment,
+    required String clinicId,
+  }) async {
+    if (refuseWith != null) throw ShopError(refuseWith!);
+    placed.add(
+      '$fulfilment:$clinicId:${[for (final l in lines) '${l.product.id}x${l.quantity}${l.refill ? 'r' : ''}'].join(',')}',
+    );
+    return Uri.parse('https://pay.test/shop?t=token');
+  }
+
+  @override
+  Future<List<ShopOrder>> orders() async => const [];
+}
+
+class FakeAssistantRepository implements AssistantRepository {
+  final sent = <String>[];
+  final answers = <bool>[];
+  bool proposeBooking = false;
+
+  @override
+  Future<String> hello(String language) async => language == 'es'
+      ? 'Hola, soy la recepcionista virtual (IA).'
+      : 'Hi, I am an AI assistant.';
+
+  @override
+  Future<AssistantTurn> send(
+    String thread,
+    String message,
+    String language,
+  ) async {
+    sent.add('$language:$message');
+    return proposeBooking
+        ? AssistantTurn(
+            confirm: {
+              'action': 'book',
+              'title': language == 'es'
+                  ? '¿Reservar esta cita?'
+                  : 'Book this visit?',
+              'detail': 'Adult cleaning · Friday 27 November at 10:00 · Northgate Dental, Quincy',
+              'yes': language == 'es' ? 'Confirmar' : 'Confirm',
+              'no': language == 'es' ? 'Ahora no' : 'Not now',
+            },
+          )
+        : const AssistantTurn(reply: 'Quincy opens at 07:00 on Mondays.');
+  }
+
+  @override
+  Future<AssistantTurn> confirm(
+    String thread,
+    bool accept,
+    String language,
+  ) async {
+    answers.add(accept);
+    return AssistantTurn(reply: accept ? 'Booked.' : 'No problem.');
+  }
+}
+
+/// Hears whatever the test queues and records what Nora says; no microphone or speaker.
+class FakeVoiceEngine implements VoiceEngine {
+  FakeVoiceEngine({
+    this.available = true,
+    this.packMissing = false,
+    this.longSpeech = false,
+  });
+  final bool available;
+  final bool packMissing;
+
+  /// Nora's speech lasts until stopSpeaking(), so a test can interrupt her.
+  final bool longSpeech;
+  Completer<void>? _talking;
+  final heard = <String>[];
+  final spoken = <String>[];
+
+  @override
+  Future<bool> canListen(String language) async => available;
+
+  @override
+  Future<String> listen(
+    String language,
+    void Function(String words) onWords,
+  ) async {
+    if (packMissing) throw const VoiceUnavailable();
+    final words = heard.isEmpty ? '' : heard.removeAt(0);
+    onWords(words);
+    return words;
+  }
+
+  @override
+  Future<void> stopListening() async {}
+
+  @override
+  Future<void> speak(String text, String language) async {
+    spoken.add('$language:$text');
+    if (longSpeech) await (_talking = Completer<void>()).future;
+  }
+
+  @override
+  Future<void> stopSpeaking() async {
+    if (_talking?.isCompleted == false) _talking!.complete();
+  }
 }

@@ -3,7 +3,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Keeps the Supabase session in the Android Keystore (encrypted) instead of plain shared preferences (E38).
 class SecureSessionStorage extends LocalStorage {
-  SecureSessionStorage([FlutterSecureStorage? storage]) : _storage = storage ?? const FlutterSecureStorage();
+  SecureSessionStorage([FlutterSecureStorage? storage])
+    : _storage = storage ?? const FlutterSecureStorage();
 
   final FlutterSecureStorage _storage;
   static const _key = 'northgate.session';
@@ -21,5 +22,6 @@ class SecureSessionStorage extends LocalStorage {
   Future<void> removePersistedSession() => _storage.delete(key: _key);
 
   @override
-  Future<void> persistSession(String persistSessionString) => _storage.write(key: _key, value: persistSessionString);
+  Future<void> persistSession(String persistSessionString) =>
+      _storage.write(key: _key, value: persistSessionString);
 }

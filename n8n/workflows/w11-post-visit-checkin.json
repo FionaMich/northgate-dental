@@ -1,0 +1,358 @@
+[
+  {
+    "updatedAt": "2026-11-21T16:51:30.416Z",
+    "createdAt": "2026-11-21T16:51:30.416Z",
+    "id": "MvWRsAApCoLNXWuN",
+    "name": "W11 Post-visit check-in",
+    "description": null,
+    "active": true,
+    "isArchived": false,
+    "nodes": [
+      {
+        "id": "5cde4a7f-ebb6-4e1e-81f0-89bf1a4fc9ce",
+        "name": "Open check-in",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2.1,
+        "position": [
+          0,
+          0
+        ],
+        "parameters": {
+          "httpMethod": "GET",
+          "path": "checkin",
+          "responseMode": "responseNode",
+          "options": {}
+        },
+        "webhookId": "b62b1ade-6215-46b1-9240-f78c56c7cdaf"
+      },
+      {
+        "id": "33fd31e4-3623-41de-8f50-7c0d15962dc0",
+        "name": "Describe check-in",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.6,
+        "position": [
+          220,
+          0
+        ],
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "select * from private.describe_action($1, 'checkin')",
+          "options": {
+            "queryReplacement": "={{ [ /^[A-Za-z0-9_-]{32}$/.test($json.query.t || '') ? $json.query.t : 'invalid' ] }}"
+          }
+        },
+        "credentials": {
+          "postgres": {
+            "id": "ngActionsDb00001",
+            "name": "Northgate patient actions database"
+          }
+        },
+        "alwaysOutputData": true
+      },
+      {
+        "id": "f9c8d645-f89a-4139-ab15-d2ab914f5845",
+        "name": "Check-in page",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          440,
+          0
+        ],
+        "parameters": {
+          "mode": "runOnceForAllItems",
+          "jsCode": "// Shared page shell for the patient-action pages (copied into each Code node; n8n has no includes).\nconst esc = s => String(s ?? '').replace(/[&<>\"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', \"'\": '&#39;' }[c]));\nconst tel = p => p ? `<a href=\"tel:${esc(p.replace(/[^+0-9]/g, ''))}\">${esc(p)}</a>` : 'your clinic';\nconst page = (title, body) => `<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><meta name=\"robots\" content=\"noindex\"><title>${esc(title)} \u00b7 Northgate Dental</title><style>body{margin:0;font-family:system-ui,-apple-system,\"Segoe UI\",Roboto,sans-serif;background:#f3f7f6;color:#0b2b2a}main{max-width:440px;margin:0 auto;padding:40px 20px}.brand{font-weight:700;font-size:18px}.brand span{color:#137c6c}.sub{font-size:11px;letter-spacing:.15em;color:#4c6361;margin-top:2px}.card{background:#fff;border-radius:20px;padding:28px 24px;margin-top:24px;box-shadow:0 1px 2px rgba(11,43,42,.06),0 12px 32px rgba(11,43,42,.08)}h1{font-size:22px;line-height:1.25;margin:0 0 10px}p{line-height:1.55;color:#29403e;margin:0 0 12px}.visit{background:#eef5f3;border-radius:14px;padding:14px 16px;margin:16px 0;font-weight:600}.visit small{display:block;font-weight:400;color:#4c6361;margin-top:4px}button{width:100%;padding:15px;border:0;border-radius:14px;font-size:16px;font-weight:600;background:#137c6c;color:#fff;margin-top:12px;cursor:pointer}button.danger{background:#b3261e}label.choice{display:flex;gap:12px;align-items:center;border:1.5px solid #cddbd8;border-radius:14px;padding:14px 16px;margin-top:10px;font-weight:600;cursor:pointer}label.choice:has(input:checked){border-color:#137c6c;background:#eef5f3}textarea{width:100%;box-sizing:border-box;border:1.5px solid #cddbd8;border-radius:14px;padding:12px 14px;font:inherit;min-height:100px;margin-top:14px}.alert{background:#fdeeed;border:1px solid #f1c2be;border-radius:14px;padding:16px;color:#7a1d16;margin-bottom:12px}.ok{color:#137c6c;font-size:40px;line-height:1}.muted{color:#4c6361;font-size:14px}a{color:#137c6c}</style></head><body><main><div class=\"brand\">Northgate <span>Dental</span></div><div class=\"sub\">BACK BAY \u00b7 CAMBRIDGE \u00b7 QUINCY</div><div class=\"card\">${body}</div></main></body></html>`;\nconst okToken = t => /^[A-Za-z0-9_-]{32}$/.test(String(t || ''));\nconst d = $input.first().json, t = $('Open check-in').first().json.query.t;\nlet html;\nif (d.state === 'ok') html = page('How are you feeling?', `<h1>How are you feeling?</h1><p>After your visit:</p><div class=\"visit\">${esc(d.service_name)}<small>${esc(d.starts_local)} \u00b7 ${esc(d.clinic_name)}</small></div><form method=\"post\"><input type=\"hidden\" name=\"t\" value=\"${esc(t)}\"><label class=\"choice\"><input type=\"radio\" name=\"feeling\" value=\"fine\" checked> I am feeling fine</label><label class=\"choice\"><input type=\"radio\" name=\"feeling\" value=\"concern\"> I have a concern</label><textarea name=\"note\" maxlength=\"1000\" placeholder=\"Anything you would like us to know (optional)\"></textarea><button type=\"submit\">Send</button></form><p class=\"muted\" style=\"margin-top:16px\">If you have bleeding that will not stop, swelling that spreads, a fever, or trouble breathing or swallowing, call ${tel(d.clinic_phone)} now. In an emergency call 911.</p>`);\nelse if (d.state === 'used') html = page('Thank you', `<h1>Thank you, we already have your answer</h1><p>If anything changes, call ${tel(d.clinic_phone)}.</p>`);\nelse html = page('Link expired', `<h1>This link has expired</h1><p>If you have a concern about your recovery, please call your clinic.</p>`);\nreturn [{ json: { html } }];\n"
+        }
+      },
+      {
+        "id": "d62c53ba-cd7e-476d-a180-ec09380c7beb",
+        "name": "Send check-in page",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.5,
+        "position": [
+          660,
+          0
+        ],
+        "parameters": {
+          "respondWith": "text",
+          "responseBody": "={{ $json.html }}",
+          "options": {
+            "responseHeaders": {
+              "entries": [
+                {
+                  "name": "Content-Type",
+                  "value": "text/html; charset=utf-8"
+                },
+                {
+                  "name": "Cache-Control",
+                  "value": "no-store"
+                },
+                {
+                  "name": "Referrer-Policy",
+                  "value": "no-referrer"
+                },
+                {
+                  "name": "Content-Security-Policy",
+                  "value": "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": "26206796-b984-4dd9-b0d4-75680d27e128",
+        "name": "Check-in sent",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2.1,
+        "position": [
+          0,
+          240
+        ],
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "checkin",
+          "responseMode": "responseNode",
+          "options": {}
+        },
+        "webhookId": "4835c26d-84d3-40af-85b0-60f4e4948ff7"
+      },
+      {
+        "id": "730fb9e0-1386-44ca-ad53-15f24a723baa",
+        "name": "Record check-in",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.6,
+        "position": [
+          220,
+          240
+        ],
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "select r.state, r.red_flags, r.clinic_phone from private.record_checkin($1, $2, $3) r",
+          "options": {
+            "queryReplacement": "={{ [ /^[A-Za-z0-9_-]{32}$/.test($('Check-in sent').item.json.body.t || '') ? $('Check-in sent').item.json.body.t : 'invalid', $json.body.feeling === 'concern' ? 'concern' : 'fine', String($json.body.note || '').slice(0, 1000) ] }}"
+          }
+        },
+        "credentials": {
+          "postgres": {
+            "id": "ngActionsDb00001",
+            "name": "Northgate patient actions database"
+          }
+        },
+        "alwaysOutputData": true
+      },
+      {
+        "id": "77e94fe9-6b5e-45f9-9dae-dd0b5a3ee4b5",
+        "name": "Answer page",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          440,
+          240
+        ],
+        "parameters": {
+          "mode": "runOnceForAllItems",
+          "jsCode": "// Shared page shell for the patient-action pages (copied into each Code node; n8n has no includes).\nconst esc = s => String(s ?? '').replace(/[&<>\"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', \"'\": '&#39;' }[c]));\nconst tel = p => p ? `<a href=\"tel:${esc(p.replace(/[^+0-9]/g, ''))}\">${esc(p)}</a>` : 'your clinic';\nconst page = (title, body) => `<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><meta name=\"robots\" content=\"noindex\"><title>${esc(title)} \u00b7 Northgate Dental</title><style>body{margin:0;font-family:system-ui,-apple-system,\"Segoe UI\",Roboto,sans-serif;background:#f3f7f6;color:#0b2b2a}main{max-width:440px;margin:0 auto;padding:40px 20px}.brand{font-weight:700;font-size:18px}.brand span{color:#137c6c}.sub{font-size:11px;letter-spacing:.15em;color:#4c6361;margin-top:2px}.card{background:#fff;border-radius:20px;padding:28px 24px;margin-top:24px;box-shadow:0 1px 2px rgba(11,43,42,.06),0 12px 32px rgba(11,43,42,.08)}h1{font-size:22px;line-height:1.25;margin:0 0 10px}p{line-height:1.55;color:#29403e;margin:0 0 12px}.visit{background:#eef5f3;border-radius:14px;padding:14px 16px;margin:16px 0;font-weight:600}.visit small{display:block;font-weight:400;color:#4c6361;margin-top:4px}button{width:100%;padding:15px;border:0;border-radius:14px;font-size:16px;font-weight:600;background:#137c6c;color:#fff;margin-top:12px;cursor:pointer}button.danger{background:#b3261e}label.choice{display:flex;gap:12px;align-items:center;border:1.5px solid #cddbd8;border-radius:14px;padding:14px 16px;margin-top:10px;font-weight:600;cursor:pointer}label.choice:has(input:checked){border-color:#137c6c;background:#eef5f3}textarea{width:100%;box-sizing:border-box;border:1.5px solid #cddbd8;border-radius:14px;padding:12px 14px;font:inherit;min-height:100px;margin-top:14px}.alert{background:#fdeeed;border:1px solid #f1c2be;border-radius:14px;padding:16px;color:#7a1d16;margin-bottom:12px}.ok{color:#137c6c;font-size:40px;line-height:1}.muted{color:#4c6361;font-size:14px}a{color:#137c6c}</style></head><body><main><div class=\"brand\">Northgate <span>Dental</span></div><div class=\"sub\">BACK BAY \u00b7 CAMBRIDGE \u00b7 QUINCY</div><div class=\"card\">${body}</div></main></body></html>`;\nconst okToken = t => /^[A-Za-z0-9_-]{32}$/.test(String(t || ''));\nconst d = $input.first().json;\nconst flags = d.red_flags || [];\nlet html;\nif (d.state !== 'recorded') html = page('Link used', `<h1>This link has already been used or has expired</h1><p>If you have a concern, please call your clinic.</p>`);\nelse if (flags.length) html = page('Please call us now', `<div class=\"alert\"><strong>Please call us now on ${tel(d.clinic_phone)}.</strong> What you describe needs a clinician today.</div><p>If you have trouble breathing or swallowing, or bleeding you cannot control, call 911 or go to the nearest emergency department.</p><p class=\"muted\">We have also alerted the clinic.</p>`);\nelse if ($('Check-in sent').first().json.body.feeling === 'concern') html = page('Thank you', `<div class=\"ok\">&#10003;</div><h1>Thank you for telling us</h1><p>A member of our clinical team will contact you today. If it gets worse before then, call ${tel(d.clinic_phone)}.</p>`);\nelse html = page('Thank you', `<div class=\"ok\">&#10003;</div><h1>Glad to hear it</h1><p>Thank you for letting us know. Take care.</p>`);\nreturn [{ json: { html } }];\n"
+        }
+      },
+      {
+        "id": "999cb85b-ff08-481e-a7d8-516c9632f00f",
+        "name": "Send answer page",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.5,
+        "position": [
+          660,
+          240
+        ],
+        "parameters": {
+          "respondWith": "text",
+          "responseBody": "={{ $json.html }}",
+          "options": {
+            "responseHeaders": {
+              "entries": [
+                {
+                  "name": "Content-Type",
+                  "value": "text/html; charset=utf-8"
+                },
+                {
+                  "name": "Cache-Control",
+                  "value": "no-store"
+                },
+                {
+                  "name": "Referrer-Policy",
+                  "value": "no-referrer"
+                },
+                {
+                  "name": "Content-Security-Policy",
+                  "value": "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": "e803ff2a-f4d5-52b4-92c9-31ba67d06d81",
+        "name": "Note 1",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          -40,
+          -400
+        ],
+        "parameters": {
+          "content": "## W11 Post-visit check-in\n**Trigger:** the check-in link sent at 10:00 clinic time on days 1 and 3 after a visit.\n\n**Top row (GET):** the question, with the emergency path on the page itself.\n\n**Bottom row (POST):** `record_checkin()` screens the note for red flags with fixed rules. A concern or a flag opens a staff task and goes on the `urgent` queue; the worker alerts the clinic at once.",
+          "width": 460,
+          "height": 300,
+          "color": 4
+        }
+      },
+      {
+        "id": "b19b28d5-ad11-5d27-84b6-2b1ffb0e43f9",
+        "name": "Note 2",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          460,
+          -400
+        ],
+        "parameters": {
+          "content": "## Security and data\n- No AI model reads the note: red flags skip the model (project rule).\n- The note stays in Postgres under row level security; the alert email carries IDs only.\n- A red flag tells the patient to call now, or 911.\n- Failed runs keep no data.",
+          "width": 460,
+          "height": 300,
+          "color": 3
+        }
+      }
+    ],
+    "connections": {
+      "Open check-in": {
+        "main": [
+          [
+            {
+              "node": "Describe check-in",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Describe check-in": {
+        "main": [
+          [
+            {
+              "node": "Check-in page",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Check-in page": {
+        "main": [
+          [
+            {
+              "node": "Send check-in page",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Check-in sent": {
+        "main": [
+          [
+            {
+              "node": "Record check-in",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Record check-in": {
+        "main": [
+          [
+            {
+              "node": "Answer page",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Answer page": {
+        "main": [
+          [
+            {
+              "node": "Send answer page",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "settings": {
+      "executionOrder": "v1",
+      "availableInMCP": true,
+      "saveDataErrorExecution": "none"
+    },
+    "staticData": null,
+    "meta": {
+      "aiBuilderAssisted": true,
+      "builderVariant": "mcp"
+    },
+    "nodeGroups": [
+      {
+        "id": "02613954-1161-4a08-98da-7dcde72c2c83",
+        "name": "Ask",
+        "nodeIds": [
+          "33fd31e4-3623-41de-8f50-7c0d15962dc0",
+          "f9c8d645-f89a-4139-ab15-d2ab914f5845",
+          "d62c53ba-cd7e-476d-a180-ec09380c7beb"
+        ],
+        "description": "Shows the visit and the question, with the emergency path on the page itself."
+      },
+      {
+        "id": "5bc4b5a4-cfb8-4a28-a512-070410b913f4",
+        "name": "Record and screen",
+        "nodeIds": [
+          "730fb9e0-1386-44ca-ad53-15f24a723baa",
+          "77e94fe9-6b5e-45f9-9dae-dd0b5a3ee4b5",
+          "999cb85b-ff08-481e-a7d8-516c9632f00f"
+        ],
+        "description": "record_checkin screens for red flags; a concern opens a task and alerts the clinic."
+      }
+    ],
+    "pinData": null,
+    "versionId": "241e593b-0191-4097-b8ac-a378a3389c8d",
+    "activeVersionId": "241e593b-0191-4097-b8ac-a378a3389c8d",
+    "versionCounter": 1,
+    "triggerCount": 2,
+    "sourceWorkflowId": null,
+    "tags": [],
+    "shared": [
+      {
+        "updatedAt": "2026-11-21T16:51:30.418Z",
+        "createdAt": "2026-11-21T16:51:30.418Z",
+        "role": "workflow:owner",
+        "workflowId": "MvWRsAApCoLNXWuN",
+        "projectId": "yTfeI8wdsDslZW1u",
+        "project": {
+          "updatedAt": "2026-10-17T09:38:27.766Z",
+          "createdAt": "2026-10-17T00:55:03.185Z",
+          "id": "yTfeI8wdsDslZW1u",
+          "name": "Michelle Fiona <michelle.fiona.opiyo.ke@gmail.com>",
+          "type": "personal",
+          "icon": null,
+          "description": null,
+          "customTelemetryTags": [],
+          "creatorId": "17fb91b0-e8cf-459c-9b6e-ac07c51658e4"
+        }
+      }
+    ],
+    "versionMetadata": {
+      "name": "Initial version",
+      "description": "Created with 8 nodes: Open check-in, Describe check-in, Check-in page, Send check-in page, Check-in sent and 3 more"
+    }
+  }
+]

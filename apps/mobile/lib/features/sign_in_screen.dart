@@ -28,7 +28,9 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
       _error = null;
     });
     try {
-      await ref.read(accountRepositoryProvider).signIn(_email.text, _password.text);
+      await ref
+          .read(accountRepositoryProvider)
+          .signIn(_email.text, _password.text);
     } on AccountError catch (e) {
       if (mounted) setState(() => _error = e.message);
     } finally {
@@ -48,7 +50,10 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
     final text = Theme.of(context).textTheme;
     return Scaffold(
       body: DecoratedBox(
-        decoration: const BoxDecoration(gradient: heroGradient, image: heroPhoto),
+        decoration: const BoxDecoration(
+          gradient: heroGradient,
+          image: heroPhoto,
+        ),
         child: LayoutBuilder(
           builder: (context, box) => SingleChildScrollView(
             child: ConstrainedBox(
@@ -60,15 +65,22 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                   BottomSheetPanel(
                     children: [
                       if (ref.watch(passwordChangedNoticeProvider)) ...[
-                        const _SignedOutNote('Password saved. Sign in with your new password.'),
+                        const _SignedOutNote(
+                          'Password saved. Sign in with your new password.',
+                        ),
                         const SizedBox(height: 18),
                       ] else if (ref.watch(signedOutNoticeProvider)) ...[
-                        const _SignedOutNote('You have signed out. Your sign-in was removed from this phone.'),
+                        const _SignedOutNote(
+                          'You have signed out. Your sign-in was removed from this phone.',
+                        ),
                         const SizedBox(height: 18),
                       ],
                       Text('Welcome back', style: text.headlineMedium),
                       const SizedBox(height: 6),
-                      Text('Visits, plans and bookings across Back Bay, Cambridge and Quincy.', style: text.bodyLarge),
+                      Text(
+                        'Visits, plans and bookings across Back Bay, Cambridge and Quincy.',
+                        style: text.bodyLarge,
+                      ),
                       const SizedBox(height: 22),
                       TextField(
                         key: const Key('email'),
@@ -85,28 +97,53 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                         obscureText: true,
                         autofillHints: const [AutofillHints.password],
                         onSubmitted: (_) => _submit(),
-                        decoration: const InputDecoration(labelText: 'Password'),
+                        decoration: const InputDecoration(
+                          labelText: 'Password',
+                        ),
                       ),
                       Align(
                         alignment: Alignment.centerRight,
                         child: TextButton(
                           key: const Key('go-reset'),
-                          onPressed: () =>
-                              Navigator.of(context).push(MaterialPageRoute(builder: (_) => ResetRequestScreen(email: _email.text.trim()))),
+                          onPressed: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  ResetRequestScreen(email: _email.text.trim()),
+                            ),
+                          ),
                           child: const Text('Forgot password?'),
                         ),
                       ),
-                      if (_error != null) ...[ErrorNote(_error!), const SizedBox(height: 14)],
+                      if (_error != null) ...[
+                        ErrorNote(_error!),
+                        const SizedBox(height: 14),
+                      ],
                       const SizedBox(height: 8),
-                      PrimaryButton(key: const Key('sign-in'), label: 'Sign in', busy: _busy, onPressed: _submit),
+                      PrimaryButton(
+                        key: const Key('sign-in'),
+                        label: 'Sign in',
+                        busy: _busy,
+                        onPressed: _submit,
+                      ),
                       const SizedBox(height: 18),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                      Wrap(
+                        alignment: WrapAlignment.center,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
-                          const Text('New to Northgate?', style: TextStyle(color: Palette.muted, fontSize: 15)),
+                          const Text(
+                            'New to Northgate?',
+                            style: TextStyle(
+                              color: Palette.muted,
+                              fontSize: 15,
+                            ),
+                          ),
                           TextButton(
                             key: const Key('go-sign-up'),
-                            onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SignUpScreen())),
+                            onPressed: () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const SignUpScreen(),
+                              ),
+                            ),
                             child: const Text('Create an account'),
                           ),
                         ],
@@ -132,7 +169,10 @@ class _SignedOutNote extends StatelessWidget {
     liveRegion: true,
     child: Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(color: Palette.enamel, borderRadius: BorderRadius.circular(14)),
+      decoration: BoxDecoration(
+        color: Palette.enamel,
+        borderRadius: BorderRadius.circular(14),
+      ),
       child: Row(
         children: [
           const Icon(Icons.check_circle_rounded, color: Palette.teal, size: 20),
@@ -140,7 +180,11 @@ class _SignedOutNote extends StatelessWidget {
           Expanded(
             child: Text(
               message,
-              style: const TextStyle(color: Palette.tealDark, fontSize: 14, fontWeight: FontWeight.w600),
+              style: const TextStyle(
+                color: Palette.tealDark,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],

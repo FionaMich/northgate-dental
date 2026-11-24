@@ -7,7 +7,12 @@ import 'tokens.dart';
 
 /// Full-width primary action with the brand gradient and a soft lift.
 class PrimaryButton extends StatelessWidget {
-  const PrimaryButton({super.key, required this.label, required this.onPressed, this.busy = false});
+  const PrimaryButton({
+    super.key,
+    required this.label,
+    required this.onPressed,
+    this.busy = false,
+  });
   final String label;
   final VoidCallback? onPressed;
   final bool busy;
@@ -23,7 +28,12 @@ class PrimaryButton extends StatelessWidget {
           gradient: buttonGradient,
           borderRadius: BorderRadius.circular(18),
           boxShadow: [
-            BoxShadow(color: Palette.tealDark.withValues(alpha: 0.45), blurRadius: 24, offset: const Offset(0, 12), spreadRadius: -12),
+            BoxShadow(
+              color: Palette.tealDark.withValues(alpha: 0.45),
+              blurRadius: 24,
+              offset: const Offset(0, 12),
+              spreadRadius: -12,
+            ),
           ],
         ),
         child: Material(
@@ -35,10 +45,21 @@ class PrimaryButton extends StatelessWidget {
               height: 56,
               child: Center(
                 child: busy
-                    ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white))
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.4,
+                          color: Colors.white,
+                        ),
+                      )
                     : Text(
                         label,
-                        style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w700),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
               ),
             ),
@@ -59,7 +80,10 @@ class ErrorNote extends StatelessWidget {
     liveRegion: true,
     child: Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(color: const Color(0xFFFDECEA), borderRadius: BorderRadius.circular(14)),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFDECEA),
+        borderRadius: BorderRadius.circular(14),
+      ),
       child: Row(
         children: [
           const Icon(Icons.error_outline, size: 20, color: Palette.error),
@@ -67,7 +91,11 @@ class ErrorNote extends StatelessWidget {
           Expanded(
             child: Text(
               message,
-              style: const TextStyle(color: Palette.error, fontSize: 14, fontWeight: FontWeight.w600),
+              style: const TextStyle(
+                color: Palette.error,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],
@@ -93,7 +121,11 @@ class HeroStage extends StatelessWidget {
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          Positioned(left: 24, top: 18, child: const Lockup(onDark: true, markHeight: 34)),
+          Positioned(
+            left: 24,
+            top: 18,
+            child: const Lockup(onDark: true, markHeight: 34),
+          ),
           Align(
             alignment: const Alignment(0, 0.35),
             child: Float(child: Tooth3D(height: height * 0.5)),
@@ -117,13 +149,21 @@ class BottomSheetPanel extends StatelessWidget {
       color: Colors.white,
       borderRadius: BorderRadius.vertical(top: Radius.circular(36)),
     ),
-    child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: children),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: children,
+    ),
   );
 }
 
 /// Every signed-out screen: hero art on top, a white sheet with the form below, optional back button.
 class AuthLayout extends StatelessWidget {
-  const AuthLayout({super.key, required this.children, this.heroFraction = 0.36, this.showBack = false});
+  const AuthLayout({
+    super.key,
+    required this.children,
+    this.heroFraction = 0.36,
+    this.showBack = false,
+  });
   final List<Widget> children;
   final double heroFraction;
   final bool showBack;
@@ -156,14 +196,20 @@ class AuthLayout extends StatelessWidget {
             children: [
               Stack(
                 children: [
-                  HeroStage(height: (box.maxHeight * heroFraction).clamp(200, 380), quietCorner: showBack),
+                  HeroStage(
+                    height: (box.maxHeight * heroFraction).clamp(200, 380),
+                    quietCorner: showBack,
+                  ),
                   if (showBack)
                     Positioned(
                       right: 12,
                       top: 10 + MediaQuery.paddingOf(context).top,
                       child: IconButton.filledTonal(
                         tooltip: 'Back',
-                        style: IconButton.styleFrom(backgroundColor: Colors.white.withValues(alpha: 0.14), foregroundColor: Colors.white),
+                        style: IconButton.styleFrom(
+                          backgroundColor: Colors.white.withValues(alpha: 0.14),
+                          foregroundColor: Colors.white,
+                        ),
                         onPressed: () => Navigator.of(context).maybePop(),
                         icon: const Icon(Icons.close_rounded),
                       ),
@@ -224,16 +270,26 @@ class _CodeBoxesState extends State<CodeBoxes> {
                 height: 58,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: i < _c.text.length ? Colors.white : const Color(0xFFF4F8F7),
+                  color: i < _c.text.length
+                      ? Colors.white
+                      : const Color(0xFFF4F8F7),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: _focus.hasFocus && i == _c.text.length.clamp(0, 5) ? Palette.teal : Palette.line,
-                    width: _focus.hasFocus && i == _c.text.length.clamp(0, 5) ? 2 : 1,
+                    color: _focus.hasFocus && i == _c.text.length.clamp(0, 5)
+                        ? Palette.teal
+                        : Palette.line,
+                    width: _focus.hasFocus && i == _c.text.length.clamp(0, 5)
+                        ? 2
+                        : 1,
                   ),
                 ),
                 child: Text(
                   i < _c.text.length ? _c.text[i] : '',
-                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: Palette.deepSea),
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w700,
+                    color: Palette.deepSea,
+                  ),
                 ),
               ),
           ],
@@ -251,7 +307,11 @@ class _CodeBoxesState extends State<CodeBoxes> {
               autofillHints: const [AutofillHints.oneTimeCode],
               maxLength: 6,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              decoration: const InputDecoration(counterText: '', border: InputBorder.none, filled: false),
+              decoration: const InputDecoration(
+                counterText: '',
+                border: InputBorder.none,
+                filled: false,
+              ),
             ),
           ),
         ),
@@ -277,7 +337,9 @@ class PasswordChecklist extends StatelessWidget {
             AnimatedSwitcher(
               duration: const Duration(milliseconds: 180),
               child: Icon(
-                met ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+                met
+                    ? Icons.check_circle_rounded
+                    : Icons.radio_button_unchecked_rounded,
                 key: ValueKey(met),
                 size: 18,
                 color: met ? Palette.teal : const Color(0xFF9AB0AC),
@@ -286,7 +348,11 @@ class PasswordChecklist extends StatelessWidget {
             const SizedBox(width: 6),
             Text(
               label,
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: met ? Palette.teal : Palette.muted),
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: met ? Palette.teal : Palette.muted,
+              ),
             ),
           ],
         ),

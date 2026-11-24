@@ -69,6 +69,30 @@ jobs:
       - run: uv sync --locked
       - run: uv run pytest -q
 
+  worker:
+    name: worker (pytest)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/worker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --locked
+      - run: uv run pytest -q # the database test skips here; it runs against the local stack and the database job's data
+
+  agent:
+    name: agent (pytest)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/agent
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --locked
+      - run: uv run pytest -q # safety gate in 12 languages and the graph with a scripted model; no Ollama in CI
+
   mobile:
     name: mobile (flutter test)
     runs-on: ubuntu-latest

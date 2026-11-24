@@ -15,20 +15,32 @@ import 'clinic_screen.dart';
 import 'dentist_screen.dart';
 
 /// Services the patient may book at one clinic.
-final bookableServicesProvider = FutureProvider.autoDispose.family<List<BookableService>, String>(
-  retry: (_, _) => null,
-  (ref, clinicId) => ref.watch(careRepositoryProvider).services(clinicId),
-);
+final bookableServicesProvider = FutureProvider.autoDispose
+    .family<List<BookableService>, String>(
+      retry: (_, _) => null,
+      (ref, clinicId) => ref.watch(careRepositoryProvider).services(clinicId),
+    );
 
 /// Free times for a clinic and service over the next 14 days.
-final slotsProvider = FutureProvider.autoDispose.family<List<Slot>, (String, String)>(
-  retry: (_, _) => null,
-  (ref, key) => ref.watch(careRepositoryProvider).slots(key.$1, key.$2, DateTime.now()),
-);
+final slotsProvider = FutureProvider.autoDispose
+    .family<List<Slot>, (String, String)>(
+      retry: (_, _) => null,
+      (ref, key) => ref
+          .watch(careRepositoryProvider)
+          .slots(key.$1, key.$2, DateTime.now()),
+    );
 
 /// Book a visit: clinic, service, day, time, then a 10-minute hold to confirm.
 class BookingScreen extends ConsumerStatefulWidget {
-  const BookingScreen({super.key, required this.patient, this.dentistId, this.clinicId, this.serviceId, this.replaces, this.category});
+  const BookingScreen({
+    super.key,
+    required this.patient,
+    this.dentistId,
+    this.clinicId,
+    this.serviceId,
+    this.replaces,
+    this.category,
+  });
 
   /// Start with the service list filtered to this group (from "Our services" on Home).
   final String? category;
@@ -61,7 +73,10 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
     _error = null;
   });
 
-  Future<void> _hold(List<Clinic> clinics, List<BookableService> services) async {
+  Future<void> _hold(
+    List<Clinic> clinics,
+    List<BookableService> services,
+  ) async {
     final slot = _slot!;
     setState(() {
       _busy = true;
@@ -70,32 +85,35 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
     try {
       final id = await ref
           .read(careRepositoryProvider)
-          .hold(clinicId: _clinic!, serviceId: _service!, slot: slot, patientId: widget.patient.id);
+          .hold(
+            clinicId: _clinic!,
+            serviceId: _service!,
+            slot: slot,
+            patientId: widget.patient.id,
+          );
       if (!mounted) return;
-      setState(() => _busy = false); // the hold is in place; the sheet takes over
+      setState(
+        () => _busy = false,
+      ); // the hold is in place; the sheet takes over
       final booked = await showModalBottomSheet<bool>(
         context: context,
         isScrollControlled: true,
         isDismissible: false,
         enableDrag: false,
         backgroundColor: Colors.white,
-        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(32))),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+        ),
         builder: (_) => _HoldSheet(
           appointmentId: id,
           slot: slot,
           service: services.firstWhere((s) => s.id == _service),
           clinic: clinics.firstWhere((c) => c.id == _clinic),
+          replaces: widget.replaces?.id,
         ),
       );
       if (!mounted) return;
       if (booked == true) {
-        if (widget.replaces case final old?) {
-          try {
-            await ref.read(careRepositoryProvider).cancel(old.id);
-          } on BookingError {
-            // The new visit stands; the old one stays visible so the patient can cancel it by hand.
-          }
-        }
         ref.invalidate(careSummaryProvider);
         if (mounted) Navigator.of(context).pop();
       } else {
@@ -119,8 +137,12 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
     final clinics = ref.watch(clinicsProvider).value;
     final details = ref.watch(patientDetailsProvider(widget.patient.id)).value;
     final clinic = _clinic ?? details?.clinicId ?? clinics?.firstOrNull?.id;
-    final services = clinic == null ? null : ref.watch(bookableServicesProvider(clinic));
-    final slots = clinic == null || _service == null ? null : ref.watch(slotsProvider((clinic, _service!)));
+    final services = clinic == null
+        ? null
+        : ref.watch(bookableServicesProvider(clinic));
+    final slots = clinic == null || _service == null
+        ? null
+        : ref.watch(slotsProvider((clinic, _service!)));
     _clinic ??= clinic;
 
     final allSlots = slots?.value ?? const <Slot>[];
@@ -133,11 +155,19 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
     final seenStarts = <DateTime>{};
     final shown = [
       for (final s in allSlots)
-        if (_dentist == null ? seenStarts.add(s.startsAt) : s.practitionerId == _dentist) s,
+        if (_dentist == null
+            ? seenStarts.add(s.startsAt)
+            : s.practitionerId == _dentist)
+          s,
     ];
     final days = <DateTime, List<Slot>>{};
     for (final s in shown) {
-      days.putIfAbsent(DateTime(s.startsAt.year, s.startsAt.month, s.startsAt.day), () => []).add(s);
+      days
+          .putIfAbsent(
+            DateTime(s.startsAt.year, s.startsAt.month, s.startsAt.day),
+            () => [],
+          )
+          .add(s);
     }
     final day = _day ?? days.keys.firstOrNull;
     final times = days[day] ?? const <Slot>[];
@@ -147,7 +177,11 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
       body: CustomScrollView(
         slivers: [
           SliverToBoxAdapter(
-            child: _Header(clinics: clinics ?? const [], selected: clinic, onPick: _pickClinic),
+            child: _Header(
+              clinics: clinics ?? const [],
+              selected: clinic,
+              onPick: _pickClinic,
+            ),
           ),
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(20, 22, 20, 140),
@@ -165,8 +199,12 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                     children: [
                       TextField(
                         key: const Key('service-search'),
-                        onChanged: (v) => setState(() => _search = v.trim().toLowerCase()),
-                        decoration: const InputDecoration(labelText: 'Search services', prefixIcon: Icon(Icons.search_rounded)),
+                        onChanged: (v) =>
+                            setState(() => _search = v.trim().toLowerCase()),
+                        decoration: const InputDecoration(
+                          labelText: 'Search services',
+                          prefixIcon: Icon(Icons.search_rounded),
+                        ),
                       ),
                       const SizedBox(height: 12),
                       SizedBox(
@@ -184,7 +222,8 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                                   key: Key('category-${cat ?? 'all'}'),
                                   label: Text(cat ?? 'All'),
                                   selected: _category == cat,
-                                  onSelected: (_) => setState(() => _category = cat),
+                                  onSelected: (_) =>
+                                      setState(() => _category = cat),
                                 ),
                               ),
                           ],
@@ -194,7 +233,10 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                       for (final s in value.where(
                         (s) =>
                             (_category == null || s.category == _category) &&
-                            (_search.isEmpty || '${s.name} ${s.summary}'.toLowerCase().contains(_search)),
+                            (_search.isEmpty ||
+                                '${s.name} ${s.summary}'.toLowerCase().contains(
+                                  _search,
+                                )),
                       ))
                         _Choice(
                           key: Key('service-${s.id}'),
@@ -236,12 +278,20 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                         _dentist = d.id;
                         _day = _slot = null;
                       }),
-                      onInfo: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => DentistScreen(dentist: d))),
+                      onInfo: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => DentistScreen(dentist: d),
+                        ),
+                      ),
                     ),
                 ],
                 if (_service != null) ...[
                   const SizedBox(height: 26),
-                  SectionTitle(days.isEmpty ? 'Pick a day' : 'Pick a day · ${monthYear(days.keys.first)}'),
+                  SectionTitle(
+                    days.isEmpty
+                        ? 'Pick a day'
+                        : 'Pick a day · ${monthYear(days.keys.first)}',
+                  ),
                   if (slots == null || slots.isLoading)
                     const _Loading()
                   else if (slots.hasError)
@@ -279,13 +329,25 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                       ),
                     ),
                     const SizedBox(height: 26),
-                    SectionTitle('Pick a time · ${weekday(day!)} ${dayMonth(day)}'),
-                    _TimeGrid(times: times, selected: _slot, onPick: (s) => setState(() => _slot = s)),
+                    SectionTitle(
+                      'Pick a time · ${weekday(day!)} ${dayMonth(day)}',
+                    ),
+                    _TimeGrid(
+                      times: times,
+                      selected: _slot,
+                      onPick: (s) => setState(() => _slot = s),
+                    ),
                     const SizedBox(height: 10),
-                    const Text('Times are local to the clinic.', style: TextStyle(fontSize: 13, color: Palette.muted)),
+                    const Text(
+                      'Times are local to the clinic.',
+                      style: TextStyle(fontSize: 13, color: Palette.muted),
+                    ),
                   ],
                 ],
-                if (_error != null) ...[const SizedBox(height: 18), ErrorNote(_error!)],
+                if (_error != null) ...[
+                  const SizedBox(height: 18),
+                  ErrorNote(_error!),
+                ],
               ],
             ),
           ),
@@ -297,7 +359,11 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
               child: Container(
                 margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                 padding: const EdgeInsets.fromLTRB(18, 14, 14, 14),
-                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(26), boxShadow: lift(1.2)),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(26),
+                  boxShadow: lift(1.2),
+                ),
                 child: Row(
                   children: [
                     Expanded(
@@ -307,11 +373,18 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                         children: [
                           Text(
                             '${weekday(_slot!.startsAt)} ${dayMonth(_slot!.startsAt)}',
-                            style: const TextStyle(fontSize: 13, color: Palette.muted),
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: Palette.muted,
+                            ),
                           ),
                           Text(
                             '${clock(_slot!.startsAt)} to ${clock(_slot!.endsAt)}',
-                            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: Palette.deepSea),
+                            style: const TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700,
+                              color: Palette.deepSea,
+                            ),
                           ),
                         ],
                       ),
@@ -334,7 +407,11 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.clinics, required this.selected, required this.onPick});
+  const _Header({
+    required this.clinics,
+    required this.selected,
+    required this.onPick,
+  });
   final List<Clinic> clinics;
   final String? selected;
   final ValueChanged<String> onPick;
@@ -366,14 +443,26 @@ class _Header extends StatelessWidget {
                   const Expanded(
                     child: Text(
                       'Book a visit',
-                      style: TextStyle(fontSize: 30, fontWeight: FontWeight.w700, letterSpacing: -0.8, color: Colors.white),
+                      style: TextStyle(
+                        fontSize: 30,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.8,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
-                  if (clinics.where((c) => c.id == selected).firstOrNull case final c?)
+                  if (clinics.where((c) => c.id == selected).firstOrNull
+                      case final c?)
                     TextButton.icon(
                       key: const Key('about-clinic'),
-                      style: TextButton.styleFrom(foregroundColor: const Color(0xFF8FE3C8)),
-                      onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ClinicScreen(clinic: c))),
+                      style: TextButton.styleFrom(
+                        foregroundColor: const Color(0xFF8FE3C8),
+                      ),
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => ClinicScreen(clinic: c),
+                        ),
+                      ),
                       icon: const Icon(Icons.info_outline_rounded, size: 18),
                       label: const Text('Clinic info'),
                     ),
@@ -396,18 +485,34 @@ class _Header extends StatelessWidget {
                           onTap: () => onPick(c.id),
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 180),
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 10,
+                            ),
                             decoration: BoxDecoration(
-                              color: c.id == selected ? Colors.white : Colors.white.withValues(alpha: 0.12),
+                              color: c.id == selected
+                                  ? Colors.white
+                                  : Colors.white.withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(999),
                             ),
                             child: Row(
                               children: [
-                                Icon(Icons.location_on_rounded, size: 16, color: c.id == selected ? Palette.teal : Colors.white70),
+                                Icon(
+                                  Icons.location_on_rounded,
+                                  size: 16,
+                                  color: c.id == selected
+                                      ? Palette.teal
+                                      : Colors.white70,
+                                ),
                                 const SizedBox(width: 6),
                                 Text(
                                   c.name,
-                                  style: TextStyle(fontWeight: FontWeight.w700, color: c.id == selected ? Palette.deepSea : Colors.white),
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    color: c.id == selected
+                                        ? Palette.deepSea
+                                        : Colors.white,
+                                  ),
                                 ),
                               ],
                             ),
@@ -458,14 +563,23 @@ class _Choice extends StatelessWidget {
             decoration: BoxDecoration(
               color: selected ? Palette.enamel : Colors.white,
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: selected ? Palette.teal : Palette.line, width: selected ? 2 : 1),
+              border: Border.all(
+                color: selected ? Palette.teal : Palette.line,
+                width: selected ? 2 : 1,
+              ),
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(14),
-                  child: Image.asset(photo, width: 56, height: 56, fit: BoxFit.cover, excludeFromSemantics: true),
+                  child: Image.asset(
+                    photo,
+                    width: 56,
+                    height: 56,
+                    fit: BoxFit.cover,
+                    excludeFromSemantics: true,
+                  ),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -477,23 +591,45 @@ class _Choice extends StatelessWidget {
                           Flexible(
                             child: Text(
                               title,
-                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, height: 1.25, color: Palette.deepSea),
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                height: 1.25,
+                                color: Palette.deepSea,
+                              ),
                             ),
                           ),
                           const SizedBox(width: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(color: Palette.mist, borderRadius: BorderRadius.circular(999)),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Palette.mist,
+                              borderRadius: BorderRadius.circular(999),
+                            ),
                             child: Text(
                               '$minutes min',
-                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Palette.muted),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: Palette.muted,
+                              ),
                             ),
                           ),
                         ],
                       ),
                       if (summary.isNotEmpty) ...[
                         const SizedBox(height: 6),
-                        Text(summary, style: const TextStyle(fontSize: 14, height: 1.45, color: Palette.muted)),
+                        Text(
+                          summary,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            height: 1.45,
+                            color: Palette.muted,
+                          ),
+                        ),
                       ],
                     ],
                   ),
@@ -514,7 +650,13 @@ class _Choice extends StatelessWidget {
 }
 
 class _DayTile extends StatelessWidget {
-  const _DayTile({super.key, required this.day, required this.count, required this.selected, required this.onTap});
+  const _DayTile({
+    super.key,
+    required this.day,
+    required this.count,
+    required this.selected,
+    required this.onTap,
+  });
   final DateTime day;
   final int count;
   final bool selected;
@@ -537,7 +679,9 @@ class _DayTile extends StatelessWidget {
             gradient: selected ? buttonGradient : null,
             color: selected ? null : Colors.white,
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: selected ? Colors.transparent : Palette.line),
+            border: Border.all(
+              color: selected ? Colors.transparent : Palette.line,
+            ),
             boxShadow: selected ? lift(0.8) : null,
           ),
           child: ExcludeSemantics(
@@ -546,15 +690,27 @@ class _DayTile extends StatelessWidget {
               children: [
                 Text(
                   weekday(day),
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: selected ? const Color(0xFFCDEFE7) : Palette.muted),
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: selected ? const Color(0xFFCDEFE7) : Palette.muted,
+                  ),
                 ),
                 Text(
                   '${day.day}',
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: selected ? Colors.white : Palette.deepSea),
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w700,
+                    color: selected ? Colors.white : Palette.deepSea,
+                  ),
                 ),
                 Text(
                   count == 1 ? '1 time' : '$count times',
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: selected ? const Color(0xFFCDEFE7) : Palette.teal),
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: selected ? const Color(0xFFCDEFE7) : Palette.teal,
+                  ),
                 ),
               ],
             ),
@@ -567,14 +723,21 @@ class _DayTile extends StatelessWidget {
 
 /// Times split into morning and afternoon, as pills.
 class _TimeGrid extends StatelessWidget {
-  const _TimeGrid({required this.times, required this.selected, required this.onPick});
+  const _TimeGrid({
+    required this.times,
+    required this.selected,
+    required this.onPick,
+  });
   final List<Slot> times;
   final Slot? selected;
   final ValueChanged<Slot> onPick;
 
   @override
   Widget build(BuildContext context) {
-    final groups = [('Morning', times.where((s) => s.startsAt.hour < 12)), ('Afternoon', times.where((s) => s.startsAt.hour >= 12))];
+    final groups = [
+      ('Morning', times.where((s) => s.startsAt.hour < 12)),
+      ('Afternoon', times.where((s) => s.startsAt.hour >= 12)),
+    ];
     var index = 0;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -585,7 +748,11 @@ class _TimeGrid extends StatelessWidget {
               padding: const EdgeInsets.only(top: 4, bottom: 10),
               child: Text(
                 label,
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Palette.muted),
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: Palette.muted,
+                ),
               ),
             ),
             GridView.count(
@@ -613,11 +780,17 @@ class _TimeGrid extends StatelessWidget {
                             decoration: BoxDecoration(
                               color: on ? Palette.teal : Colors.white,
                               borderRadius: BorderRadius.circular(14),
-                              border: Border.all(color: on ? Palette.teal : Palette.line),
+                              border: Border.all(
+                                color: on ? Palette.teal : Palette.line,
+                              ),
                             ),
                             child: Text(
                               clock(s.startsAt),
-                              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: on ? Colors.white : Palette.deepSea),
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                color: on ? Colors.white : Palette.deepSea,
+                              ),
                             ),
                           ),
                         ),
@@ -635,8 +808,15 @@ class _TimeGrid extends StatelessWidget {
 
 /// The held time, a 10-minute countdown, and Confirm. Shows "You are booked" only after the server confirms.
 class _HoldSheet extends ConsumerStatefulWidget {
-  const _HoldSheet({required this.appointmentId, required this.slot, required this.service, required this.clinic});
+  const _HoldSheet({
+    required this.appointmentId,
+    required this.slot,
+    required this.service,
+    required this.clinic,
+    this.replaces,
+  });
   final String appointmentId;
+  final String? replaces; // the visit this booking moves, if rescheduling
   final Slot slot;
   final BookableService service;
   final Clinic clinic;
@@ -678,7 +858,9 @@ class _HoldSheetState extends ConsumerState<_HoldSheet> {
       _error = null;
     });
     try {
-      await ref.read(careRepositoryProvider).confirm(widget.appointmentId);
+      await ref
+          .read(careRepositoryProvider)
+          .confirm(widget.appointmentId, replaces: widget.replaces);
       _timer?.cancel();
       if (mounted) setState(() => _booked = true);
     } on BookingError catch (e) {
@@ -702,7 +884,8 @@ class _HoldSheetState extends ConsumerState<_HoldSheet> {
   Widget build(BuildContext context) {
     final s = widget.slot;
     final expired = _left <= 0;
-    final mmss = '${(_left ~/ 60).clamp(0, 10)}:${(_left % 60).clamp(0, 59).toString().padLeft(2, '0')}';
+    final mmss =
+        '${(_left ~/ 60).clamp(0, 10)}:${(_left % 60).clamp(0, 59).toString().padLeft(2, '0')}';
     return SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(24, 14, 24, 20),
@@ -715,17 +898,33 @@ class _HoldSheetState extends ConsumerState<_HoldSheet> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     const SizedBox(height: 10),
-                    const Center(child: Reveal(child: IconTile(Icons.check_rounded, size: 72))),
+                    const Center(
+                      child: Reveal(
+                        child: IconTile(Icons.check_rounded, size: 72),
+                      ),
+                    ),
                     const SizedBox(height: 18),
-                    Text('You are booked', textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineMedium),
+                    Text(
+                      'You are booked',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.headlineMedium,
+                    ),
                     const SizedBox(height: 8),
                     Text(
                       '${widget.service.name} at ${widget.clinic.name}, ${weekday(s.startsAt)} ${dayMonth(s.startsAt)} at ${clock(s.startsAt)}.',
                       textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 15, height: 1.5, color: Palette.muted),
+                      style: const TextStyle(
+                        fontSize: 15,
+                        height: 1.5,
+                        color: Palette.muted,
+                      ),
                     ),
                     const SizedBox(height: 24),
-                    PrimaryButton(key: const Key('booking-done'), label: 'Done', onPressed: () => Navigator.of(context).pop(true)),
+                    PrimaryButton(
+                      key: const Key('booking-done'),
+                      label: 'Done',
+                      onPressed: () => Navigator.of(context).pop(true),
+                    ),
                   ],
                 )
               : Column(
@@ -735,30 +934,54 @@ class _HoldSheetState extends ConsumerState<_HoldSheet> {
                   children: [
                     Row(
                       children: [
-                        Expanded(child: Text('Confirm your visit', style: Theme.of(context).textTheme.headlineMedium)),
+                        Expanded(
+                          child: Text(
+                            'Confirm your visit',
+                            style: Theme.of(context).textTheme.headlineMedium,
+                          ),
+                        ),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
                           decoration: BoxDecoration(
-                            color: expired ? const Color(0xFFFBE4E2) : const Color(0xFFFFF1E4),
+                            color: expired
+                                ? const Color(0xFFFBE4E2)
+                                : const Color(0xFFFFF1E4),
                             borderRadius: BorderRadius.circular(999),
                           ),
                           child: Text(
                             expired ? 'Expired' : mmss,
-                            style: TextStyle(fontWeight: FontWeight.w700, color: expired ? Palette.error : const Color(0xFFB35F1E)),
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              color: expired
+                                  ? Palette.error
+                                  : const Color(0xFFB35F1E),
+                            ),
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      expired ? '' : 'Held for you for $mmss. Nothing is booked until you confirm.',
-                      style: const TextStyle(fontSize: 14, color: Palette.muted),
+                      expired
+                          ? ''
+                          : 'Held for you for $mmss. Nothing is booked until you confirm.',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Palette.muted,
+                      ),
                     ),
                     const SizedBox(height: 18),
                     Panel(
                       child: Column(
                         children: [
-                          _Row(Icons.medical_services_outlined, widget.service.name, '${widget.service.minutes} minutes'),
+                          _Row(
+                            Icons.medical_services_outlined,
+                            widget.service.name,
+                            '${widget.service.minutes} minutes',
+                          ),
                           const Divider(height: 24, color: Palette.line),
                           _Row(
                             Icons.event_rounded,
@@ -766,11 +989,18 @@ class _HoldSheetState extends ConsumerState<_HoldSheet> {
                             '${clock(s.startsAt)} to ${clock(s.endsAt)}',
                           ),
                           const Divider(height: 24, color: Palette.line),
-                          _Row(Icons.location_on_outlined, widget.clinic.name, widget.clinic.address),
+                          _Row(
+                            Icons.location_on_outlined,
+                            widget.clinic.name,
+                            widget.clinic.address,
+                          ),
                         ],
                       ),
                     ),
-                    if (_error != null) ...[const SizedBox(height: 14), ErrorNote(_error!)],
+                    if (_error != null) ...[
+                      const SizedBox(height: 14),
+                      ErrorNote(_error!),
+                    ],
                     const SizedBox(height: 22),
                     PrimaryButton(
                       key: const Key('confirm-booking'),
@@ -808,9 +1038,16 @@ class _Row extends StatelessWidget {
           children: [
             Text(
               title,
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Palette.deepSea),
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: Palette.deepSea,
+              ),
             ),
-            Text(subtitle, style: const TextStyle(fontSize: 13, color: Palette.muted)),
+            Text(
+              subtitle,
+              style: const TextStyle(fontSize: 13, color: Palette.muted),
+            ),
           ],
         ),
       ),
@@ -860,13 +1097,19 @@ class _DentistChoice extends StatelessWidget {
           decoration: BoxDecoration(
             color: selected ? Palette.enamel : Colors.white,
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: selected ? Palette.teal : Palette.line, width: selected ? 2 : 1),
+            border: Border.all(
+              color: selected ? Palette.teal : Palette.line,
+              width: selected ? 2 : 1,
+            ),
           ),
           child: Row(
             children: [
               dentist == null
                   ? const TintIcon(Icons.groups_rounded, Tint.teal, size: 52)
-                  : DentistAvatar(name: dentist!.name, asset: dentist!.photoAsset),
+                  : DentistAvatar(
+                      name: dentist!.name,
+                      asset: dentist!.photoAsset,
+                    ),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
@@ -874,9 +1117,19 @@ class _DentistChoice extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Palette.deepSea),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: Palette.deepSea,
+                      ),
                     ),
-                    Text(detail, style: const TextStyle(fontSize: 13.5, color: Palette.muted)),
+                    Text(
+                      detail,
+                      style: const TextStyle(
+                        fontSize: 13.5,
+                        color: Palette.muted,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -884,9 +1137,15 @@ class _DentistChoice extends StatelessWidget {
                 IconButton(
                   tooltip: 'About $title',
                   onPressed: onInfo,
-                  icon: const Icon(Icons.info_outline_rounded, color: Palette.teal),
+                  icon: const Icon(
+                    Icons.info_outline_rounded,
+                    color: Palette.teal,
+                  ),
                 ),
-              Icon(selected ? Icons.check_circle_rounded : Icons.circle_outlined, color: selected ? Palette.teal : Palette.line),
+              Icon(
+                selected ? Icons.check_circle_rounded : Icons.circle_outlined,
+                color: selected ? Palette.teal : Palette.line,
+              ),
               const SizedBox(width: 6),
             ],
           ),

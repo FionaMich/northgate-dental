@@ -1,0 +1,235 @@
+[
+  {
+    "updatedAt": "2026-11-21T15:50:02.846Z",
+    "createdAt": "2026-11-21T15:50:02.846Z",
+    "id": "sm9FXDMA2wiesYVJ",
+    "name": "W04 Payment link",
+    "description": null,
+    "active": true,
+    "isArchived": false,
+    "nodes": [
+      {
+        "id": "cf79095c-4023-438c-b3fe-f7a6dec4e896",
+        "name": "Payment link requested",
+        "type": "n8n-nodes-base.executeWorkflowTrigger",
+        "typeVersion": 1.1,
+        "position": [
+          0,
+          0
+        ],
+        "parameters": {
+          "inputSource": "workflowInputs",
+          "workflowInputs": {
+            "values": [
+              {
+                "name": "appointment_id",
+                "type": "string"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "ad1319c5-9428-4c97-96a0-badda060d7f8",
+        "name": "Open payment",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.6,
+        "position": [
+          220,
+          0
+        ],
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "select payment_id, amount_cents from private.open_payment($1::uuid)",
+          "options": {
+            "queryReplacement": "={{ [ $json.appointment_id ] }}"
+          }
+        },
+        "credentials": {
+          "postgres": {
+            "id": "ngPaymentsDb0001",
+            "name": "Northgate payments database"
+          }
+        }
+      },
+      {
+        "id": "9d05b96e-807a-40e4-9ad5-b4059a92902a",
+        "name": "Create Checkout Session",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          440,
+          0
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "https://api.stripe.com/v1/checkout/sessions",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "stripeApi",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Idempotency-Key",
+                "value": "={{ \"checkout-usd-\" + $json.payment_id }}"
+              }
+            ]
+          },
+          "sendBody": true,
+          "contentType": "form-urlencoded",
+          "specifyBody": "string",
+          "body": "={{ [ \"mode=payment\", \"adaptive_pricing[enabled]=false\", \"line_items[0][quantity]=1\", \"line_items[0][price_data][currency]=usd\", \"line_items[0][price_data][unit_amount]=\" + $json.amount_cents, \"line_items[0][price_data][product_data][name]=\" + encodeURIComponent(\"Northgate Dental visit\"), \"client_reference_id=\" + $json.payment_id, \"metadata[payment_id]=\" + $json.payment_id, \"success_url=\" + encodeURIComponent(\"https://84-12-126-31.sslip.io/\"), \"cancel_url=\" + encodeURIComponent(\"https://84-12-126-31.sslip.io/\") ].join(\"&\") }}",
+          "options": {}
+        },
+        "credentials": {
+          "stripeApi": {
+            "id": "ngStripeTest0001",
+            "name": "Stripe test mode"
+          }
+        }
+      },
+      {
+        "id": "7fe4702b-aabe-42f2-84c4-04cbd9a44df9",
+        "name": "Remember session",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.6,
+        "position": [
+          660,
+          0
+        ],
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "select private.attach_checkout($1::uuid, $2), $1 as payment_id, $3 as url",
+          "options": {
+            "queryReplacement": "={{ [ $('Open payment').item.json.payment_id, $json.id, $json.url ] }}"
+          }
+        },
+        "credentials": {
+          "postgres": {
+            "id": "ngPaymentsDb0001",
+            "name": "Northgate payments database"
+          }
+        }
+      },
+      {
+        "id": "a6ecc4ec-0c78-5374-b525-d57cfb35b029",
+        "name": "Note 1",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          -40,
+          -400
+        ],
+        "parameters": {
+          "content": "## W04 Payment link\n**Trigger:** called by W06, the app (through W06) or, later, the assistant.\n\n1. `open_payment()` takes the price from the clinic's price list, never from the caller.\n2. Stripe Checkout Session, with the payment ID as the idempotency key (asking twice gives the same link).\n3. The session ID is stored so W05 can match Stripe's webhook.",
+          "width": 460,
+          "height": 300,
+          "color": 4
+        }
+      },
+      {
+        "id": "871ac031-7280-56e5-9e14-f661a3e7f4f1",
+        "name": "Note 2",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          460,
+          -400
+        ],
+        "parameters": {
+          "content": "## Security and data\n- Stripe receives an amount, a generic item name and our payment ID: no name, email or service.\n- Adaptive Pricing is off: always USD.\n- Stripe key: n8n credential `Stripe test mode` (encrypted in n8n, never in this JSON).\n- Database login: `northgate_payments_app`, three functions only.",
+          "width": 460,
+          "height": 300,
+          "color": 3
+        }
+      }
+    ],
+    "connections": {
+      "Payment link requested": {
+        "main": [
+          [
+            {
+              "node": "Open payment",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Open payment": {
+        "main": [
+          [
+            {
+              "node": "Create Checkout Session",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Create Checkout Session": {
+        "main": [
+          [
+            {
+              "node": "Remember session",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "settings": {
+      "executionOrder": "v1",
+      "availableInMCP": true
+    },
+    "staticData": null,
+    "meta": {
+      "aiBuilderAssisted": true,
+      "builderVariant": "mcp"
+    },
+    "nodeGroups": [
+      {
+        "id": "cd9694a9-952f-40cc-be7c-9d7c812ea461",
+        "name": "Create the link",
+        "nodeIds": [
+          "ad1319c5-9428-4c97-96a0-badda060d7f8",
+          "9d05b96e-807a-40e4-9ad5-b4059a92902a",
+          "7fe4702b-aabe-42f2-84c4-04cbd9a44df9"
+        ],
+        "description": "Price from the database, Checkout Session at Stripe (idempotent per payment), session ID stored."
+      }
+    ],
+    "pinData": null,
+    "versionId": "06345a53-b137-4a47-beb5-fe8eeb2b7c9a",
+    "activeVersionId": "06345a53-b137-4a47-beb5-fe8eeb2b7c9a",
+    "versionCounter": 1,
+    "triggerCount": 0,
+    "sourceWorkflowId": null,
+    "tags": [],
+    "shared": [
+      {
+        "updatedAt": "2026-11-21T15:50:02.849Z",
+        "createdAt": "2026-11-21T15:50:02.849Z",
+        "role": "workflow:owner",
+        "workflowId": "sm9FXDMA2wiesYVJ",
+        "projectId": "yTfeI8wdsDslZW1u",
+        "project": {
+          "updatedAt": "2026-10-17T09:38:27.766Z",
+          "createdAt": "2026-10-17T00:55:03.185Z",
+          "id": "yTfeI8wdsDslZW1u",
+          "name": "Michelle Fiona <michelle.fiona.opiyo.ke@gmail.com>",
+          "type": "personal",
+          "icon": null,
+          "description": null,
+          "customTelemetryTags": [],
+          "creatorId": "17fb91b0-e8cf-459c-9b6e-ac07c51658e4"
+        }
+      }
+    ],
+    "versionMetadata": {
+      "name": "Initial version",
+      "description": "Created with 4 nodes: Payment link requested, Open payment, Create Checkout Session, Remember session"
+    }
+  }
+]

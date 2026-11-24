@@ -4,7 +4,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app.dart';
 import 'data/account_repository.dart';
+import 'data/assistant_repository.dart';
 import 'data/care_repository.dart';
+import 'data/shop_repository.dart';
 import 'data/secure_session_storage.dart';
 import 'state.dart';
 
@@ -15,7 +17,9 @@ const _publishableKey = String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY');
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   if (_supabaseUrl.isEmpty || _publishableKey.isEmpty) {
-    throw StateError('Run with --dart-define-from-file=staging.env (SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY).');
+    throw StateError(
+      'Run with --dart-define-from-file=staging.env (SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY).',
+    );
   }
   await Supabase.initialize(
     url: _supabaseUrl,
@@ -25,8 +29,18 @@ Future<void> main() async {
   runApp(
     ProviderScope(
       overrides: [
-        accountRepositoryProvider.overrideWithValue(SupabaseAccountRepository(Supabase.instance.client)),
-        careRepositoryProvider.overrideWithValue(SupabaseCareRepository(Supabase.instance.client)),
+        accountRepositoryProvider.overrideWithValue(
+          SupabaseAccountRepository(Supabase.instance.client),
+        ),
+        careRepositoryProvider.overrideWithValue(
+          SupabaseCareRepository(Supabase.instance.client),
+        ),
+        shopRepositoryProvider.overrideWithValue(
+          SupabaseShopRepository(Supabase.instance.client),
+        ),
+        assistantRepositoryProvider.overrideWithValue(
+          HttpAssistantRepository(Supabase.instance.client.auth),
+        ),
       ],
       child: const NorthgateApp(),
     ),

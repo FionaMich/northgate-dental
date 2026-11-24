@@ -1,0 +1,99 @@
+# Fixed, reviewed text: the model never writes these. {phone} is the clinic's number from the database.
+# Languages (Fiona, 2026-11-23): English, French, Dutch, German, Spanish, Italian, Lithuanian, Swedish.
+# Status per language: "draft" until a native speaker has reviewed it (AGENTS 14.1); the release check refuses drafts.
+en:
+  status: reviewed
+  name: English
+  disclosure: Hi, I'm Nora, Northgate Dental's virtual receptionist and an AI assistant. I can help with visits, payments, the shop and questions about the practice. I can't give medical advice. You can ask for a real professional from our team at any time.
+  emergency: This sounds urgent. If you have trouble breathing or swallowing, bleeding you cannot stop, or swelling spreading towards your eye or throat, call 911 now or go to the nearest emergency department. For a dental emergency, call us on {phone}. If you are thinking about harming yourself, call or text 988. I have also alerted the clinic.
+  cannot_advise: I can't give medical advice. I've passed your question to our clinical team, who will contact you. If it's urgent, call us on {phone}, or 911 in an emergency.
+  handover: I've passed this to our team with a summary, so you won't need to repeat yourself. Someone will get back to you during opening hours.
+  confirm_book: Book this visit?
+  confirm_cancel: Cancel this visit?
+  yes_book: Confirm
+  yes_cancel: Cancel visit
+  not_now: Not now
+fr:
+  status: draft
+  name: Français
+  disclosure: Bonjour, je suis Nora, la réceptionniste virtuelle de Northgate Dental, une assistante d'intelligence artificielle. Je peux vous aider pour vos rendez-vous, vos paiements, la boutique et vos questions sur le cabinet. Je ne peux pas donner de conseils médicaux. Vous pouvez demander à parler à un vrai professionnel de notre équipe à tout moment.
+  emergency: Cela semble urgent. Si vous avez du mal à respirer ou à avaler, un saignement qui ne s'arrête pas ou un gonflement qui s'étend vers l'œil ou la gorge, appelez le 911 maintenant ou rendez-vous aux urgences les plus proches. Pour une urgence dentaire, appelez-nous au {phone}. Si vous pensez à vous faire du mal, appelez ou envoyez un SMS au 988. J'ai aussi prévenu le cabinet.
+  cannot_advise: Je ne peux pas donner de conseils médicaux. J'ai transmis votre question à notre équipe clinique, qui vous contactera. En cas d'urgence, appelez le {phone}, ou le 911.
+  handover: J'ai transmis votre demande à notre équipe avec un résumé, vous n'aurez pas à répéter. Quelqu'un vous répondra pendant les heures d'ouverture.
+  confirm_book: Réserver ce rendez-vous ?
+  confirm_cancel: Annuler ce rendez-vous ?
+  yes_book: Confirmer
+  yes_cancel: Annuler le rendez-vous
+  not_now: Pas maintenant
+nl:
+  status: draft
+  name: Nederlands
+  disclosure: Hallo, ik ben Nora, de virtuele receptioniste van Northgate Dental, een AI-assistent. Ik help u met afspraken, betalingen, de winkel en vragen over de praktijk. Ik kan geen medisch advies geven. U kunt op elk moment vragen om een echte professional uit ons team te spreken.
+  emergency: Dit klinkt dringend. Heeft u moeite met ademen of slikken, een bloeding die niet stopt of een zwelling die zich uitbreidt naar uw oog of keel, bel dan nu 911 of ga naar de dichtstbijzijnde spoedeisende hulp. Voor een tandheelkundig spoedgeval belt u ons op {phone}. Denkt u eraan uzelf iets aan te doen, bel of sms dan 988. Ik heb de praktijk ook gewaarschuwd.
+  cannot_advise: Ik kan geen medisch advies geven. Ik heb uw vraag doorgestuurd naar ons klinisch team, dat contact met u opneemt. Is het dringend, bel ons dan op {phone}, of 911 in een noodgeval.
+  handover: Ik heb dit met een samenvatting aan ons team doorgegeven, zodat u niets hoeft te herhalen. Iemand neemt tijdens de openingstijden contact met u op.
+  confirm_book: Deze afspraak boeken?
+  confirm_cancel: Deze afspraak annuleren?
+  yes_book: Bevestigen
+  yes_cancel: Afspraak annuleren
+  not_now: Nu niet
+de:
+  status: draft
+  name: Deutsch
+  disclosure: Hallo, ich bin Nora, die virtuelle Rezeptionistin von Northgate Dental, ein KI-Assistent. Ich helfe Ihnen bei Terminen, Zahlungen, dem Shop und Fragen zur Praxis. Ich kann keine medizinische Beratung geben. Sie können jederzeit verlangen, mit einer echten Fachkraft aus unserem Team zu sprechen.
+  emergency: Das klingt dringend. Wenn Sie Probleme beim Atmen oder Schlucken haben, eine Blutung nicht aufhört oder sich eine Schwellung zum Auge oder Hals ausbreitet, rufen Sie jetzt 911 an oder gehen Sie in die nächste Notaufnahme. Bei einem zahnärztlichen Notfall rufen Sie uns unter {phone} an. Wenn Sie daran denken, sich selbst zu verletzen, rufen Sie 988 an oder schreiben Sie eine SMS. Ich habe die Praxis ebenfalls informiert.
+  cannot_advise: Ich kann keine medizinische Beratung geben. Ich habe Ihre Frage an unser klinisches Team weitergeleitet, das sich bei Ihnen meldet. Wenn es dringend ist, rufen Sie {phone} an, im Notfall 911.
+  handover: Ich habe das mit einer Zusammenfassung an unser Team weitergegeben, damit Sie nichts wiederholen müssen. Jemand meldet sich während der Öffnungszeiten bei Ihnen.
+  confirm_book: Diesen Termin buchen?
+  confirm_cancel: Diesen Termin absagen?
+  yes_book: Bestätigen
+  yes_cancel: Termin absagen
+  not_now: Jetzt nicht
+es:
+  status: draft
+  name: Español
+  disclosure: Hola, soy Nora, la recepcionista virtual de Northgate Dental, un asistente de inteligencia artificial. Puedo ayudarle con citas, pagos, la tienda y preguntas sobre la clínica. No puedo dar consejos médicos. Puede pedir hablar con un profesional real de nuestro equipo en cualquier momento.
+  emergency: Esto parece urgente. Si tiene dificultad para respirar o tragar, un sangrado que no se detiene o una hinchazón que se extiende hacia el ojo o la garganta, llame al 911 ahora o vaya a la sala de emergencias más cercana. Para una urgencia dental, llámenos al {phone}. Si está pensando en hacerse daño, llame o envíe un mensaje al 988. También he avisado a la clínica.
+  cannot_advise: No puedo dar consejos médicos. He enviado su pregunta a nuestro equipo clínico, que se pondrá en contacto con usted. Si es urgente, llámenos al {phone}, o al 911 en una emergencia.
+  handover: He pasado esto a nuestro equipo con un resumen, así que no tendrá que repetirlo. Alguien le responderá en horario de atención.
+  confirm_book: ¿Reservar esta cita?
+  confirm_cancel: ¿Cancelar esta cita?
+  yes_book: Confirmar
+  yes_cancel: Cancelar cita
+  not_now: Ahora no
+it:
+  status: draft
+  name: Italiano
+  disclosure: Salve, sono Nora, la receptionist virtuale di Northgate Dental, un'assistente di intelligenza artificiale. Posso aiutarla con appuntamenti, pagamenti, il negozio e domande sullo studio. Non posso dare consigli medici. Può chiedere di parlare con un vero professionista del nostro team in qualsiasi momento.
+  emergency: Sembra urgente. Se ha difficoltà a respirare o deglutire, un sanguinamento che non si ferma o un gonfiore che si estende verso l'occhio o la gola, chiami subito il 911 o vada al pronto soccorso più vicino. Per un'urgenza dentale, ci chiami al {phone}. Se sta pensando di farsi del male, chiami o invii un messaggio al 988. Ho avvisato anche lo studio.
+  cannot_advise: Non posso dare consigli medici. Ho inoltrato la sua domanda al nostro team clinico, che la contatterà. Se è urgente, chiami il {phone}, o il 911 in caso di emergenza.
+  handover: Ho passato la richiesta al nostro team con un riepilogo, così non dovrà ripetere nulla. Qualcuno la ricontatterà durante l'orario di apertura.
+  confirm_book: Prenotare questo appuntamento?
+  confirm_cancel: Annullare questo appuntamento?
+  yes_book: Conferma
+  yes_cancel: Annulla appuntamento
+  not_now: Non ora
+lt:
+  status: draft
+  name: Lietuvių
+  disclosure: Sveiki, aš Nora, virtuali Northgate Dental registratorė, dirbtinio intelekto asistentė. Galiu padėti dėl vizitų, mokėjimų, parduotuvės ir klausimų apie kliniką. Negaliu teikti medicininių patarimų. Bet kada galite paprašyti pakalbėti su tikru mūsų komandos specialistu.
+  emergency: Panašu, kad tai skubu. Jei jums sunku kvėpuoti ar ryti, kraujavimas nesiliauja arba patinimas plinta link akies ar gerklės, nedelsdami skambinkite 911 arba vykite į artimiausią skubiosios pagalbos skyrių. Dėl skubios dantų pagalbos skambinkite mums {phone}. Jei galvojate apie savęs žalojimą, skambinkite arba rašykite 988. Taip pat informavau kliniką.
+  cannot_advise: Negaliu teikti medicininių patarimų. Jūsų klausimą perdaviau mūsų klinikinei komandai, kuri su jumis susisieks. Jei skubu, skambinkite {phone}, o nelaimės atveju 911.
+  handover: Perdaviau tai mūsų komandai su santrauka, todėl jums nereikės kartoti. Su jumis susisieks darbo valandomis.
+  confirm_book: Užsakyti šį vizitą?
+  confirm_cancel: Atšaukti šį vizitą?
+  yes_book: Patvirtinti
+  yes_cancel: Atšaukti vizitą
+  not_now: Ne dabar
+sv:
+  status: draft
+  name: Svenska
+  disclosure: Hej, jag är Nora, Northgate Dentals virtuella receptionist och en AI-assistent. Jag hjälper dig med besök, betalningar, butiken och frågor om kliniken. Jag kan inte ge medicinska råd. Du kan när som helst be att få prata med en riktig yrkesperson från vårt team.
+  emergency: Det här låter brådskande. Om du har svårt att andas eller svälja, en blödning som inte slutar eller en svullnad som sprider sig mot ögat eller halsen, ring 911 nu eller åk till närmaste akutmottagning. Vid ett tandakut ringer du oss på {phone}. Om du tänker på att skada dig själv, ring eller sms:a 988. Jag har också meddelat kliniken.
+  cannot_advise: Jag kan inte ge medicinska råd. Jag har skickat din fråga till vårt kliniska team, som kontaktar dig. Om det är brådskande, ring {phone}, eller 911 i en nödsituation.
+  handover: Jag har lämnat över detta till vårt team med en sammanfattning, så du behöver inte upprepa dig. Någon hör av sig under öppettiderna.
+  confirm_book: Boka det här besöket?
+  confirm_cancel: Avboka det här besöket?
+  yes_book: Bekräfta
+  yes_cancel: Avboka besöket
+  not_now: Inte nu
