@@ -111,8 +111,7 @@ class NoraEars(fast_whisper.STT):
             await asyncio.sleep(0.25)
             audio = self._audio_buffer.samples
             if (self.floor and self.floor.nora) or audio.size > MAX_QUESTION * rate:
-                self._audio_buffer = self._audio_buffer.clear() if hasattr(self._audio_buffer, "clear") else type(
-                    self._audio_buffer)(sample_rate=rate, channels=1, format=self._audio_buffer.format)
+                self._audio_buffer.clear()
                 continue
             if audio.size < rate // 2:
                 continue

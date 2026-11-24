@@ -64,10 +64,14 @@ class _NoraCallScreenState extends ConsumerState<NoraCallScreen> {
   void _on(NoraCallEvent event) {
     if (!mounted) return;
     setState(() {
+      // Anything Nora says or does proves she is on the call, even when the joined signal was missed or late.
+      if (event is! NoraEnded && _phase != _Phase.ended) {
+        _phase = _Phase.live;
+        _pickUp?.cancel();
+      }
       switch (event) {
         case NoraJoined():
-          _phase = _Phase.live;
-          _pickUp?.cancel();
+          break;
         case NoraCaption(:final who, :final text):
           if (who == 'you') {
             _youSaid = text;

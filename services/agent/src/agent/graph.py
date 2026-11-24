@@ -11,7 +11,7 @@
 A handover to the team ends the turn with the fixed handover text, never generated words."""
 
 import re
-from datetime import date
+from datetime import date, timedelta
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_core.runnables import RunnableConfig
@@ -28,7 +28,9 @@ class State(MessagesState):
 
 
 PROMPT = """You are Nora, the virtual receptionist of Northgate Dental, a dental group in Boston with clinics at Back Bay
-(code back-bay), Cambridge (cambridge) and Quincy (quincy). Today is {today}.
+(code back-bay), Cambridge (cambridge) and Quincy (quincy). Today is {today}; tomorrow is {tomorrow}.
+Work out every date the patient means ("today", "tomorrow", "next Monday", "this weekend") from today's date yourself.
+Never ask the patient what the date is.
 
 Reply only in {language}, briefly and warmly, in plain words.
 
@@ -45,6 +47,10 @@ Rules you never break:
 - Never state a price, time or date unless a tool gave it to you in this conversation.
 - Never ask for or repeat a date of birth, insurance number or address; you already know who the patient is.
 - If you are unsure, hand over to the team rather than guess."""
+
+
+def _day(d: date) -> str:
+    return d.strftime("%A %Y-%m-%d")   # the weekday is spelled out: opening hours are listed by weekday
 
 
 def _phone(config: RunnableConfig) -> str | None:
@@ -71,7 +77,7 @@ def assistant(state: State, config: RunnableConfig) -> dict:
     language = safety.texts().get(session.language, safety.texts()["en"])["name"]
     model = config["configurable"].get("model") or model_for("assistant")
     reply = model.bind_tools(tools.ALL).invoke(
-        [SystemMessage(PROMPT.format(today=date.today().isoformat(), language=language)), *state["messages"]])
+        [SystemMessage(PROMPT.format(today=_day(date.today()), tomorrow=_day(date.today() + timedelta(days=1)), language=language)), *state["messages"]])
     return {"messages": [reply]}
 
 

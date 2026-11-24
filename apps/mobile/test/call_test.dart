@@ -125,6 +125,13 @@ void main() {
         findsNothing,
         reason: 'no phone-voice offer on a call',
       );
+      // A late pick-up still becomes a live call: the message goes as soon as Nora speaks.
+      calls.calls.single.controller.add(const NoraCaption('nora', 'Hi'));
+      await tester.pump();
+      expect(
+        find.textContaining('Nora cannot take calls right now'),
+        findsNothing,
+      );
       await tapKey(tester, 'call-end');
       expect(calls.calls.single.left, isTrue);
     },
