@@ -109,16 +109,24 @@ void main() {
     },
   );
 
-  testWidgets('when Nora does not pick up, the phone voice is offered', (
-    tester,
-  ) async {
-    final calls = await openCall(tester);
-    await tester.pump(
-      NoraCallScreen.pickUpTimeout + const Duration(seconds: 1),
-    );
-    expect(find.text('Nora cannot take calls right now.'), findsOneWidget);
-    await tapKey(tester, 'call-use-phone-voice');
-    expect(calls.calls.single.left, isTrue);
-    expect(find.byKey(const Key('voice-mic')), findsOneWidget);
-  });
+  testWidgets(
+    'when Nora does not pick up, the screen says so and the call can be ended',
+    (tester) async {
+      final calls = await openCall(tester);
+      await tester.pump(
+        NoraCallScreen.pickUpTimeout + const Duration(seconds: 1),
+      );
+      expect(
+        find.textContaining('Nora cannot take calls right now'),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('call-use-phone-voice')),
+        findsNothing,
+        reason: 'no phone-voice offer on a call',
+      );
+      await tapKey(tester, 'call-end');
+      expect(calls.calls.single.left, isTrue);
+    },
+  );
 }

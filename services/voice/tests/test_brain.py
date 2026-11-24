@@ -54,3 +54,39 @@ def test_an_api_failure_becomes_a_fixed_apology_not_an_invented_answer():
     b = brain_with(lambda request: httpx.Response(500))
     out = asyncio.run(spoken(b, "book me in"))
     assert "something went wrong" in out[-1].text and "call your clinic" in out[-1].text
+
+
+def test_nora_skips_silence_before_the_speech_model_and_english_uses_the_quick_model():
+    class FakeWhisper:
+        def transcribe(self, audio, **kw):
+            self.kw = kw
+            return iter([]), None
+
+    ears = agent.NoraEars(model_size="base.en", language="en", client=FakeWhisper())
+    asyncio.run(ears._transcribe([0.0]))
+    assert ears.whisper.kw["vad_filter"] is True              # quiet audio never becomes invented words
+    assert ears.whisper.kw["condition_on_previous_text"] is False
+    assert agent.whisper_model("en") == "base.en" and agent.whisper_model("fr") == "small"
+
+
+def test_nora_does_not_listen_while_she_has_the_floor_and_takes_it_when_she_answers():
+    from getstream.video.rtc.track_util import AudioFormat, PcmData
+    import numpy as np
+
+    async def run():
+        ears = agent.NoraEars(model_size="base.en", language="en", client=object())
+        ears.floor = agent.Floor()
+        ears._watch = asyncio.current_task()          # no background listener in this test
+        packet = PcmData(samples=np.zeros(1600, dtype="float32"), sample_rate=16000, channels=1, format=AudioFormat.F32)
+        await ears.process_audio(packet, "caller")
+        during_greeting = ears._audio_buffer.samples.size
+        ears.floor.nora = False
+        await ears.process_audio(packet, "caller")
+        return during_greeting, ears._audio_buffer.samples.size
+
+    assert asyncio.run(run()) == (0, 1600)
+
+    b = brain_with(lambda request: httpx.Response(200, json={"reply": "We open at eight."}))
+    b.floor.nora = False
+    asyncio.run(spoken(b, "when do you open"))
+    assert b.floor.nora is True               # hers until the audio has played

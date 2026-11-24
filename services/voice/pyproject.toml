@@ -9,7 +9,7 @@ authors = [
 requires-python = ">=3.12,<3.14"
 dependencies = [
     "httpx>=0.28",
-    "vision-agents[elevenlabs,fast-whisper,getstream,smart-turn]>=0.6.9,<0.7",
+    "vision-agents[elevenlabs,fast-whisper,getstream]>=0.6.9,<0.7",
 ]
 
 [project.scripts]

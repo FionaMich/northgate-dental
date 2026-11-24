@@ -16,15 +16,18 @@ Run: `uv run nora-voice`; it then claims calls the API lists as pending and join
 import asyncio
 import logging
 import os
+import time
 from typing import AsyncIterator
 
 import httpx
+from faster_whisper.vad import get_speech_timestamps
 from vision_agents.core import Agent, User, llm
-from vision_agents.core.agents.events import (AgentTurnEndedEvent, AgentTurnStartedEvent, UserTranscriptEvent,
-                                               UserTurnStartedEvent)
+from vision_agents.core.agents.events import AgentTurnEndedEvent, AgentTurnStartedEvent, UserTranscriptEvent
 from vision_agents.core.edge.types import Participant
 from vision_agents.core.llm.llm import LLMResponseDelta, LLMResponseFinal
-from vision_agents.plugins import elevenlabs, fast_whisper, getstream, smart_turn
+from vision_agents.core.tts.events import TTSSynthesisCompleteEvent
+from vision_agents.core.warmup import WarmupCache
+from vision_agents.plugins import elevenlabs, fast_whisper, getstream
 
 log = logging.getLogger("nora-voice")
 ASSISTANT_URL = os.environ.get("ASSISTANT_URL", "http://127.0.0.1:8100").rstrip("/")
@@ -32,6 +35,14 @@ INTERNAL = {"X-Internal-Key": os.environ.get("ASSISTANT_INTERNAL_KEY", "")}
 # Nora's voice: "Diane", ElevenLabs' warm receptionist voice; the multilingual Flash model speaks all eight languages.
 NORA_VOICE_ID = os.environ.get("NORA_VOICE_ID", "u91OxrFDaRINovYRRue2")
 NORA_VOICE_MODEL = os.environ.get("NORA_VOICE_MODEL", "eleven_flash_v2_5")
+QUIET, MAX_QUESTION = 1.0, 30     # seconds of quiet that end the caller's turn; longest question kept
+EARS_HINT = "Nora at Northgate Dental."   # spelling of the names a caller is likely to say; never patient data
+
+
+class Floor:
+    """Who may speak. While Nora thinks or speaks she does not listen, so a cough, a television or her own voice
+    coming back through the phone can never cut her answer short; the patient speaks once she has finished."""
+    nora = True   # she greets first
 
 
 class NoraBrain(llm.LLM):
@@ -43,9 +54,11 @@ class NoraBrain(llm.LLM):
         self.call_id = call_id
         self.http = http
         self.agent: Agent | None = None
+        self.floor = Floor()
 
     async def simple_response(self, text: str, participant: Participant | None = None
                               ) -> AsyncIterator[LLMResponseDelta | LLMResponseFinal]:
+        self.floor.nora = True
         await self._event({"kind": "mood", "mood": "thinking"})
         try:
             r = await self.http.post(f"{ASSISTANT_URL}/assistant/call/{self.call_id}/turn", json={"message": text},
@@ -61,12 +74,75 @@ class NoraBrain(llm.LLM):
             spoken = f"{card.get('title', '')} {card.get('detail', '')}".strip()
             await self._event({"kind": "confirm", "card": card})   # the buttons appear; nothing is booked by voice
         await self._event({"kind": "caption", "who": "nora", "text": spoken})
+        if not spoken:
+            self.floor.nora = False   # nothing to say, so nothing will end her turn
         yield LLMResponseDelta(delta=spoken, sequence_number=0, content_index=0)
         yield LLMResponseFinal(text=spoken, original=reply)
 
     async def _event(self, data: dict) -> None:
         if self.agent is not None:
             await self.agent.send_custom_event(data)
+
+
+class NoraEars(fast_whisper.STT):
+    """The plugin's Whisper, with silence skipped before it reaches the model.
+
+    Without the filter the model spends seconds on every quiet buffer, falls behind the caller, and writes
+    words nobody said ("Thank you."), which Nora then answers."""
+
+    floor: Floor | None = None
+    _caller = None
+    _last_packet = 0.0
+    _watch: asyncio.Task | None = None
+
+    async def process_audio(self, pcm_data, participant):
+        """Keeps the caller's audio until they stop; the whole question is transcribed in one piece, once."""
+        if self.floor and self.floor.nora:
+            return
+        self._caller = participant
+        self._audio_buffer = self._audio_buffer.append(pcm_data.resample(fast_whisper.stt.RATE).to_float32())
+        self._last_packet = time.monotonic()
+        if self._watch is None:
+            self._watch = asyncio.create_task(self._listen())
+
+    async def _listen(self) -> None:
+        rate = fast_whisper.stt.RATE
+        while not self.closed:
+            await asyncio.sleep(0.25)
+            audio = self._audio_buffer.samples
+            if (self.floor and self.floor.nora) or audio.size > MAX_QUESTION * rate:
+                self._audio_buffer = self._audio_buffer.clear() if hasattr(self._audio_buffer, "clear") else type(
+                    self._audio_buffer)(sample_rate=rate, channels=1, format=self._audio_buffer.format)
+                continue
+            if audio.size < rate // 2:
+                continue
+            speech = await asyncio.to_thread(get_speech_timestamps, audio)
+            if not speech:
+                continue
+            # quiet = silence at the end of what arrived, plus the time since anything arrived (phones stop
+            # sending in silence)
+            quiet = (audio.size - speech[-1]["end"]) / rate + time.monotonic() - self._last_packet
+            if quiet >= QUIET and self._caller is not None:
+                await self._process_buffer(self._caller)
+
+    async def _transcribe(self, audio_array):
+        whisper = self.whisper
+        if whisper is None:
+            raise ValueError("Whisper model not loaded, call warmup() first")
+
+        def work():
+            segments, info = whisper.transcribe(
+                audio_array, language=self.language, beam_size=1, vad_filter=True,
+                condition_on_previous_text=False, initial_prompt=EARS_HINT,
+            )
+            return list(segments), info
+
+        return await asyncio.get_running_loop().run_in_executor(self._executor, work)
+
+
+def whisper_model(language: str) -> str:
+    """English has its own smaller model, quick enough to keep up on a CPU; the other languages share one."""
+    return os.environ.get("WHISPER_MODEL") or ("base.en" if language == "en" else "small")
 
 
 async def create_agent(language: str = "en", call_id: str = "", **kwargs) -> Agent:
@@ -77,16 +153,12 @@ async def create_agent(language: str = "en", call_id: str = "", **kwargs) -> Age
         agent_user=User(name="Nora", id="nora"),      # the app trusts events from this id only
         instructions="",                              # the real instructions live in the assistant API
         llm=brain,
-        stt=fast_whisper.STT(model_size=os.environ.get("WHISPER_MODEL", "small"), language=language, device="cpu"),
+        stt=NoraEars(model_size=whisper_model(language), language=language, device="cpu"),
         tts=elevenlabs.TTS(voice_id=NORA_VOICE_ID, model_id=NORA_VOICE_MODEL),
-        turn_detection=smart_turn.TurnDetection(),
+        # no turn detector: Nora's ears decide when the caller has finished, and she is never interrupted
     )
     brain.agent = agent
-
-    @agent.events.subscribe
-    async def on_user_turn(event: UserTurnStartedEvent):
-        log.info("state %s listening", call_id)   # the demo harness reads these lines for turn-taking
-        await agent.send_custom_event({"kind": "mood", "mood": "listening"})
+    agent.stt.floor = floor = brain.floor
 
     @agent.events.subscribe
     async def on_transcript(event: UserTranscriptEvent):
@@ -100,9 +172,20 @@ async def create_agent(language: str = "en", call_id: str = "", **kwargs) -> Age
         await agent.send_custom_event({"kind": "mood", "mood": "speaking"})
 
     @agent.events.subscribe
-    async def on_spoken(event: AgentTurnEndedEvent):
+    async def on_synthesised(event: TTSSynthesisCompleteEvent):
+        # The framework ends the turn when the audio is queued; the patient hears it for audio_duration_ms more.
+        # Turn-taking: "listening" only once Nora has really finished speaking.
+        await asyncio.sleep((event.audio_duration_ms or 0) / 1000 + 0.3)
+        floor.nora = False
         log.info("state %s idle", call_id)
         await agent.send_custom_event({"kind": "mood", "mood": "listening"})
+
+    @agent.events.subscribe
+    async def on_spoken(event: AgentTurnEndedEvent):
+        if event.interrupted:
+            floor.nora = False
+            log.info("state %s idle", call_id)
+            await agent.send_custom_event({"kind": "mood", "mood": "listening"})
 
     return agent
 
@@ -116,6 +199,7 @@ async def say_pending(agent: Agent, http: httpx.AsyncClient, call_id: str) -> No
         except httpx.HTTPError:
             continue
         for text in lines if isinstance(lines, list) else []:
+            agent.llm.floor.nora = True   # type: ignore[attr-defined]
             await agent.send_custom_event({"kind": "caption", "who": "nora", "text": text})
             await agent.say(text)
 
@@ -137,9 +221,14 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
             await brain.http.aclose()
 
 
+WARMUP = WarmupCache()
+
+
 async def run_call(call: dict) -> None:
-    """One agent per call, created and joined here (the framework's launcher cannot pass the language through)."""
+    """One agent per call, created and joined here (the framework's launcher cannot pass the language through), with
+    the speech models loaded first, as the launcher would."""
     agent = await create_agent(language=call["language"], call_id=call["call_id"])
+    await asyncio.gather(*(c.warmup(WARMUP) for c in (agent.stt, agent.tts) if hasattr(c, "warmup")))
     try:
         await join_call(agent, call["call_type"], call["call_id"], language=call["language"])
     except Exception:
@@ -149,11 +238,14 @@ async def run_call(call: dict) -> None:
 
 
 async def claim_calls() -> None:
-    """Every second, join the calls the assistant API lists as pending. The API runs behind the WAF; this process can
+    """Poll for and join the calls the assistant API lists as pending. The API runs behind the WAF; this process can
     run anywhere with a network, so a laptop can serve a demo and the VM can serve the hosted demo."""
+    # The English speech model is loaded before the first call, so the first caller is not kept waiting for it.
+    await NoraEars(model_size=whisper_model("en"), language="en").warmup(WARMUP)
+    log.info("ready for calls")
     async with httpx.AsyncClient() as http:
         while True:
-            await asyncio.sleep(1)
+            await asyncio.sleep(0.4)
             try:
                 r = await http.get(f"{ASSISTANT_URL}/assistant/calls/pending", headers=INTERNAL, timeout=10)
                 calls = r.json() if r.status_code == 200 else []

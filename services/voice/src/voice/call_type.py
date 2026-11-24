@@ -15,7 +15,7 @@ SETTINGS = CallSettingsRequest(
     recording=RecordSettingsRequest(mode="disabled"),
     transcription=TranscriptionSettingsRequest(mode="disabled", closed_caption_mode="disabled"),
     # Video is off; Stream still insists on a resolution of at least 240 pixels, so the smallest it accepts.
-    video=VideoSettingsRequest(enabled=False, camera_default_on=False,
+    video=VideoSettingsRequest(enabled=False, camera_default_on=False, camera_facing="front",  # the app SDK rejects an empty facing
                                target_resolution=TargetResolution(width=240, height=240, bitrate=100_000)),
     screensharing=ScreensharingSettingsRequest(enabled=False),
     audio=AudioSettingsRequest(default_device="speaker", mic_default_on=True, speaker_default_on=True),

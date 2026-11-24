@@ -6,11 +6,10 @@ import 'package:material_ui/material_ui.dart';
 import '../data/call_repository.dart';
 import '../design/tokens.dart';
 import 'nora_portrait.dart';
-import 'voice_screen.dart';
 
 /// A voice call with Nora through Stream (ADR 0015). The phone carries the patient's voice to our server, where Nora
 /// listens, thinks and speaks; this screen shows her portrait, live captions of both sides, and the Confirm buttons,
-/// which remain the only way to book or cancel. If Nora does not pick up, the phone's own voice screen is offered.
+/// which remain the only way to book or cancel. If Nora does not pick up, the screen says so.
 class NoraCallScreen extends ConsumerStatefulWidget {
   const NoraCallScreen({super.key, required this.call, this.language = 'en'});
   final NoraCall call;
@@ -107,15 +106,6 @@ class _NoraCallScreenState extends ConsumerState<NoraCallScreen> {
     }
   }
 
-  void _usePhoneVoice() {
-    _pickUp?.cancel();
-    _hangingUp = true;
-    unawaited(widget.call.leave());
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => VoiceScreen(language: widget.language)),
-    );
-  }
-
   @override
   void dispose() {
     _pickUp?.cancel();
@@ -198,20 +188,6 @@ class _NoraCallScreenState extends ConsumerState<NoraCallScreen> {
                   ],
                 ),
               ),
-              if (_phase == _Phase.noAnswer)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(22, 0, 22, 14),
-                  child: FilledButton(
-                    key: const Key('call-use-phone-voice'),
-                    onPressed: _usePhoneVoice,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: Palette.deepSea,
-                      minimumSize: const Size.fromHeight(50),
-                    ),
-                    child: const Text("Use the phone's own voice instead"),
-                  ),
-                ),
               if (_youSaid.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(22, 0, 22, 10),
