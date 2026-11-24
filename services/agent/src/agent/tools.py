@@ -150,7 +150,8 @@ def book_visit(clinic_code: str, service_code: str, slot: str, config: RunnableC
         return "The patient chose not to book."
     held = _rpc(s, "hold_slot", loc=loc, service=svc, practitioner=practitioner, starts=starts, patient=s.patient_id)
     _rpc(s, "confirm_booking", appointment=held)
-    return f"Booked for {_local(starts, tz)}. A confirmation email is on its way."
+    # a note to the model, not a sentence to copy: the patient must hear this in their own language
+    return f"BOOKED: {service}, {_local(starts, tz)}. Tell the patient, in their language, that it is booked and that a confirmation email is on its way."
 
 
 @tool
