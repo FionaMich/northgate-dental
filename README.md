@@ -691,6 +691,39 @@ The pictures were generated for the fictional practice (no stock licence to trac
 ## Deployments
 
 <details>
+<summary><b>25 November 2026: the app in eight languages, monitoring in Grafana, and Nora's voice on the server</b></summary>
+
+**What was built:**
+- the whole patient app in eight languages, switched in Profile without leaving the screen;
+- Prometheus metrics in the assistant, a Grafana Alloy collector on the server and a Grafana Cloud dashboard, with objectives in `ops/slos.yaml`;
+- Nora's voice service as a container on the server, so calls no longer need a laptop; a call from the phone was answered there, speech recognition included;
+- the notification worker rebuilt from the current code, so bookings send the designed confirmation email (the server had been running a build from 21 November with the older plain email);
+- the booking confirmation email shown in the three call videos, right after Nora confirms the visit.
+
+**Evidence:**
+
+![The app in French: Profile, Home, Visits, Records and Shop](.github/readme/app-in-french.jpg)
+
+**Commands, in order:**
+
+```bash
+# the assistant with its metrics page, then the worker, then the voice service
+infra/scripts/ssh-vm.sh deploy 'cd /opt/northgate && git pull --ff-only && cd infra && docker compose --profile assistant up -d --build assistant'
+infra/scripts/ssh-vm.sh deploy 'cd /opt/northgate/infra && docker compose --profile worker up -d --build worker'
+infra/scripts/ssh-vm.sh deploy 'cd /opt/northgate/infra && docker compose --profile voice up -d --build voice'
+# the metrics page answers inside the server and is not published
+curl -s -o /dev/null -w "%{http_code}\n" https://84-12-126-31.sslip.io/metrics   # 404
+# the collector, once the three GRAFANA_PROM_* values are in the server's .env
+infra/scripts/ssh-vm.sh deploy 'cd /opt/northgate/infra && docker compose --profile monitoring up -d alloy'
+```
+
+**Console screenshots still to take:**
+- [ ] Grafana Cloud: the dashboard "Northgate Dental: Nora, the receptionist assistant" with data, once the collector is running.
+- [ ] Grafana Cloud: the access policy with the metrics write scope (hide the token).
+
+</details>
+
+<details>
 <summary><b>24 November 2026 (night): voice calls that take turns, a messenger-style chat, and call videos in three languages</b></summary>
 
 **What was built:**
@@ -714,7 +747,7 @@ cd services/voice && set -a && . ./.env && set +a && uv run python -m voice.agen
 cd apps/mobile && flutter build apk --release --dart-define-from-file=staging.env && adb install -r build/app/outputs/flutter-apk/app-release.apk
 ```
 
-**Still to do:** run the voice service on the server (today it runs on a laptop), record the other five languages, and translate the app's own labels ("You said", "Nora is listening", the card details).
+**Still to do (done on 25 November except the first):** record the other five languages; the voice service now runs on the server and the app's own labels are translated.
 
 </details>
 
