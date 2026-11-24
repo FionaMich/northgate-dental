@@ -212,6 +212,7 @@ def call_confirm(call_id: str, body: ConfirmIn, w: Who = Depends(who)) -> Reply:
     ctx = _call(call_id)
     if ctx.who.user_id != w.user_id:
         raise HTTPException(403, "not your call")
+    w.session.language = ctx.who.session.language   # the call's language: the button's request carries none
     reply = _reply(assistant.invoke(Command(resume=body.accept), _config(w, f"call-{call_id}")))
     ctx.to_say.append(_spoken(reply))
     return reply
