@@ -28,7 +28,22 @@ def test_the_signature_depends_on_the_secret():
 def client(monkeypatch):
     monkeypatch.setenv("STREAM_API_KEY", "key")
     monkeypatch.setenv("STREAM_API_SECRET", "secret")
+    monkeypatch.setattr(api, "INTERNAL_KEY", "internal")
+    api.calls.clear()
     return TestClient(api.app)
+
+
+def signed_in(monkeypatch, user="user-1"):
+    class Res:
+        def __init__(self, body): self.status_code, self._b = 200, body
+        def json(self): return self._b
+    class Db:
+        def __init__(self, *a, **k): pass
+        async def __aenter__(self): return self
+        async def __aexit__(self, *a): pass
+        async def get(self, path, **k):
+            return Res({"id": user}) if path == "/auth/v1/user" else Res([{"patient_id": "p1", "patients": None}])
+    monkeypatch.setattr(api.httpx, "AsyncClient", Db)
 
 
 def test_no_session_means_no_token(client, monkeypatch):
@@ -60,7 +75,7 @@ def test_a_signed_in_patient_gets_a_token_for_their_own_id(client, monkeypatch):
     assert body["api_key"] == "key" and body["user_id"] == "user-1" and body["call_type"] == "nora_voice"
     assert _claims(body["token"])["user_id"] == "user-1"
     assert "user-1" not in body["call_id"] and "p1" not in body["call_id"], "call IDs are random, never an identity"
-    assert api.calls[body["call_id"]][0].user_id == "user-1", "the agent can find the patient behind the call"
+    assert api.calls[body["call_id"]].who.user_id == "user-1", "the voice service can find the patient behind the call"
     second = client.post("/assistant/call", headers={"Authorization": "Bearer good"}).json()
     assert second["call_id"] != body["call_id"]
     assert body["call_id"] not in api.calls and second["call_id"] in api.calls, "one live call per patient"
@@ -80,3 +95,51 @@ def test_without_stream_keys_the_endpoint_says_calls_are_unavailable(client, mon
             return Res({"id": "user-1"}) if path == "/auth/v1/user" else Res([{"patient_id": "p1", "patients": None}])
     monkeypatch.setattr(api.httpx, "AsyncClient", Db)
     assert client.post("/assistant/call", headers={"Authorization": "Bearer good"}).status_code == 503
+
+
+def test_the_voice_service_claims_a_call_once_and_speaks_through_the_graph(client, monkeypatch):
+    signed_in(monkeypatch)
+    call_id = client.post("/assistant/call", headers={"Authorization": "Bearer good"}).json()["call_id"]
+    assert client.get("/assistant/calls/pending").status_code == 422, "no internal key, no list"
+    assert client.get("/assistant/calls/pending", headers={"X-Internal-Key": "wrong"}).status_code == 401
+    pending = client.get("/assistant/calls/pending", headers={"X-Internal-Key": "internal"}).json()
+    assert [p["call_id"] for p in pending] == [call_id] and pending[0]["language"] == "en"
+    assert client.get("/assistant/calls/pending", headers={"X-Internal-Key": "internal"}).json() == [], "claimed once"
+
+    seen = {}
+    class Graph:
+        def invoke(self, state, config):
+            seen["thread"] = config["configurable"]["thread_id"]
+            seen["who"] = config["configurable"]["session"].patient_id
+            return {"messages": [api.AIMessage("Quincy opens at 07:00.")]}
+    monkeypatch.setattr(api, "assistant", Graph())
+    reply = client.post(f"/assistant/call/{call_id}/turn", json={"message": "When does Quincy open?"},
+                        headers={"X-Internal-Key": "internal"}).json()
+    assert reply["reply"] == "Quincy opens at 07:00."
+    assert seen == {"thread": f"user-1:call-{call_id}", "who": "p1"}, "identity comes from the call's session"
+    assert client.post("/assistant/call/nope/turn", json={"message": "hi"}, headers={"X-Internal-Key": "internal"}).status_code == 404
+
+
+def test_a_confirm_on_the_call_needs_the_patients_own_session_and_is_then_spoken(client, monkeypatch):
+    signed_in(monkeypatch)
+    call_id = client.post("/assistant/call", headers={"Authorization": "Bearer good"}).json()["call_id"]
+    class Graph:
+        def invoke(self, command, config):
+            return {"messages": [api.AIMessage("Booked for Friday at 10:00.")]}
+    monkeypatch.setattr(api, "assistant", Graph())
+    signed_in(monkeypatch, user="someone-else")
+    assert client.post(f"/assistant/call/{call_id}/confirm", json={"thread": "call-xxxxxxxx", "accept": True},
+                       headers={"Authorization": "Bearer other"}).status_code == 403
+    signed_in(monkeypatch)
+    ok = client.post(f"/assistant/call/{call_id}/confirm", json={"thread": "call-xxxxxxxx", "accept": True},
+                     headers={"Authorization": "Bearer good"})
+    assert ok.status_code == 200 and ok.json()["reply"] == "Booked for Friday at 10:00."
+    say = client.get(f"/assistant/call/{call_id}/say", headers={"X-Internal-Key": "internal"}).json()
+    assert say == ["Booked for Friday at 10:00."]
+    assert client.get(f"/assistant/call/{call_id}/say", headers={"X-Internal-Key": "internal"}).json() == [], "spoken once"
+
+
+def test_a_language_the_voice_cannot_speak_falls_back_to_the_phone(client, monkeypatch):
+    signed_in(monkeypatch)
+    monkeypatch.setattr(api, "VOICE_LANGUAGES", {"en"})
+    assert client.post("/assistant/call", headers={"Authorization": "Bearer good", "X-Language": "lt"}).status_code == 503
