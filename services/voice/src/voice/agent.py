@@ -77,8 +77,7 @@ async def create_agent(language: str = "en", call_id: str = "", **kwargs) -> Age
         agent_user=User(name="Nora", id="nora"),      # the app trusts events from this id only
         instructions="",                              # the real instructions live in the assistant API
         llm=brain,
-        stt=fast_whisper.STT(model_size=os.environ.get("WHISPER_MODEL", "small"), language=language,
-                             device="cpu", compute_type="int8"),
+        stt=fast_whisper.STT(model_size=os.environ.get("WHISPER_MODEL", "small"), language=language, device="cpu"),
         tts=elevenlabs.TTS(voice_id=NORA_VOICE_ID, model_id=NORA_VOICE_MODEL),
         turn_detection=smart_turn.TurnDetection(),
     )
@@ -167,4 +166,9 @@ async def claim_calls() -> None:
 
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
+    logging.getLogger("httpx").setLevel(logging.WARNING)   # one poll a second would drown the turn-state lines
     asyncio.run(claim_calls())
+
+
+if __name__ == "__main__":
+    main()

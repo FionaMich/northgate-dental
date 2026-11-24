@@ -24,12 +24,16 @@ def test_the_signature_depends_on_the_secret():
     assert a.split(".")[:2] == b.split(".")[:2] and a.split(".")[2] != b.split(".")[2]
 
 
+registered = []
+
+
 @pytest.fixture
 def client(monkeypatch):
     monkeypatch.setenv("STREAM_API_KEY", "key")
     monkeypatch.setenv("STREAM_API_SECRET", "secret")
     monkeypatch.setattr(api, "INTERNAL_KEY", "internal")
-    api.calls.clear()
+    monkeypatch.setattr(stream, "register_user", lambda user_id, key, secret, http=None: registered.append(user_id))
+    api.calls.clear(); registered.clear()
     return TestClient(api.app)
 
 
@@ -76,6 +80,7 @@ def test_a_signed_in_patient_gets_a_token_for_their_own_id(client, monkeypatch):
     assert _claims(body["token"])["user_id"] == "user-1"
     assert "user-1" not in body["call_id"] and "p1" not in body["call_id"], "call IDs are random, never an identity"
     assert api.calls[body["call_id"]].who.user_id == "user-1", "the voice service can find the patient behind the call"
+    assert registered == ["user-1"], "the Stream user is registered by the server before the app joins"
     second = client.post("/assistant/call", headers={"Authorization": "Bearer good"}).json()
     assert second["call_id"] != body["call_id"]
     assert body["call_id"] not in api.calls and second["call_id"] in api.calls, "one live call per patient"
@@ -143,3 +148,14 @@ def test_a_language_the_voice_cannot_speak_falls_back_to_the_phone(client, monke
     signed_in(monkeypatch)
     monkeypatch.setattr(api, "VOICE_LANGUAGES", {"en"})
     assert client.post("/assistant/call", headers={"Authorization": "Bearer good", "X-Language": "lt"}).status_code == 503
+
+
+def test_registering_the_stream_user_sends_only_the_opaque_id_and_a_fixed_name():
+    import httpx
+    seen = {}
+    def handler(request):
+        seen["auth"] = request.headers["Authorization"]; seen["body"] = request.read()
+        return httpx.Response(201, json={"users": {}})
+    stream.register_user("user-uuid", "key", "s3cret", httpx.Client(transport=httpx.MockTransport(handler)))
+    assert _claims(seen["auth"]) == {"server": True, "iat": _claims(seen["auth"])["iat"]}
+    assert seen["body"] == b'{"users":{"user-uuid":{"id":"user-uuid","name":"Patient","role":"user"}}}'

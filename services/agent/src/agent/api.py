@@ -167,6 +167,10 @@ def start_call(w: Who = Depends(who)) -> CallTicket:
     # One live call per patient, and nothing older than a token: the store cannot grow with repeated taps.
     for old in [cid for cid, c in calls.items() if c.who.user_id == w.user_id or now - c.started > stream.TOKEN_TTL]:
         calls.pop(old, None)
+    try:
+        stream.register_user(w.user_id, key, secret)
+    except httpx.HTTPError:
+        raise HTTPException(503, "calls are not available")
     call_id = secrets.token_urlsafe(12)
     calls[call_id] = CallCtx(who=w, started=now)
     return CallTicket(api_key=key, token=stream.user_token(w.user_id, secret), user_id=w.user_id, call_id=call_id)

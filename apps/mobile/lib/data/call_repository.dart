@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:stream_video_flutter/stream_video_flutter.dart' as sv;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -169,12 +170,25 @@ class _StreamNoraCall implements NoraCall {
         (_) => _events.add(const NoraEnded('ended')),
       ),
     );
+    // Connect first, so the create and join never race the client's background connection.
+    final connected = await client.connect();
+    if (_left) return;
+    if (connected.isFailure) {
+      debugPrint('nora-call: connect failed: ${connected.getErrorOrNull()}');
+      throw const CallsUnavailable();
+    }
     final created = await call.getOrCreate();
     if (_left) return;
-    if (created.isFailure) throw const CallsUnavailable();
+    if (created.isFailure) {
+      debugPrint('nora-call: create failed: ${created.getErrorOrNull()}');
+      throw const CallsUnavailable();
+    }
     final joined = await call.join();
     if (_left) return;
-    if (joined.isFailure) throw const CallsUnavailable();
+    if (joined.isFailure) {
+      debugPrint('nora-call: join failed: ${joined.getErrorOrNull()}');
+      throw const CallsUnavailable();
+    }
     if (call.state.value.otherParticipants.any((p) => p.userId == 'nora')) {
       _events.add(const NoraJoined());
     }
