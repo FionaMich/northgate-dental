@@ -293,3 +293,20 @@ def test_home_reads_where_the_team_conversation_stands(monkeypatch):
     assert st.team_status("u1", "k", "s") == {"state": "unread", "unread": 1}
     monkeypatch.setattr(st, "_server", channel([notice, mine, team], 0))
     assert st.team_status("u1", "k", "s")["state"] == "open"
+
+
+def test_with_the_kill_switch_off_nora_answers_with_fixed_text_and_the_model_never_runs(client, monkeypatch):
+    signed_in(monkeypatch)
+    api._switch["checked"] = float("-inf")
+    monkeypatch.setattr(api.tools, "_rpc", lambda s, name, **p: False if name == "assistant_enabled" else None)
+
+    class Graph:
+        def invoke(self, *a, **k):
+            pytest.fail("the graph must not run while Nora is switched off")
+    monkeypatch.setattr(api, "assistant", Graph())
+    auth = {"Authorization": "Bearer good", "X-Language": "nl"}
+    chat = client.post("/assistant/chat", json={"thread": "thread-009", "message": "hallo"}, headers=auth).json()
+    assert chat["reply"] == api.safety.fixed("paused", "nl", None)
+    yes = client.post("/assistant/confirm", json={"thread": "thread-009", "accept": True}, headers=auth).json()
+    assert yes["reply"] == api.safety.fixed("paused", "nl", None), "a pending button books nothing either"
+    api._switch["checked"] = float("-inf")   # the next test starts with the switch unread

@@ -2,6 +2,7 @@
 # Languages (Fiona, 2026-11-23): English, French, Dutch, German, Spanish, Italian, Lithuanian, Swedish.
 # Status per language: "draft" until a native speaker has reviewed it (AGENTS 14.1); the release check refuses drafts.
 en:
+  paused: "Nora is paused for a moment. Please call your clinic on {phone}, or book, move and pay in the app."
   status: reviewed
   name: English
   disclosure: Hi, I'm Nora, Northgate Dental's virtual receptionist and an AI assistant. I can help with visits, payments, the shop and questions about the practice. I can't give medical advice. You can ask for a real professional from our team at any time.
@@ -19,6 +20,7 @@ en:
   call_team: "Call me back"
   phone_team: "Your phone number"
 fr:
+  paused: "Nora est en pause pour un moment. Appelez votre cabinet au {phone}, ou réservez, déplacez et payez dans l'application."
   status: draft
   name: Français
   disclosure: Bonjour, je suis Nora, la réceptionniste virtuelle de Northgate Dental, une assistante d'intelligence artificielle. Je peux vous aider pour vos rendez-vous, vos paiements, la boutique et vos questions sur le cabinet. Je ne peux pas donner de conseils médicaux. Vous pouvez demander à parler à un vrai professionnel de notre équipe à tout moment.
@@ -36,6 +38,7 @@ fr:
   call_team: "Me rappeler"
   phone_team: "Votre numéro de téléphone"
 nl:
+  paused: "Nora is even gepauzeerd. Bel uw praktijk op {phone}, of boek, verzet en betaal in de app."
   status: draft
   name: Nederlands
   disclosure: Hallo, ik ben Nora, de virtuele receptioniste van Northgate Dental, een AI-assistent. Ik help u met afspraken, betalingen, de winkel en vragen over de praktijk. Ik kan geen medisch advies geven. U kunt op elk moment vragen om een echte professional uit ons team te spreken.
@@ -53,6 +56,7 @@ nl:
   call_team: "Bel mij terug"
   phone_team: "Uw telefoonnummer"
 de:
+  paused: "Nora ist gerade pausiert. Rufen Sie Ihre Praxis unter {phone} an, oder buchen, verschieben und bezahlen Sie in der App."
   status: draft
   name: Deutsch
   disclosure: Hallo, ich bin Nora, die virtuelle Rezeptionistin von Northgate Dental, ein KI-Assistent. Ich helfe Ihnen bei Terminen, Zahlungen, dem Shop und Fragen zur Praxis. Ich kann keine medizinische Beratung geben. Sie können jederzeit verlangen, mit einer echten Fachkraft aus unserem Team zu sprechen.
@@ -70,6 +74,7 @@ de:
   call_team: "Rückruf"
   phone_team: "Ihre Telefonnummer"
 es:
+  paused: "Nora está en pausa un momento. Llame a su clínica al {phone}, o reserve, cambie y pague en la app."
   status: draft
   name: Español
   disclosure: Hola, soy Nora, la recepcionista virtual de Northgate Dental, un asistente de inteligencia artificial. Puedo ayudarle con citas, pagos, la tienda y preguntas sobre la clínica. No puedo dar consejos médicos. Puede pedir hablar con un profesional real de nuestro equipo en cualquier momento.
@@ -87,6 +92,7 @@ es:
   call_team: "Llámenme"
   phone_team: "Su número de teléfono"
 it:
+  paused: "Nora è in pausa per un momento. Chiami il suo studio al {phone}, oppure prenoti, sposti e paghi nell'app."
   status: draft
   name: Italiano
   disclosure: Salve, sono Nora, la receptionist virtuale di Northgate Dental, un'assistente di intelligenza artificiale. Posso aiutarla con appuntamenti, pagamenti, il negozio e domande sullo studio. Non posso dare consigli medici. Può chiedere di parlare con un vero professionista del nostro team in qualsiasi momento.
@@ -104,6 +110,7 @@ it:
   call_team: "Richiamatemi"
   phone_team: "Il suo numero di telefono"
 lt:
+  paused: "Nora trumpam sustabdyta. Skambinkite savo klinikai {phone} arba registruokitės, keiskite ir mokėkite programėlėje."
   status: draft
   name: Lietuvių
   disclosure: Sveiki, aš Nora, virtuali Northgate Dental registratorė, dirbtinio intelekto asistentė. Galiu padėti dėl vizitų, mokėjimų, parduotuvės ir klausimų apie kliniką. Negaliu teikti medicininių patarimų. Bet kada galite paprašyti pakalbėti su tikru mūsų komandos specialistu.
@@ -121,6 +128,7 @@ lt:
   call_team: "Paskambinkite man"
   phone_team: "Jūsų telefono numeris"
 sv:
+  paused: "Nora är pausad en stund. Ring din klinik på {phone}, eller boka, flytta och betala i appen."
   status: draft
   name: Svenska
   disclosure: Hej, jag är Nora, Northgate Dentals virtuella receptionist och en AI-assistent. Jag hjälper dig med besök, betalningar, butiken och frågor om kliniken. Jag kan inte ge medicinska råd. Du kan när som helst be att få prata med en riktig yrkesperson från vårt team.
