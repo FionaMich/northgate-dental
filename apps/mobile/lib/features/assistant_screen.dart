@@ -333,7 +333,9 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> {
                           key: const Key('open-team-chat'),
                           onPressed: () => openTeamChat(context, ref),
                           icon: const Icon(Icons.support_agent_rounded),
-                          label: const Text('Chat with the team'),
+                          label: const Text(
+                            'Open your conversation with the team',
+                          ),
                         ),
                       ),
                     ),

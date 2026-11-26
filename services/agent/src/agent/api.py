@@ -12,7 +12,7 @@ from dataclasses import dataclass, field, replace
 from typing import Literal
 
 import httpx
-from fastapi import Depends, FastAPI, Header, HTTPException, Response
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Response
 from langchain_core.messages import AIMessage, HumanMessage
 from langgraph.types import Command
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
@@ -58,7 +58,8 @@ async def who(authorization: str = Header(...), x_language: Language = Header("e
         raise HTTPException(403, "link your patient record first")
     phone = ((link[0].get("patients") or {}).get("locations") or {}).get("phone")
     return Who(user_id=uid, clinic_phone=phone,
-               session=Session(SUPABASE_URL, PUBLISHABLE_KEY, token, link[0]["patient_id"], x_language, LINK_BASE))
+               session=Session(SUPABASE_URL, PUBLISHABLE_KEY, token, link[0]["patient_id"], x_language, LINK_BASE,
+                               user_id=uid))
 
 
 class ChatIn(BaseModel):
@@ -230,17 +231,19 @@ def consult(body: ConsultIn, w: Who = Depends(who)) -> CallTicket:
 
 
 @app.post("/assistant/consult/{call_id}/team", response_model=CallTicket, dependencies=[Depends(internal)])
-def consult_team(call_id: str) -> CallTicket:
-    """A token for the team member who takes the consultation. Internal key only: the staff portal will call this."""
+def consult_team(call_id: str, name: str = Query("Northgate team", min_length=2, max_length=60)) -> CallTicket:
+    """A token for the team member who takes the consultation, shown to the patient under their name and role ("Dr
+    Hannah Brooks"). Internal key only: the staff portal will call this with the signed-in staff member's name."""
     conf = stream.settings()
     if conf is None or not call_id.startswith("consult-"):
         raise HTTPException(404, "no such consultation")
     key, secret = conf
     try:
-        stream.register_user(stream.TEAM, key, secret, name="Northgate team", role="admin")
+        staff = "staff-" + "".join(c if c.isalnum() else "-" for c in name.lower()).strip("-")
+        stream.register_user(staff, key, secret, name=name, role="admin")
     except httpx.HTTPError:
         raise HTTPException(503, "video consultations are not available")
-    return CallTicket(api_key=key, token=stream.user_token(stream.TEAM, secret), user_id=stream.TEAM,
+    return CallTicket(api_key=key, token=stream.user_token(staff, secret), user_id=staff,
                       call_type="consult", call_id=call_id)
 
 
@@ -266,6 +269,52 @@ def team_chat(w: Who = Depends(who)) -> TeamChatTicket:
     except httpx.HTTPError:
         raise HTTPException(503, "team chat is not available")
     return TeamChatTicket(api_key=key, token=stream.user_token(w.user_id, secret), user_id=w.user_id, channel_id=channel)
+
+
+class TeamSendIn(BaseModel):
+    message: str = Field(min_length=1, max_length=2000)
+
+
+class TeamSent(BaseModel):
+    emergency: str | None = None   # a red flag: the fixed emergency text, also posted in the conversation
+
+
+@app.post("/assistant/team-chat/send", response_model=TeamSent)
+def team_chat_send(body: TeamSendIn, w: Who = Depends(who)) -> TeamSent:
+    """The patient's message to the team, through our server so it gets the same red-flag check as Nora's chat: the
+    team chat is not watched around the clock. A red flag still reaches the team, and the patient gets the emergency
+    text at once, as a system line, while the clinic is alerted."""
+    conf = stream.settings()
+    if conf is None:
+        raise HTTPException(503, "team chat is not available")
+    channel = f"team-{w.user_id}"
+    flags = safety.red_flags(body.message)
+    try:
+        stream.patient_message(channel, w.user_id, body.message, *conf)
+        if not flags:
+            return TeamSent()
+        text = safety.fixed("emergency", w.session.language, w.clinic_phone)
+        stream.team_notice(channel, text, *conf)
+    except httpx.HTTPError:
+        raise HTTPException(502, "the message was not delivered")
+    try:  # the clinic hears at once; the alert carries the flags, never the patient's words
+        tools._rpc(w.session, "request_handover", category="emergency", language=w.session.language,
+                   summary="Red flag in the team chat: " + ", ".join(flags) + ". Call the patient now.")
+    except Exception:
+        pass
+    return TeamSent(emergency=text)
+
+
+@app.get("/assistant/team-chat/status")
+def team_chat_status(w: Who = Depends(who)) -> dict:
+    """For Home: none, waiting, unread or open, and how many replies are unread."""
+    conf = stream.settings()
+    if conf is None:
+        return {"state": "none", "unread": 0}
+    try:
+        return stream.team_status(w.user_id, *conf)
+    except httpx.HTTPError:
+        return {"state": "none", "unread": 0}
 
 
 class TeamReplyIn(BaseModel):

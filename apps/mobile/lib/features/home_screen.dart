@@ -3,6 +3,7 @@ import 'package:dental/ui.dart';
 
 import '../data/aftercare.dart';
 import '../data/care_repository.dart';
+import '../data/team_chat_repository.dart';
 import '../design/art.dart';
 import '../design/format.dart';
 import '../design/motion.dart';
@@ -16,6 +17,7 @@ import 'care_widgets.dart';
 import 'dentist_screen.dart';
 import 'plan_screen.dart';
 import 'shell.dart';
+import 'team_chat_screen.dart';
 import 'video_visit_screen.dart';
 
 class HomeScreen extends ConsumerWidget {
@@ -150,6 +152,7 @@ class _Body extends ConsumerWidget {
         Reveal(child: next != null ? _NextVisit(next) : const _BookPrompt()),
         const SizedBox(height: 22),
         const Reveal(child: _AskReceptionist()),
+        const _TeamConversation(),
         const SizedBox(height: 22),
         if (_recentAftercare(care) case (final visit, final sheet)) ...[
           Reveal(
@@ -926,6 +929,114 @@ class _OurServices extends ConsumerWidget {
         ),
       ],
     ),
+  );
+}
+
+/// The patient's conversation with the team, shown only while a request is waiting, open or has an unread reply.
+/// Nora stays the one way in; this card only brings the patient back to a conversation that already exists.
+class _TeamConversation extends ConsumerStatefulWidget {
+  const _TeamConversation();
+
+  @override
+  ConsumerState<_TeamConversation> createState() => _TeamConversationState();
+}
+
+class _TeamConversationState extends ConsumerState<_TeamConversation> {
+  late Future<TeamStatus> _status = ref
+      .read(teamChatRepositoryProvider)
+      .status();
+
+  Future<void> _open() async {
+    await openTeamChat(context, ref);
+    if (mounted) {
+      setState(() => _status = ref.read(teamChatRepositoryProvider).status());
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<TeamStatus>(
+    future: _status,
+    builder: (context, snap) {
+      final s = snap.data;
+      if (s == null || s.state == 'none') return const SizedBox.shrink();
+      final unread = s.state == 'unread';
+      final (title, detail) = switch (s.state) {
+        'unread' => (
+          s.unread == 1
+              ? '1 new message from the team'
+              : '${s.unread} new messages from the team',
+          'Tap to read and reply',
+        ),
+        'waiting' => ('Your request to the team', 'Waiting for a reply'),
+        _ => ('Your conversation with the team', 'Open'),
+      };
+      return Padding(
+        padding: const EdgeInsets.only(top: 10),
+        child: Semantics(
+          container: true,
+          button: true,
+          child: Material(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(22),
+            child: InkWell(
+              key: const Key('open-team-conversation'),
+              borderRadius: BorderRadius.circular(22),
+              onTap: _open,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 14,
+                ),
+                child: Row(
+                  children: [
+                    Badge(
+                      isLabelVisible: unread,
+                      backgroundColor: Palette.shine,
+                      smallSize: 10,
+                      child: const Icon(
+                        Icons.support_agent_rounded,
+                        color: Palette.teal,
+                        size: 28,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            style: TextStyle(
+                              fontSize: 15.5,
+                              fontWeight: unread
+                                  ? FontWeight.w800
+                                  : FontWeight.w700,
+                              color: Palette.deepSea,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            detail,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: Palette.muted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(
+                      Icons.chevron_right_rounded,
+                      color: Palette.muted,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    },
   );
 }
 

@@ -184,20 +184,27 @@ class _TeamChatScreenState extends State<TeamChatScreen> {
                   ),
                 ),
               for (final (i, m) in _messages.indexed)
-                ChatBubble(
-                  key: Key('team-message-${m.id}'),
-                  text: m.text,
-                  at: m.at,
-                  mine: m.mine,
-                  first: i == 0 || _messages[i - 1].mine != m.mine,
-                  delivery: !m.mine
-                      ? null
-                      : switch (m.delivery) {
-                          TeamDelivery.sending => Delivery.sent,
-                          TeamDelivery.delivered => Delivery.delivered,
-                          TeamDelivery.read => Delivery.read,
-                        },
-                ),
+                if (m.system)
+                  ChatSystemLine(m.text, key: Key('team-system-${m.id}'))
+                else
+                  ChatBubble(
+                    key: Key('team-message-${m.id}'),
+                    text: m.text,
+                    at: m.at,
+                    mine: m.mine,
+                    first:
+                        i == 0 ||
+                        _messages[i - 1].mine != m.mine ||
+                        _messages[i - 1].system,
+                    name: m.sender,
+                    delivery: !m.mine
+                        ? null
+                        : switch (m.delivery) {
+                            TeamDelivery.sending => Delivery.sent,
+                            TeamDelivery.delivered => Delivery.delivered,
+                            TeamDelivery.read => Delivery.read,
+                          },
+                  ),
               if (_typing) const ChatTyping(who: 'Northgate team'),
             ],
           ),

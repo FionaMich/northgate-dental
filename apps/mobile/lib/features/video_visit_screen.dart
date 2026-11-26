@@ -116,11 +116,14 @@ class _VideoVisitScreenState extends State<VideoVisitScreen> {
     final call = _call;
     return Scaffold(
       backgroundColor: Palette.deepSea,
-      appBar: AppBar(
-        backgroundColor: Palette.deepSea,
-        foregroundColor: Colors.white,
-        title: const Text('Video consultation'),
-      ),
+      // Stream's call layout has its own bar with back and hang up; ours shows only while connecting.
+      appBar: call != null
+          ? null
+          : AppBar(
+              backgroundColor: Palette.deepSea,
+              foregroundColor: Colors.white,
+              title: const Text('Video consultation'),
+            ),
       body: call != null
           ? sv.StreamCallContainer(
               key: const Key('video-visit'),

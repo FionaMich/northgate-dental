@@ -69,6 +69,37 @@ def team_channel(user_id: str, key: str, secret: str, http: httpx.Client | None 
     return channel
 
 
+def team_notice(channel: str, text: str, key: str, secret: str, http: httpx.Client | None = None) -> None:
+    """A system line in the conversation ("Request NGD-12 sent to the team"): shown centred, never as a person."""
+    _server(key, secret, http, f"/channels/messaging/{channel}/message",
+            {"message": {"text": text, "user_id": TEAM, "type": "system"}})
+
+
+def patient_message(channel: str, user_id: str, text: str, key: str, secret: str,
+                    http: httpx.Client | None = None) -> None:
+    """The patient's message, sent by our server after the safety check, as the patient's own Stream user."""
+    _server(key, secret, http, f"/channels/messaging/{channel}/message", {"message": {"text": text, "user_id": user_id}})
+
+
+def team_status(user_id: str, key: str, secret: str, http: httpx.Client | None = None) -> dict:
+    """Where the patient's team conversation stands: none, waiting (their message is last), unread (the team replied
+    and they have not read it) or open. Read on our server, so the phone needs no Stream connection for Home."""
+    out = _server(key, secret, http, "/channels", {"filter_conditions": {"id": f"team-{user_id}"}, "state": True,
+                                                    "user_id": user_id, "limit": 1, "message_limit": 30})
+    channels = out.get("channels") or []
+    if not channels:
+        return {"state": "none", "unread": 0}
+    ch = channels[0]
+    mine = next((r for r in ch.get("read") or [] if (r.get("user") or {}).get("id") == user_id), {})
+    unread = int(mine.get("unread_messages") or 0)
+    said = [m for m in ch.get("messages") or [] if m.get("type") != "system"]
+    if not said:
+        return {"state": "open" if ch.get("messages") else "none", "unread": 0}
+    if unread:
+        return {"state": "unread", "unread": unread}
+    return {"state": "waiting" if (said[-1].get("user") or {}).get("id") == user_id else "open", "unread": 0}
+
+
 def team_reply(channel: str, text: str, key: str, secret: str, http: httpx.Client | None = None) -> None:
     """A message from the team into a patient's conversation: for the staff portal, and for the demo until it exists."""
     # Whoever answers has read what came before: the patient's ticks turn blue.

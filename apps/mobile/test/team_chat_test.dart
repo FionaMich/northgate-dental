@@ -1,5 +1,4 @@
 import 'package:dental/data/team_chat_repository.dart';
-import 'package:dental/state.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -19,7 +18,7 @@ void main() {
       tester,
       FakeAccountRepository(patients: [elena]),
       assistant: nora,
-      extra: [teamChatRepositoryProvider.overrideWithValue(repo)],
+      teamChat: repo,
     );
     await signIn(tester);
     // the team is reached through Nora: once she hands over, her chat offers the team chat
@@ -88,4 +87,63 @@ void main() {
     expect(repo.chats, isEmpty);
     expect(find.textContaining('team chat is unavailable'), findsOneWidget);
   });
+
+  testWidgets(
+    'Home shows the team conversation only while it is open, and says when a reply is unread',
+    (tester) async {
+      final repo = FakeTeamChatRepository(state: const TeamStatus('unread', 1));
+      await pumpApp(
+        tester,
+        FakeAccountRepository(patients: [elena]),
+        teamChat: repo,
+      );
+      await signIn(tester);
+      expect(find.text('1 new message from the team'), findsOneWidget);
+      await tapKey(tester, 'open-team-conversation');
+      expect(repo.chats, hasLength(1), reason: 'it opens the conversation');
+    },
+  );
+
+  testWidgets(
+    'with no conversation, Home has no team card: Nora is the one way in',
+    (tester) async {
+      await pumpApp(tester, FakeAccountRepository(patients: [elena]));
+      await signIn(tester);
+      expect(find.byKey(const Key('open-team-conversation')), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'a system line is shown as a line, and a team reply carries the writer\'s name',
+    (tester) async {
+      final repo = FakeTeamChatRepository(state: const TeamStatus('open', 0));
+      await pumpApp(
+        tester,
+        FakeAccountRepository(patients: [elena]),
+        teamChat: repo,
+      );
+      await signIn(tester);
+      await tapKey(tester, 'open-team-conversation');
+      repo.chats.single.show([
+        TeamMessage(
+          id: 's1',
+          text: 'Your request was passed to the Northgate team (NGD-12).',
+          mine: false,
+          at: DateTime(2026, 11, 26, 10),
+          system: true,
+        ),
+        TeamMessage(
+          id: 'r1',
+          text: 'Hello, I can help with that.',
+          mine: false,
+          at: DateTime(2026, 11, 26, 10, 5),
+          sender: 'Sam · front desk',
+        ),
+      ]);
+      await tester.pump();
+      await tester.pump();
+      expect(find.byKey(const Key('team-system-s1')), findsOneWidget);
+      expect(find.text('Sam · front desk'), findsOneWidget);
+    },
+  );
 }

@@ -586,4 +586,13 @@ const nl = <String, String>{
   'See a member of our team on video': 'Spreek een teamlid via video',
   'Video consultations are unavailable right now. Please call your clinic.': 'Videoconsulten zijn nu niet beschikbaar. Bel uw kliniek.',
   'The video consultation could not start. Please try again or call your clinic.': 'Het videoconsult kon niet starten. Probeer het opnieuw of bel uw kliniek.',
+  '1 new message from the team': '1 nieuw bericht van het team',
+  '{} new messages from the team': '{} nieuwe berichten van het team',
+  'Tap to read and reply': 'Tik om te lezen en te antwoorden',
+  'Your request to the team': 'Uw verzoek aan het team',
+  'Waiting for a reply': 'Wacht op antwoord',
+  'Your conversation with the team': 'Uw gesprek met het team',
+  'Open': 'Openen',
+  'Open your conversation with the team': 'Open uw gesprek met het team',
+  'Join video consultation': 'Deelnemen aan videoconsult',
 };

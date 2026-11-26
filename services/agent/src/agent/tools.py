@@ -22,6 +22,7 @@ class Session:
     patient_id: str
     language: str = "en"
     link_base: str = ""
+    user_id: str = ""   # the Supabase user: names the patient's team conversation
 
 
 def _session(config: RunnableConfig) -> Session:
@@ -223,12 +224,24 @@ def handoff_to_staff(category: str, summary_in_english: str, config: RunnableCon
     if reply_by == "call":
         phone = _phone_number(phone)
     _rpc(s, "request_handover", category=category, language=s.language, summary=summary_in_english[:600])
+    key = None
     try:  # the team's board; the staff inbox above already has the request if Jira is down
         from . import jira
-        jira.ticket(category, s.language, summary_in_english[:600], reply_by, phone if reply_by == "call" else "",
-                    s.patient_id)
+        key = jira.ticket(category, s.language, summary_in_english[:600], reply_by, phone if reply_by == "call" else "",
+                          s.patient_id)
     except Exception:
         pass
+    if reply_by == "app" and s.user_id:
+        try:  # open (or reopen) the patient's conversation with a system line they can read in their language
+            from . import stream
+            from .safety import fixed
+            conf = stream.settings()
+            if conf:
+                channel = stream.team_channel(s.user_id, *conf)
+                note = fixed("team_request", s.language).replace("{ticket}", f" ({key})" if key else "")
+                stream.team_notice(channel, note, *conf)
+        except Exception:
+            pass
     return "handed_over"
 
 

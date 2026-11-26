@@ -23,8 +23,16 @@ class TeamMessage {
     required this.mine,
     required this.at,
     this.delivery = TeamDelivery.delivered,
+    this.system = false,
+    this.sender,
   });
   final String id;
+
+  /// Written by the system (a request filed, an emergency notice), not by a person.
+  final bool system;
+
+  /// The team member's name and role, for their messages.
+  final String? sender;
   final String text;
   final bool mine;
   final DateTime at;
@@ -45,14 +53,68 @@ abstract class TeamChat {
   Future<void> close();
 }
 
+/// Where the patient's conversation with the team stands, for Home.
+class TeamStatus {
+  const TeamStatus(this.state, this.unread);
+  final String state; // none, waiting, unread or open
+  final int unread;
+}
+
 abstract class TeamChatRepository {
   /// Throws [TeamChatUnavailable] when the server offers no team chat.
   Future<TeamChat> start();
+  Future<TeamStatus> status();
 }
 
 class StreamTeamChatRepository implements TeamChatRepository {
   StreamTeamChatRepository(this._auth);
   final GoTrueClient _auth;
+
+  Future<HttpClientResponse> _ask(
+    String method,
+    String path, [
+    Object? body,
+  ]) async {
+    final http = HttpClient()..connectionTimeout = const Duration(seconds: 15);
+    final request = await http.openUrl(
+      method,
+      Uri.parse('$assistantBase$path'),
+    );
+    final token = _auth.currentSession?.accessToken;
+    if (token != null) {
+      request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $token');
+    }
+    if (body != null) {
+      request.headers.contentType = ContentType.json;
+      request.write(jsonEncode(body));
+    }
+    return request.close().timeout(const Duration(seconds: 20));
+  }
+
+  @override
+  Future<TeamStatus> status() async {
+    try {
+      final response = await _ask('GET', '/assistant/team-chat/status');
+      final text = await response.transform(utf8.decoder).join();
+      if (response.statusCode != 200) return const TeamStatus('none', 0);
+      final j = jsonDecode(text) as Map<String, dynamic>;
+      return TeamStatus(
+        j['state'] as String? ?? 'none',
+        j['unread'] as int? ?? 0,
+      );
+    } on Exception {
+      return const TeamStatus('none', 0);
+    }
+  }
+
+  /// The patient's message goes through our server, which checks it for red flags before the team sees it.
+  Future<void> _send(String text) async {
+    final response = await _ask('POST', '/assistant/team-chat/send', {
+      'message': text,
+    });
+    await response.drain<void>();
+    if (response.statusCode != 200) throw const TeamChatUnavailable();
+  }
 
   @override
   Future<TeamChat> start() async {
@@ -70,7 +132,7 @@ class StreamTeamChatRepository implements TeamChatRepository {
       );
       final text = await response.transform(utf8.decoder).join();
       if (response.statusCode != 200) throw const TeamChatUnavailable();
-      return _StreamTeamChat(jsonDecode(text) as Map<String, dynamic>);
+      return _StreamTeamChat(jsonDecode(text) as Map<String, dynamic>, _send);
     } on IOException {
       throw const TeamChatUnavailable();
     } on TimeoutException {
@@ -82,8 +144,9 @@ class StreamTeamChatRepository implements TeamChatRepository {
 }
 
 class _StreamTeamChat implements TeamChat {
-  _StreamTeamChat(this._ticket);
+  _StreamTeamChat(this._ticket, this._sendThroughServer);
   final Map<String, dynamic> _ticket;
+  final Future<void> Function(String) _sendThroughServer;
   final _messages = StreamController<List<TeamMessage>>.broadcast();
   final _typing = StreamController<bool>.broadcast();
   final _subs = <StreamSubscription<dynamic>>[];
@@ -138,6 +201,10 @@ class _StreamTeamChat implements TeamChat {
             text: m.text!,
             mine: m.user?.id == _me,
             at: m.createdAt.toLocal(),
+            system: m.type == 'system',
+            sender: m.user?.id == _me || m.type == 'system'
+                ? null
+                : (m.user?.name ?? 'Northgate team'),
             delivery: m.state.isOutgoing
                 ? TeamDelivery.sending
                 : seen != null && !m.createdAt.isAfter(seen)
@@ -152,7 +219,7 @@ class _StreamTeamChat implements TeamChat {
 
   @override
   Future<void> send(String text) async {
-    await _channel?.sendMessage(sc.Message(text: text));
+    await _sendThroughServer(text);
   }
 
   @override
