@@ -7,6 +7,8 @@ import 'package:dental/ui.dart';
 import '../data/account_repository.dart';
 import '../data/aligner_reminders.dart';
 import '../data/wear_log.dart';
+import '../data/programme_repository.dart';
+import '../state.dart';
 import '../design/format.dart';
 import '../design/tokens.dart';
 import '../design/widgets.dart';
@@ -215,6 +217,66 @@ class _AlignerScreenState extends ConsumerState<AlignerScreen> {
                       Panel(
                         child: _Week(log: log, now: now),
                       ),
+                      if ((ref.watch(programmesProvider).value ??
+                                  const <CareProgramme>[])
+                              .where(
+                                (p) => p.programme == 'aligners' && !p.invited,
+                              )
+                              .firstOrNull
+                          case final programme?) ...[
+                        const SizedBox(height: 16),
+                        Panel(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              const Text(
+                                'Your aligner programme',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  color: Palette.deepSea,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              const Text(
+                                'Share yesterday\'s total with your orthodontist. Only the number of hours is sent.',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: Palette.muted,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              PrimaryButton(
+                                key: const Key('share-wear'),
+                                label: tr('Share yesterday\'s wear'),
+                                onPressed: () async {
+                                  final day = now.subtract(
+                                    const Duration(days: 1),
+                                  );
+                                  final hours =
+                                      log.wornOn(day, now: now).inMinutes / 60;
+                                  await ref
+                                      .read(programmeRepositoryProvider)
+                                      .shareWear(
+                                        programme.id,
+                                        day,
+                                        double.parse(hours.toStringAsFixed(1)),
+                                      );
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Shared with your orthodontist.',
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 16),
                       const Row(
                         children: [

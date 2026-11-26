@@ -40,6 +40,7 @@ const STATUS: Record<string, { label: string; bar: string; bg: string }> = {
 const KIND: Record<string, string> = {
   assistant_handover: "Passed on by Nora", website_lead: "Website question", schedule_conflict: "Schedule conflict",
   checkin_follow_up: "Check-in follow-up", billing_follow_up: "Billing follow-up", shop_fulfilment: "Shop order",
+  care_alert: "Care check-in needs a clinician", care_flag: "Check-up flag",
 };
 const CATEGORY: Record<string, string> = {
   booking: "Booking", billing: "Billing", clinical_question: "Clinical question", shop: "Shop", other: "Other", emergency: "Emergency",
@@ -79,6 +80,7 @@ const ICONS: Record<string, string> = {
   Payments: "M3 7h18v10H3zM3 11h18M7 15h2",
   "Nora activity": "M4 18V9M10 18V5M16 18v-6M22 18H2",
   Settings: "M4 7h10M18 7h2M4 17h4M12 17h8M14 5v4M8 15v4",
+  Care: "M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z",
   Search: "M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM20 20l-4-4",
 };
 function Icon({ name, className = "size-[18px]" }: { name: string; className?: string }) {
@@ -138,7 +140,7 @@ function State({ rows, error, empty }: { rows: Row[] | null; error: string; empt
 
 // ---------------------------------------------------------------------------------------------------- the shell
 
-const NAV = ["Overview", "Schedule", "Patients", "Dentist desk", "Inbox", "Coverage", "Roster", "Payments", "Nora activity", "Settings"] as const;
+const NAV = ["Overview", "Schedule", "Patients", "Care", "Dentist desk", "Inbox", "Coverage", "Roster", "Payments", "Nora activity", "Settings"] as const;
 type Page = (typeof NAV)[number];
 
 export function Workspace({ onSignOut }: { onSignOut: () => void }) {
@@ -157,7 +159,8 @@ export function Workspace({ onSignOut }: { onSignOut: () => void }) {
       setMe((data as Me | null) ?? null);
     });
   }, [db]);
-  const badge: Partial<Record<Page, number>> = { Inbox: tasks.rows?.length, Coverage: cards.rows?.length };
+  const flags = useRows(() => db.from("care_flags").select("id").is("resolved_at", null) as never, [db, page]);
+  const badge: Partial<Record<Page, number>> = { Inbox: tasks.rows?.length, Coverage: cards.rows?.length, Care: flags.rows?.length };
   const today = new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric", timeZone: TZ });
   const go = (p: Page) => { setPage(p); window.scrollTo({ top: 0 }); };
 
@@ -226,6 +229,7 @@ export function Workspace({ onSignOut }: { onSignOut: () => void }) {
           {page === "Overview" && <Overview clinic={clinic} go={go} />}
           {page === "Schedule" && <Schedule clinic={clinic} />}
           {page === "Patients" && <Patients clinic={clinic} query={query} setQuery={setQuery} />}
+          {page === "Care" && <Care clinic={clinic} />}
           {page === "Dentist desk" && <DentistDesk />}
           {page === "Inbox" && <Inbox clinic={clinic} />}
           {page === "Coverage" && <Coverage />}
@@ -784,6 +788,87 @@ function Settings({ me, onChange }: { me: Me | null; onChange: () => void }) {
               })}
             </tbody>
           </table>
+        )}
+      </Section>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------------------------------- Care (W24 to W28)
+
+const PROGRAMME: Record<string, string> = { post_procedure: "Recovery", aligners: "Aligners", recall: "Recall" };
+const REASON: Record<string, string> = {
+  serious_side_effect: "Serious side effect", worsening_trend: "Worsening trend", missed_wear: "Aligner wear short", missed_checkins: "Missed check-ins",
+};
+
+function Care({ clinic }: { clinic: string }) {
+  const db = useDb();
+  const flags = useRows(() => db.from("care_flags").select("id, reason, data, created_at, patients(given_name, family_name, mrn)")
+    .is("resolved_at", null).order("created_at", { ascending: false }) as never, [db]);
+  const people = useRows(() => db.from("care_enrolments")
+    .select("id, programme, status, starts_on, ends_on, locations(name), patients(given_name, family_name, mrn), care_checkins(due_on, pain, feeling, level, answered_at), care_summaries(week_start, summary)")
+    .in("status", ["invited", "active"]).order("starts_on", { ascending: false }) as never, [db]);
+  const [outcome, setOutcome] = useState<Record<string, string>>({});
+  async function resolve(id: unknown) {
+    const text = (outcome[String(id)] ?? "").trim();
+    if (text.length < 3) return;
+    const { error } = await db.rpc("resolve_care_flag", { flag: String(id), outcome: text });
+    if (!error) flags.reload();
+  }
+  const rows = (people.rows ?? []).filter((r) => inClinic(clinic, r));
+  const todayIso = new Date().toLocaleDateString("en-CA", { timeZone: TZ });
+  return (
+    <div className="space-y-4">
+      <Section title="Check-up flags" action={<span className="text-[11px] text-muted">Open until a clinician records the outcome</span>} flush>
+        {flags.rows === null || flags.error || !flags.rows.length ? <State rows={flags.rows} error={flags.error} empty="No open check-up flags." /> : (
+          <ul className="divide-y divide-[#eef1f0]">
+            {flags.rows.map((f) => (
+              <li key={String(f.id)} className="grid gap-3 px-4 py-3 md:grid-cols-[1fr_1.2fr]">
+                <div>
+                  <p><Tag tone={f.reason === "serious_side_effect" ? "red" : "amber"}>{REASON[String(f.reason)] ?? String(f.reason)}</Tag> <b className="ml-1">{person(f.patients)}</b> <span className="font-mono text-[11px] text-muted">{String((f.patients as Row | null)?.mrn ?? "")}</span></p>
+                  <p className="mt-1 font-mono text-[11px] text-muted">{JSON.stringify(f.data).slice(0, 140)}</p>
+                  <p className="text-[11px] text-muted">{when(f.created_at)} · a booking offer was sent to the patient</p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <input value={outcome[String(f.id)] ?? ""} onChange={(e) => setOutcome((o) => ({ ...o, [String(f.id)]: e.target.value }))}
+                    placeholder="Outcome, for example: called, booked for Friday" aria-label="Outcome"
+                    className="min-w-0 flex-1 rounded-md border border-[#cfd8d6] px-2.5 py-1.5 outline-none focus:border-teal" />
+                  <button onClick={() => resolve(f.id)} className={button}>Record</button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Section>
+      <Section title="Patients in a programme" flush>
+        {people.rows === null || people.error || !rows.length ? <State rows={people.rows === null ? null : rows} error={people.error} empty="Nobody is in a care programme." /> : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[900px] text-left">
+              <thead className="border-b border-[#e6ebea] bg-[#f8faf9]"><tr>{["Patient", "Programme", "Day", "Today", "Last pain", "This week"].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
+              <tbody className="divide-y divide-[#eef1f0]">
+                {rows.map((r) => {
+                  const checkins = ((r.care_checkins as Row[] | null) ?? []).sort((a, b) => String(b.due_on).localeCompare(String(a.due_on)));
+                  const today = checkins.find((c) => c.due_on === todayIso);
+                  const lastPain = checkins.find((c) => c.pain != null);
+                  const summary = ((r.care_summaries as Row[] | null) ?? []).sort((a, b) => String(b.week_start).localeCompare(String(a.week_start)))[0];
+                  const day = Math.floor((Date.parse(todayIso) - Date.parse(String(r.starts_on))) / 86400000) + 1;
+                  const total = Math.floor((Date.parse(String(r.ends_on)) - Date.parse(String(r.starts_on))) / 86400000) + 1;
+                  return (
+                    <tr key={String(r.id)}>
+                      <td className={td}><p className="font-semibold">{person(r.patients)}</p><p className="font-mono text-[11px] text-muted">{String((r.patients as Row | null)?.mrn ?? "")} · {String((r.locations as Row | null)?.name ?? "")}</p></td>
+                      <td className={td}>{PROGRAMME[String(r.programme)] ?? String(r.programme)}{r.status === "invited" && <span className="ml-1.5"><Tag tone="grey">invited</Tag></span>}</td>
+                      <td className={`${td} tabular-nums`}>{r.programme === "recall" ? "–" : `${Math.max(day, 0)} of ${total}`}</td>
+                      <td className={td}>{r.programme !== "post_procedure" ? <span className="text-muted">–</span> : !today ? <span className="text-muted">Opens 10:00</span>
+                        : !today.answered_at ? <Tag tone="amber">Not answered</Tag>
+                        : <Tag tone={today.level === "emergency" ? "red" : today.level === "task" ? "amber" : "teal"}>{String(today.level)}</Tag>}</td>
+                      <td className={`${td} tabular-nums`}>{lastPain ? `${String(lastPain.pain)} / 10` : <span className="text-muted">–</span>}</td>
+                      <td className={`${td} max-w-xs text-[12px] text-muted`}>{summary ? String(summary.summary) : "No summary yet"}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
       </Section>
     </div>

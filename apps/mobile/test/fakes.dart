@@ -7,6 +7,7 @@ import 'package:dental/data/shop_repository.dart';
 import 'package:dental/data/assistant_repository.dart';
 import 'package:dental/data/call_repository.dart';
 import 'package:dental/data/consult_repository.dart';
+import 'package:dental/data/programme_repository.dart';
 import 'package:dental/data/team_chat_repository.dart';
 import 'package:dental/data/aligner_reminders.dart';
 import 'package:dental/data/wear_log.dart';
@@ -764,4 +765,71 @@ class FakeConsultRepository implements ConsultRepository {
       'call_id': 'consult-u',
     };
   }
+}
+
+/// Care programmes in memory: the level for each answer is decided here the way the database's rules would (W25).
+class FakeProgrammeRepository implements ProgrammeRepository {
+  FakeProgrammeRepository({List<CareProgramme>? programmes})
+    : programmes = programmes ?? [];
+  List<CareProgramme> programmes;
+  final joined = <String>[];
+  final left = <String>[];
+  final answers = <Map<String, Object?>>[];
+  final shared = <(String, double)>[];
+
+  @override
+  Future<List<CareProgramme>> mine() async => programmes;
+
+  @override
+  Future<void> join(String enrolmentId) async {
+    joined.add(enrolmentId);
+    programmes = [
+      for (final p in programmes)
+        p.id == enrolmentId
+            ? CareProgramme(
+                id: p.id,
+                programme: p.programme,
+                status: 'active',
+                endsOn: p.endsOn,
+                todayCheckinId: p.todayCheckinId,
+                todayAnswered: p.todayAnswered,
+              )
+            : p,
+    ];
+  }
+
+  @override
+  Future<void> leave(String enrolmentId) async {
+    left.add(enrolmentId);
+    programmes = programmes.where((p) => p.id != enrolmentId).toList();
+  }
+
+  @override
+  Future<String> answer(
+    String checkinId, {
+    required int pain,
+    required String feeling,
+    required List<String> symptoms,
+    String? note,
+  }) async {
+    answers.add({
+      'checkin': checkinId,
+      'pain': pain,
+      'feeling': feeling,
+      'symptoms': symptoms,
+      'note': note,
+    });
+    if ((note ?? '').contains('spreading') ||
+        (symptoms.contains('swelling') && symptoms.contains('fever')))
+      return 'emergency';
+    if (pain >= 7) return 'task';
+    return 'ok';
+  }
+
+  @override
+  Future<void> shareWear(
+    String enrolmentId,
+    DateTime day,
+    double hours,
+  ) async => shared.add((enrolmentId, hours));
 }
