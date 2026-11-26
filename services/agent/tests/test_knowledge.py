@@ -91,3 +91,14 @@ def test_the_sql_for_the_deploy_upserts_every_document_and_escapes_its_text(tmp_
     assert "on conflict (slug) do update" in sql and "delete from public.knowledge_passages" in sql
     assert "The clinic''s own car park." in sql, "a quote in a document cannot end the SQL string"
     assert "'[0.5,0.5," in sql
+
+
+def test_if_the_search_fails_nora_is_told_to_offer_the_team_never_left_to_guess(monkeypatch):
+    monkeypatch.setattr(knowledge, "embed_query", lambda q: [0.1] * 1024)
+
+    def refused(*a, **k):
+        raise tools.ToolRefused("JWT expired")
+    monkeypatch.setattr(tools, "_rpc", refused)
+    out = tools.search_clinic_knowledge.func(question_in_english="Is there a fee if I miss a visit?",
+                                             config={"configurable": {"session": session()}})
+    assert out == knowledge.NOTHING_FOUND, "an error must never leave the model free to invent a policy"
