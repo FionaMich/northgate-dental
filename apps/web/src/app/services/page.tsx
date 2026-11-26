@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Image from "next/image";
+import Link from "next/link";
 import { catalogue, money, servicePicture } from "@/lib/data";
 
 export const metadata: Metadata = { title: "Services and prices" };
@@ -21,10 +22,11 @@ export default async function Services() {
             </div>
             <div className="p-6 md:pl-0">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <h2 className="text-xl font-extrabold">{s.name}</h2>
+                <h2 className="text-xl font-extrabold"><Link href={`/services/${s.code}`} className="hover:text-teal">{s.name}</Link></h2>
                 <p className="text-sm text-muted">{s.duration_minutes} minutes</p>
               </div>
               <p className="mt-2 leading-7 text-muted">{s.summary}</p>
+              <Link href={`/services/${s.code}`} className="mt-2 inline-block text-sm font-bold text-teal hover:underline">What happens at the visit</Link>
               <dl className="mt-5 grid grid-cols-3 gap-3 text-sm">
                 {locations.map((l) => (
                   <div key={l.code} className="rounded-2xl bg-mist px-4 py-3">

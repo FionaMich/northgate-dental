@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import Link from "next/link";
+import Logo from "@/components/Logo";
 import "./globals.css";
 
 // Fonts are bundled with the site (the same files as the app); nothing is loaded from a font service.
@@ -26,7 +27,7 @@ function Header() {
     <header className="sticky top-0 z-30 border-b border-line/70 bg-white/85 backdrop-blur">
       <nav className="mx-auto flex max-w-6xl items-center gap-6 px-4 py-3 sm:px-6" aria-label="Main">
         <Link href="/" className="flex items-center gap-2 font-extrabold tracking-tight text-sea">
-          <span aria-hidden className="grid size-8 place-items-center rounded-lg bg-teal text-white">N</span>
+          <Logo />
           Northgate Dental
         </Link>
         <div className="ml-auto hidden items-center gap-6 text-sm font-semibold text-muted md:flex">
