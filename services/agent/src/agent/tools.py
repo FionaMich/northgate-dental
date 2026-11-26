@@ -227,7 +227,10 @@ def search_clinic_knowledge(question_in_english: str, config: RunnableConfig) ->
         vector = knowledge.as_vector(knowledge.embed_query(question_in_english))
     except Exception:   # the embedder is down: keywords alone still find exact terms
         vector = None
-    rows = _rpc(s, "search_knowledge", query=question_in_english[:300], query_embedding=vector, match_count=5) or []
+    try:
+        rows = _rpc(s, "search_knowledge", query=question_in_english[:300], query_embedding=vector, match_count=5) or []
+    except Exception:   # an expired session or an outage: say nothing was found, so Nora offers the team, never guesses
+        rows = []
     kept = knowledge.relevant(rows)[:3]
     if not kept:
         return knowledge.NOTHING_FOUND

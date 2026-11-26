@@ -38,6 +38,12 @@ const assistantBase = String.fromEnvironment(
   defaultValue: 'https://84-12-126-31.sslip.io',
 );
 
+/// A reply can take up to 4 minutes on the CPU server, and the server uses the patient's token for the whole turn.
+/// Refresh first when less than 5 minutes are left, so the token cannot expire half way through a reply.
+bool needsRefresh(int? expiresAtSeconds, DateTime now) =>
+    expiresAtSeconds != null &&
+    DateTime.fromMillisecondsSinceEpoch(expiresAtSeconds * 1000).difference(now) < const Duration(minutes: 5);
+
 abstract class AssistantRepository {
   Future<String> hello(String language);
 
@@ -75,6 +81,13 @@ class HttpAssistantRepository implements AssistantRepository {
       method,
       Uri.parse('$assistantBase$path'),
     );
+    if (needsRefresh(_auth.currentSession?.expiresAt, DateTime.now())) {
+      try {
+        await _auth.refreshSession();
+      } on Exception {
+        // offline or revoked: the request below fails with 401 and the patient is asked to sign in again
+      }
+    }
     final token = _auth.currentSession?.accessToken;
     if (token != null) {
       request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $token');
