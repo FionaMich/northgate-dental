@@ -153,3 +153,20 @@ def test_free_times_carry_the_price_so_a_reply_that_quotes_it_is_not_refused(db,
     )
     _, _, out = run(model, "A video consultation at Quincy, the earliest you have")
     assert out["messages"][-1].content.startswith("The earliest video consultation"), "not replaced by the handover text"
+
+
+
+@pytest.mark.parametrize("said,kept", [("2:00 PM", True), ("2:00pm", True), ("14:00", True), ("2:00 p.m.", True),
+                                       ("3:00 PM", False), ("2:00 AM", False), ("12:30 PM", False)])
+def test_a_time_on_the_12_hour_clock_matches_the_tools_24_hour_time(said, kept):
+    from langchain_core.messages import ToolMessage
+    state = {"messages": [HumanMessage("book it"), ToolMessage("BOOKED: Thursday 26 November at 14:00", tool_call_id="1"),
+                          AIMessage(f"Booked for {said} on Thursday.")]}
+    config = {"configurable": {"session": tools.Session("u", "k", "j", "p", "en"), "clinic_phone": None}}
+    tools_rpc = tools._rpc
+    tools._rpc = lambda *a, **k: None
+    try:
+        out = graph.grounded(state, config)
+    finally:
+        tools._rpc = tools_rpc
+    assert (out == {}) is kept, said
