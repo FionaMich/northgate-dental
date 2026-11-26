@@ -619,6 +619,54 @@ About 3,000 dental patients with visits, tooth charts, findings and treatment pl
 </details>
 
 <details>
+<summary><b>Continuous care between visits: recovery check-ins, aligner wear and recall (W24 to W28)</b></summary>
+
+A clinician invites a patient to a care programme. The patient joins in the app, which records their consent, and can leave at any time:
+- **Recovery:** after an extraction, implant or root canal.
+- **Aligner wear**
+- **Recall:** the six-monthly check-up.
+
+| Workflow | When | What happens |
+| --- | --- | --- |
+| W24 daily check-in | 10:00 clinic time | Today's check-in opens, and an email says it is ready in the app. The patient gives a pain score (0 to 10), says whether they feel better, the same or worse, ticks any symptoms (bleeding, swelling, fever, numbness, a bad taste) and can add a note |
+| W25 rules and alerts | On each answer | Fixed rules and clinician-set thresholds, with no model, decide the level. **Emergency:** red-flag words in the note, or swelling with fever; an urgent task and the urgent queue, and the app shows 911 guidance. **Task:** pain at the threshold, or worse after day 3. Otherwise a nudge, or fine |
+| W26 weekly summary | Mondays | A summary for the clinician built only from the data points, so nothing in it can be invented |
+| W27 nudges | Hourly, 09:00 to 20:00 only | Approved reminders for a check-in still unanswered at 18:00, or aligner wear short of the target for two days |
+| W28 check-up flags | After each answer or wear report | A serious side effect, a worsening pain trend, a week of short wear, or missed check-ins becomes a care task and a booking offer to the patient. It stays open until a clinician records the outcome in the portal's Care page |
+
+**Privacy:** aligner wear stays on the phone unless the patient shares yesterday's total, and only the hours are sent. Queue messages carry IDs only. Patients read their own data; staff read their clinics' patients behind two-factor. Medicines are left out on purpose: missed-dose advice needs approved label sources first.
+
+</details>
+
+<details>
+<summary><b>The dental-tools MCP server: Northgate's public tools for any AI assistant</b></summary>
+
+`services/mcp` is a Model Context Protocol server (the official Python SDK). Any MCP client, such as Claude Desktop, an IDE assistant or another agent, can use Northgate's public tools:
+
+| Tool | What it returns |
+| --- | --- |
+| `clinics` | Each clinic's address, phone number and opening hours |
+| `services_and_prices` | Every service, its length and the self-pay price at each clinic, optionally for one clinic |
+| `clinic_policies` | Passages from the approved policy documents, with the document named. It uses the same hybrid search as Nora and refuses weak matches |
+| `how_to_book` | Where booking, paying and changes happen: the app, Nora, or the clinic's phone |
+
+**No patient data, by design.** The tools read two public database functions, `public_catalogue()` and `public_search_knowledge()`, using the publishable key, which grants nothing else. Anything about a patient stays in the app and with Nora, under the patient's own session.
+
+Run it for a desktop client:
+
+```bash
+cd services/mcp && uv run dental-mcp                                     # stdio
+MCP_TRANSPORT=streamable-http MCP_PORT=8300 uv run dental-mcp            # HTTP
+```
+
+```json
+{ "mcpServers": { "northgate-dental": { "command": "uv", "args": ["--directory", "services/mcp", "run", "dental-mcp"],
+  "env": { "SUPABASE_PUBLISHABLE_KEY": "<the project's publishable key>" } } } }
+```
+
+</details>
+
+<details>
 <summary><b>The website and the staff portal: Next.js on Vercel, Supabase from the browser</b></summary>
 
 Live at [northgate-dental.vercel.app](https://northgate-dental.vercel.app). The code is in `apps/web`: Next.js with the App Router and Tailwind, exported as static files, and served by Vercel's free Hobby plan. No server code runs at Vercel, so nothing there can read patient data.

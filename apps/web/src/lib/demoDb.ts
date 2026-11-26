@@ -139,6 +139,32 @@ function store(): Record<string, Row[]> {
         outcome: k.outcome, tools: k.tools, model: "ollama:gemma4:e4b-it-qat", prompt_version: "4f1c9a7e2b30",
         latency_ms: Math.round(9000 + r() * 26000), created_at: ago(4 + i * 11) };
     }),
+    care_enrolments: [
+      ["ce1", "post_procedure", 3, 7, 18, "Quincy", [[2, 6, "same", "ok"], [1, 7, "same", "task"], [0, null, null, null]]],
+      ["ce2", "post_procedure", 5, 7, 4, "Back Bay", [[4, 3, "better", "ok"], [3, 2, "better", "ok"], [2, 2, "better", "ok"], [1, 1, "better", "ok"], [0, 1, "better", "ok"]]],
+      ["ce3", "post_procedure", 2, 7, 31, "Cambridge", [[1, 4, "worse", "ok"], [0, 6, "worse", "task"]]],
+      ["ce4", "aligners", 40, 180, 9, "Cambridge", []],
+      ["ce5", "aligners", 12, 180, 26, "Back Bay", []],
+      ["ce6", "recall", 160, 182, 44, "Quincy", []],
+      ["ce7", "post_procedure", 0, 7, 51, "Quincy", []],
+    ].map(([id, programme, day, length, patient, clinic, checkins]) => {
+      const start = new Date(); start.setDate(start.getDate() - (day as number));
+      const iso = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: "America/New_York" });
+      const end = new Date(start); end.setDate(end.getDate() + (length as number) - 1);
+      return { id, programme, status: id === "ce7" ? "invited" : "active", starts_on: iso(start), ends_on: iso(end),
+        patients: NAMES[patient as number], locations: { name: clinic },
+        care_checkins: (checkins as (number | string | null)[][]).map(([ago, pain, feeling, level]) => {
+          const d = new Date(); d.setDate(d.getDate() - (ago as number));
+          return { due_on: iso(d), pain, feeling, level, answered_at: level ? d.toISOString() : null };
+        }),
+        care_summaries: programme === "aligners"
+          ? [{ week_start: iso(start), summary: id === "ce4" ? "Wear reported on 6 of 7 days, 21.4 hours a day on average against a target of 22; 1 short day." : "Wear reported on 7 of 7 days, 15.9 hours a day on average against a target of 22; 6 short days." }]
+          : programme === "post_procedure" && (day as number) > 1 ? [{ week_start: iso(start), summary: id === "ce3" ? "Answered 2 of 2 check-ins. Highest pain 6 of 10. 2 answers felt worse; 1 needed the team." : "Answered 4 of 5 check-ins. Highest pain 7 of 10. 0 answers felt worse; 1 needed the team." }] : [] };
+    }),
+    care_flags: [
+      { id: "cf1", reason: "worsening_trend", data: { pain_last_three_days: [6, 4, 3] }, created_at: ago(55), resolved_at: null, patients: NAMES[31] },
+      { id: "cf2", reason: "missed_wear", data: { target_hours: 22, last_7_days: "6 of 7 days under 20 hours" }, created_at: ago(190), resolved_at: null, patients: NAMES[26] },
+    ],
     org_settings: [{ id: 1, settings: { language: "en", cancellation_hours: 24, missed_appointment_fee_cents: 5000, assistant_enabled: true } }],
     effective_location_settings: CLINICS.map((c, i) => ({ location_id: c.id,
       settings: { language: "en", cancellation_hours: 24, missed_appointment_fee_cents: i === 2 ? 0 : 5000 } })),
@@ -196,6 +222,13 @@ export function demoDb(): SupabaseClient {
   const db = store();
   return {
     from: (table: string) => new Query(table, db),
+    rpc: async (name: string, params: Row) => {
+      if (name === "resolve_care_flag") {
+        const f = db.care_flags.find((x) => x.id === params.flag);
+        if (f) Object.assign(f, { resolved_at: new Date().toISOString(), outcome: params.outcome });
+      }
+      return { data: null, error: null };
+    },
     auth: { getUser: async () => ({ data: { user: { id: "demo" } }, error: null }) },
   } as unknown as SupabaseClient;
 }
