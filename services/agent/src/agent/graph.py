@@ -137,7 +137,21 @@ def handed_over(state: State, config: RunnableConfig) -> dict:
     return {"messages": [AIMessage(safety.fixed(key, session.language, _phone(config)))]}
 
 
-_FACT = re.compile(r"\$\s?\d[\d,]*(\.\d\d)?|\b\d{1,2}:\d{2}\b|https?://[^\s)>\]]+")
+_FACT = re.compile(r"\$\s?\d[\d,]*(\.\d\d)?|\b\d{1,2}:\d{2}\b(\s*[AaPp]\.?\s?[Mm]\b\.?)?|https?://[^\s)>\]]+")
+
+
+def _forms(fact: str) -> list[str]:
+    """The ways a fact may appear in a tool result. Tools give times on the 24-hour clock ("14:00"); Nora may say
+    "2:00 PM", which is the same time and must not be refused."""
+    m = re.fullmatch(r"(\d{1,2}):(\d{2})\s*([AaPp])?\.?\s?[Mm]?\.?", fact.strip())
+    if not m:
+        return [fact.replace(" ", "")]
+    hour, minute, half = int(m.group(1)), m.group(2), (m.group(3) or "").lower()
+    if half == "p" and hour < 12:
+        hour += 12
+    elif half == "a" and hour == 12:
+        hour = 0
+    return [f"{hour:02d}:{minute}", f"{hour}:{minute}"]
 
 
 def grounded(state: State, config: RunnableConfig) -> dict:
@@ -146,7 +160,8 @@ def grounded(state: State, config: RunnableConfig) -> dict:
     since = max(i for i, m in enumerate(messages) if isinstance(m, HumanMessage))
     evidence = " ".join(str(m.content) for m in messages[since:] if isinstance(m, ToolMessage))
     reply = str(messages[-1].content)
-    unsupported = [m.group(0) for m in _FACT.finditer(reply) if m.group(0).replace(" ", "") not in evidence.replace(" ", "")]
+    flat = evidence.replace(" ", "")
+    unsupported = [m.group(0) for m in _FACT.finditer(reply) if not any(f in flat for f in _forms(m.group(0)))]
     if not unsupported:
         return {}
     metrics.BLOCKS.inc()
