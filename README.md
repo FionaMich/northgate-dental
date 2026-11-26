@@ -488,7 +488,7 @@ The AWS account holds backups only, so it is locked down to match. `infra/terraf
 - **Account-wide S3 Block Public Access:** no bucket can be made public, whatever its own settings say.
 - **Password policy:** at least 14 characters with every character class, and the last 24 passwords blocked. There is no forced expiry, following NIST SP 800-63B; MFA protects instead.
 - **Cost alerts:** Cost Anomaly Detection sends a daily email if unusual spend reaches US$1, alongside a US$1 budget.
-- **Storage Lens dashboard** for storage use by region and bucket.
+- **Storage Lens dashboard** (`northgate-storage`, home region Stockholm) for what the account stores, where, and how it changes day by day. It answers the governance question "where does our data sit?" with numbers: total bytes and objects, by bucket, region and storage class, with 14 days of daily history. Today it covers the two buckets in eu-north-1: the nightly encrypted database backups and the CloudTrail audit log. A bucket that appears in another region, or a backup bucket that stops growing, shows here first. It is the free tier, so the numbers live in the console only.
 
 IAM Access Analyzer would normally be part of this baseline. AWS blocks it on free plan accounts with a service control policy, so it waits until the account is upgraded.
 
@@ -1101,7 +1101,7 @@ infra/scripts/restore-test.sh s3://<bucket>/nightly/<file>.dump.age ~/.config/no
 - [ ] S3 bucket properties, showing versioning, encryption, Block Public Access and the lifecycle rule: https://eu-north-1.console.aws.amazon.com/s3/buckets?region=eu-north-1
 - [ ] The nightly backups in the bucket (`nightly/`)
 - [ ] IAM user `northgate-backup-upload` with its single inline policy: https://us-east-1.console.aws.amazon.com/iam/home#/users
-- [ ] Storage Lens dashboard `northgate-storage` (first data within 48 hours): https://eu-north-1.console.aws.amazon.com/s3/lens?region=eu-north-1
+- [ ] Storage Lens dashboard `northgate-storage`: open https://eu-north-1.console.aws.amazon.com/s3/lens?region=eu-north-1 and pick **northgate-storage** from the dashboard list. Do not use the account's default dashboard (`default-account-dashboard`): it lives in us-east-1, which the AWS organisation's policy blocks, so it shows "couldn't be retrieved".
 - [ ] AWS Budgets, showing the US$1 alert: https://us-east-1.console.aws.amazon.com/costmanagement/home#/budgets
 - [ ] GitHub rulesets, showing 8 required checks on `develop` and `main`
 
