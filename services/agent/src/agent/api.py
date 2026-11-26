@@ -19,6 +19,7 @@ from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from pydantic import BaseModel, Field
 
 from . import graph, metrics, safety, stream, tools
+from .models import model_name
 from .tools import Session
 
 if os.environ.get("LANGSMITH_API_KEY"):
@@ -152,7 +153,13 @@ def _run(channel: str, w: Who, what, thread: str) -> Reply:
     """One turn through the graph, timed and counted (metrics.py)."""
     started = time.monotonic()
     out = assistant.invoke(what, _config(w, thread))
-    metrics.record(channel, w.session.language, time.monotonic() - started, out)
+    seconds = time.monotonic() - started
+    shape = metrics.record(channel, w.session.language, seconds, out)
+    try:  # AGENTS.md section 9: every AI action is logged. The patient comes from the session, in the database.
+        tools._rpc(w.session, "log_ai_event", channel=channel, language=w.session.language, model=model_name(),
+                   prompt_version=graph.PROMPT_VERSION, latency_ms=round(seconds * 1000), **shape)
+    except Exception:  # a lost log line must never cost the patient their answer; the counter makes it alertable
+        metrics.AI_EVENT_FAILURES.inc()
     return _reply(out)
 
 

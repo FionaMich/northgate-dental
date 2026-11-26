@@ -190,3 +190,23 @@ def test_a_time_on_the_12_hour_clock_matches_the_tools_24_hour_time(said, kept):
     finally:
         tools._rpc = tools_rpc
     assert (out == {}) is kept, said
+
+
+@pytest.mark.parametrize("said,kept", [("más de $500, puedes", True), ("$500.", True), ("$1,200 in total", True),
+                                       ("$1,200, then", True), ("$50, then", False), ("$5,000", False)])
+def test_a_price_followed_by_punctuation_matches_the_documents_price(said, kept, monkeypatch):
+    from langchain_core.messages import ToolMessage
+    state = {"messages": [HumanMessage("instalments?"),
+                          ToolMessage('From "Paying your bill": over $500 ... a crown is $1,200.', tool_call_id="1"),
+                          AIMessage(f"Yes: {said} over 6 months.")]}
+    config = {"configurable": {"session": tools.Session("u", "k", "j", "p", "es"), "clinic_phone": None}}
+    monkeypatch.setattr(tools, "_rpc", lambda *a, **k: None)
+    assert (graph.grounded(state, config) == {}) is kept, said
+
+
+def test_a_time_inside_a_longer_time_is_not_evidence(monkeypatch):
+    from langchain_core.messages import ToolMessage
+    state = {"messages": [HumanMessage("when?"), ToolMessage("Free: 19:00", tool_call_id="1"), AIMessage("We have 9:00 free.")]}
+    config = {"configurable": {"session": tools.Session("u", "k", "j", "p", "en"), "clinic_phone": None}}
+    monkeypatch.setattr(tools, "_rpc", lambda *a, **k: None)
+    assert graph.grounded(state, config) != {}, "9:00 was never offered"
