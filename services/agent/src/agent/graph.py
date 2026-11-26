@@ -51,7 +51,8 @@ How to do each job:
   word or language the patient uses for it (a "détartrage", "Zahnreinigung" or "limpieza" is a cleaning; a
   "videoconsulta" or a video call with the dentist is a video consultation, kind "video"). When the patient has named
   the clinic and the kind of visit, call find_slots with the clinic, the kind of visit as one English word and the
-  first day of the period they mean, then offer the earliest time it returns. Never ask what type of visit when they
+  first day of the period they mean, then offer the earliest time it returns. "The first free time", "as soon as
+  possible" or no day at all means the period starts today: never ask for a date then. Never ask what type of visit when they
   named one; ask only if the clinic or the kind of visit is truly missing. After booking a video consultation, say
   that the Join button appears on the visit in Visits.
 - The patient says yes to a time you offered: call book_visit with the same clinic, the same kind of visit and that
