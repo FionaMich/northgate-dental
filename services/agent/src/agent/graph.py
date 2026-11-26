@@ -10,6 +10,7 @@
 
 A handover to the team ends the turn with the fixed handover text, never generated words."""
 
+import hashlib
 import re
 from datetime import date, timedelta
 
@@ -79,6 +80,9 @@ Rules you never break:
 NUDGE = ("(Reminder from the system, not the patient.) You replied without calling a tool. If the patient's last "
          "message is one of the jobs in your instructions, call the right tool now with what you already know. "
          "If no tool applies, repeat your reply.")
+
+# Which instructions produced an answer (ai_events): changes whenever the prompt or the nudge changes, so it is never stale.
+PROMPT_VERSION = hashlib.sha256((PROMPT + NUDGE).encode()).hexdigest()[:12]
 
 
 def _day(d: date) -> str:

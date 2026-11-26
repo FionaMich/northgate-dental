@@ -15,20 +15,26 @@ TOKENS = Counter("nora_model_tokens_total", "Model tokens used", ["direction"])
 BLOCKS = Counter("nora_grounding_blocks_total", "Replies refused because a price, time or link had no tool behind it")
 SECOND_LOOKS = Counter("nora_second_looks_total", "Replies that used no tool and were given one second look", ["result"])
 CALLS = Counter("nora_calls_started_total", "Voice calls started", ["language"])
+AI_EVENT_FAILURES = Counter("nora_ai_event_failures_total", "Turns whose ai_events row could not be written")
 
 
-def record(channel: str, language: str, seconds: float, out: dict) -> None:
-    """One finished turn. Reads only the shape of the conversation (which tools, how many tokens), never its words."""
+def record(channel: str, language: str, seconds: float, out: dict) -> dict:
+    """One finished turn. Reads only the shape of the conversation (which tools, how many tokens), never its words,
+    and returns that shape for the ai_events row."""
     messages = out.get("messages", [])
     since = max((i for i, m in enumerate(messages) if isinstance(m, HumanMessage)), default=0)
     tools = [c["name"] for m in messages[since:] if isinstance(m, AIMessage) for c in (m.tool_calls or [])]
     for name in tools:
         TOOLS.labels(name).inc()
+    tokens = {"input_tokens": 0, "output_tokens": 0}
     for m in messages[since:]:
         usage = getattr(m, "usage_metadata", None) or {}
-        TOKENS.labels("input").inc(usage.get("input_tokens", 0))
-        TOKENS.labels("output").inc(usage.get("output_tokens", 0))
+        for key in tokens:
+            tokens[key] += usage.get(key, 0)
+    TOKENS.labels("input").inc(tokens["input_tokens"])
+    TOKENS.labels("output").inc(tokens["output_tokens"])
     outcome = ("confirm" if out.get("__interrupt__") else "emergency" if out.get("flags") else
                "handover" if "handoff_to_staff" in tools else "answered")
     TURNS.labels(channel, language, outcome).inc()
     SECONDS.labels(channel).observe(seconds)
+    return {"outcome": outcome, "tools": tools, **tokens}

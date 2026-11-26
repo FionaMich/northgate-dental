@@ -40,3 +40,44 @@ def test_the_metrics_page_has_numbers_and_never_a_patients_words():
     page = TestClient(api.app).get("/metrics")
     assert page.status_code == 200 and "nora_turns_total" in page.text and "nora_turn_seconds_bucket" in page.text
     assert "Canary-Zebra" not in page.text and "tooth hurts" not in page.text
+
+
+def _who(language="nl"):
+    from agent import tools
+    return api.Who("user-1", tools.Session("https://db.test", "pk", "jwt", "patient-1", language), None)
+
+
+def test_every_turn_is_logged_to_ai_events_with_its_shape_and_never_its_words(monkeypatch):
+    from agent import graph
+    logged = []
+    monkeypatch.setattr(api.tools, "_rpc", lambda s, name, **p: logged.append((name, p)))
+
+    class Graph:
+        def invoke(self, what, config):
+            return {"messages": [
+                HumanMessage("Ik ben Canary-Zebra, boek een reiniging"),
+                AIMessage("", tool_calls=[{"name": "find_slots", "args": {"clinic_code": "quincy"}, "id": "1"}],
+                          usage_metadata={"input_tokens": 1800, "output_tokens": 30, "total_tokens": 1830}),
+                ToolMessage("2026-11-27 10:00", tool_call_id="1"), AIMessage("Quincy heeft vrijdag 10:00 vrij.")]}
+    monkeypatch.setattr(api, "assistant", Graph())
+    api._run("chat", _who(), {"messages": []}, "thread-001")
+    name, event = logged[-1]
+    assert name == "log_ai_event"
+    assert event["channel"] == "chat" and event["language"] == "nl" and event["outcome"] == "answered"
+    assert event["tools"] == ["find_slots"] and event["input_tokens"] == 1800 and event["output_tokens"] == 30
+    assert event["prompt_version"] == graph.PROMPT_VERSION and event["model"].startswith("ollama:")
+    assert "Canary-Zebra" not in str(event) and "10:00" not in str(event) and "quincy" not in str(event)
+
+
+def test_a_failed_log_never_costs_the_patient_their_answer_and_is_counted(monkeypatch):
+    def down(*a, **k):
+        raise RuntimeError("database down")
+    monkeypatch.setattr(api.tools, "_rpc", down)
+
+    class Graph:
+        def invoke(self, what, config):
+            return {"messages": [HumanMessage("hours?"), AIMessage("We open at 07:00.")]}
+    monkeypatch.setattr(api, "assistant", Graph())
+    before = value("nora_ai_event_failures_total")
+    assert api._run("chat", _who("en"), {"messages": []}, "thread-002").reply == "We open at 07:00."
+    assert value("nora_ai_event_failures_total") == before + 1, "a lost log line is alertable"
