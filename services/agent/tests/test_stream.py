@@ -214,7 +214,8 @@ def test_a_reply_that_handed_over_tells_the_app_to_offer_the_team_chat():
 def test_the_team_chip_skips_the_model_and_the_choice_card_decides_how_the_team_replies(client, monkeypatch):
     signed_in(monkeypatch)
     filed, notices = [], []
-    monkeypatch.setattr(api.tools, "_rpc", lambda s, name, **p: filed.append((name, p)))
+    # the handover's own writes; every turn's ai_events row is tested in test_metrics
+    monkeypatch.setattr(api.tools, "_rpc", lambda s, name, **p: name == "log_ai_event" or filed.append((name, p)))
     monkeypatch.setattr(api.graph, "model_for", lambda role="assistant": pytest.fail("the chip never waits for the model"))
     monkeypatch.setattr(stream, "team_channel", lambda user_id, *conf: f"team-{user_id}")
     monkeypatch.setattr(stream, "team_notice", lambda channel, note, *conf: notices.append(channel))
