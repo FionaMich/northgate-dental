@@ -93,6 +93,18 @@ jobs:
       - run: uv sync --locked
       - run: uv run pytest -q # safety gate in 12 languages and the graph with a scripted model; no Ollama in CI
 
+  mcp:
+    name: mcp (pytest)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/mcp
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --locked
+      - run: uv run pytest -q # the public tools, with the database replaced; no network in CI
+
   voice:
     name: voice (pytest)
     runs-on: ubuntu-latest
