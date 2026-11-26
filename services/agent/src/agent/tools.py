@@ -216,6 +216,25 @@ def shop_search(query: str, config: RunnableConfig) -> str:
 
 
 @tool
+def search_clinic_knowledge(question_in_english: str, config: RunnableConfig) -> str:
+    """Approved Northgate documents on how things work: cancellations and missed-visit fees, preparing for a visit,
+    paying and payment plans, insurance and estimates, video consultations, children and guardians, records and
+    privacy, getting here and parking, shop orders and returns, urgent help, feedback and complaints. Pass the
+    patient's question in English."""
+    from . import knowledge
+    s = _session(config)
+    try:
+        vector = knowledge.as_vector(knowledge.embed_query(question_in_english))
+    except Exception:   # the embedder is down: keywords alone still find exact terms
+        vector = None
+    rows = _rpc(s, "search_knowledge", query=question_in_english[:300], query_embedding=vector, match_count=5) or []
+    kept = knowledge.relevant(rows)[:3]
+    if not kept:
+        return knowledge.NOTHING_FOUND
+    return "\n\n".join(f'From "{r["document_title"]}" ({r["heading"]}): {r["content"]}' for r in kept)
+
+
+@tool
 def handoff_to_staff(category: str, summary_in_english: str, config: RunnableConfig) -> str:
     """Pass the conversation to the clinic team. category is one of booking, billing, clinical_question, shop, other.
     Always use clinical_question for anything about symptoms, medicines or treatment advice. Write a short summary in
@@ -268,4 +287,5 @@ def _phone_number(raw: str) -> str:
     return ("+" if raw.strip().startswith("+") else "") + digits
 
 
-ALL = [clinic_info, services, find_slots, book_visit, my_visits, cancel_visit, pay_link, shop_search, handoff_to_staff]
+ALL = [clinic_info, services, find_slots, book_visit, my_visits, cancel_visit, pay_link, shop_search,
+       search_clinic_knowledge, handoff_to_staff]
