@@ -30,8 +30,21 @@ class Appointment {
     this.serviceId,
     this.dentistId,
     this.priceCents,
+    this.serviceCode,
   });
   final String id, service, location, status;
+
+  /// The service's code (D1110 is a cleaning); D9995 is a video consultation.
+  final String? serviceCode;
+
+  bool get isVideo => serviceCode == 'D9995';
+
+  /// A video consultation's room opens the day before, like a waiting room, and closes when the visit ends.
+  bool canJoinAt(DateTime now) =>
+      isVideo &&
+      status == 'booked' &&
+      now.isAfter(startsAt.subtract(const Duration(days: 1))) &&
+      now.isBefore(endsAt);
 
   /// The clinic's price for this service, in whole cents; what the patient pays in the app.
   final int? priceCents;
@@ -217,6 +230,7 @@ class BookableService {
     _ when name.toLowerCase().contains('whiten') => 'Cosmetic',
     _ when name.toLowerCase().contains('exam') => 'Check-ups',
     _ when name.toLowerCase().contains('extraction') => 'Surgery and implants',
+    _ when name.toLowerCase().contains('video') => 'Check-ups',
     _ => 'Fillings and crowns',
   };
 
@@ -375,7 +389,7 @@ class SupabaseCareRepository implements CareRepository {
           .from('appointments')
           .select(
             'id, starts_at, ends_at, status, location_id, service_id, practitioner_id, '
-            'location_services(price_cents, services(name), locations(name)), practitioners(public_name, photo_key)',
+            'location_services(price_cents, services(name, code), locations(name)), practitioners(public_name, photo_key)',
           )
           .eq('patient_id', patientId)
           .inFilter('status', ['booked', 'arrived'])
@@ -439,6 +453,9 @@ class SupabaseCareRepository implements CareRepository {
             dentistId: r['practitioner_id'] as String?,
             priceCents:
                 (r['location_services'] as Map?)?['price_cents'] as int?,
+            serviceCode:
+                ((r['location_services'] as Map?)?['services'] as Map?)?['code']
+                    as String?,
           ),
       ],
       payments: [
