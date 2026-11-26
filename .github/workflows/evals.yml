@@ -1,0 +1,32 @@
+# The evaluation gate (AGENTS.md section 14.1): a pull request that changes what Nora knows or how she searches must
+# keep retrieval at or above evals/thresholds.yaml (recall@1, recall@3, MRR, and every out-of-scope question refused).
+name: evals
+
+on:
+  pull_request:
+    branches: [develop, main]
+    paths:
+      - 'knowledge/**'
+      - 'services/agent/src/agent/knowledge.py'
+      - 'services/agent/src/agent/tools.py'
+      - 'services/agent/evals/**'
+
+permissions:
+  contents: read
+
+jobs:
+  retrieval:
+    name: evals (retrieval, bge-m3)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: services/agent
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: embedding model
+        run: |
+          curl -fsSL https://ollama.com/install.sh | sh >/dev/null
+          (ollama serve >/dev/null 2>&1 &) && sleep 5 && ollama pull bge-m3 >/dev/null
+      - run: OLLAMA_URL=http://127.0.0.1:11434 uv run --quiet python evals/eval_retrieval.py
