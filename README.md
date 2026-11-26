@@ -12,6 +12,12 @@ A dental practice system and patient app for a fictional US dental group with th
 | --- | --- | --- |
 | ![Records](.github/readme/records.jpg) | ![Aligner timer](.github/readme/aligner.jpg) | ![Profile](.github/readme/profile.jpg) |
 
+**The website:** [northgate-dental.vercel.app](https://northgate-dental.vercel.app): services and prices for every clinic, a page per service, the team, a voice call sample with Nora, an enquiry form and the staff portal.
+
+| Website | A service page | Talk to Nora (sample) |
+| --- | --- | --- |
+| ![Website home](.github/readme/web-home.jpg) | ![Clear aligners service page](.github/readme/web-service.jpg) | ![Voice call sample](.github/readme/web-voice.jpg) |
+
 ## Architecture
 
 Northgate is deliberately lean. Patient data lives in **one place**, a managed Postgres database (Supabase, US East). Everything else either reads from it under the database's own access rules, or holds no patient data at all. That makes the most important question a healthcare client asks, "where does my data go?", short to answer.
@@ -608,6 +614,33 @@ About 3,000 dental patients with visits, tooth charts, findings and treatment pl
 </details>
 
 <details>
+<summary><b>The website and the staff portal: Next.js on Vercel, Supabase from the browser</b></summary>
+
+Live at [northgate-dental.vercel.app](https://northgate-dental.vercel.app). The code is in `apps/web`: Next.js with the App Router and Tailwind, exported as static files, and served by Vercel's free Hobby plan. No server code runs at Vercel, so nothing there can read patient data.
+
+| Services and prices | On a phone | Staff sign-in |
+| --- | --- | --- |
+| ![Services and prices](.github/readme/web-services.jpg) | ![The site on a phone](.github/readme/web-phone.jpg) | ![Staff sign-in](.github/readme/web-portal-signin.jpg) |
+
+- **Pages built from the database.** Services, summaries, prices at each clinic, opening hours and phone numbers come from one database function, `public_catalogue()`, at build time. A bundled snapshot is the fallback, so a build never depends on the API. Each service has its own page: what happens at the visit, who you will usually see, and the price at each clinic.
+- **The same brand as the app.** Same colours, the same bundled fonts (nothing loaded from a font service), the same photographs and the same team bios.
+- **A voice call sample.** It shows how a call with Nora looks in the app: her portrait, captions of both sides, and the Confirm card. It is scripted, because website visitors are not signed in.
+- **An enquiry form that keeps visitors out of the database.** Signed-out visitors get two functions and nothing else. `submit_lead()` asks for consent, limits each address to three enquiries a day, and turns each enquiry into a task for the chosen clinic. Only that clinic's staff can read it; it is kept 12 months.
+- **The staff portal** (`/portal`): password, then an authenticator-app code; staff tables return nothing without it. Pages:
+  - **Schedule:** a day board, one column per dentist.
+  - **Dentist desk:** your own visits.
+  - **Inbox:** Nora's handovers and website questions.
+  - **Coverage queue:** verify or reject insurance cards.
+  - **Roster**
+  - **Payments**
+  - **Nora activity:** from `ai_events`: what Nora did, never what anyone said.
+  - **Settings:** the Nora on/off switch, for an organisation admin only.
+
+  Row level security in the database decides what each person sees.
+
+</details>
+
+<details>
 <summary><b>Monitoring: Prometheus metrics, Grafana Alloy and a Grafana Cloud dashboard</b></summary>
 
 The assistant counts what it does and Grafana shows it, so "is Nora working, how fast, and what does a conversation cost?" has a measured answer.
@@ -626,6 +659,16 @@ The assistant counts what it does and Grafana shows it, so "is Nora working, how
 - **The page is private.** `/metrics` is outside the `/assistant/` prefix, so Nginx never publishes it; Grafana Alloy reads it on the Docker network and writes to Grafana Cloud's hosted Prometheus.
 - **Objectives are written down** in `ops/slos.yaml`: 95 per cent of turns answered within 30 seconds on the demo's CPU-only server, and 99.5 per cent availability.
 - **One dashboard** ("Northgate Dental: Nora, the receptionist assistant"): turns by outcome, time to answer, handover rate, safety refusals, tool calls, tokens per turn, languages and calls.
+
+![The Nora dashboard in Grafana Cloud](.github/readme/grafana-nora.jpg)
+
+What the dashboard is for: one screen that answers "is Nora up, how long are patients waiting, how often does she pass them to the team, does the safety check refuse her, which jobs do patients bring, in which languages, and what does it cost in tokens?". The picture shows sample values, so that every panel is filled. The live dashboard shows the staging server's real, much smaller traffic.
+
+**Alerts** (Grafana folder "Northgate alerts"), each with a runbook:
+- **Nora is down:** no scrape for 5 minutes.
+- **Replies are slow:** p95 over 90 seconds for 15 minutes.
+- **The safety check is refusing many replies:** more than 5 in an hour.
+- **Turns are missing from `ai_events`:** any failure, because the AI audit trail must have no gaps.
 
 </details>
 
