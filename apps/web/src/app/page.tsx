@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import EnquiryForm from "@/components/EnquiryForm";
+import VoiceSample from "@/components/VoiceSample";
 import { ACCESS, TEAM, catalogue, money, openingLines, phone, servicePicture } from "@/lib/data";
 
 const FEATURED = ["D0150", "D2391", "D9995", "D8090", "D9972", "D6010"];
@@ -115,6 +116,24 @@ export default async function Home() {
             <li><b className="text-sea">Speaks eight languages</b>: English, French, Dutch, German, Spanish, Italian, Lithuanian and Swedish.</li>
             <li><b className="text-sea">Never gives medical advice.</b> Anything about symptoms goes straight to a member of the Northgate team; urgent warning signs get emergency guidance at once.</li>
           </ul>
+        </div>
+      </section>
+
+      {/* Voice */}
+      <section className="bg-gradient-to-b from-white to-enamel/60 py-20">
+        <div className="mx-auto grid max-w-6xl items-center gap-12 px-4 sm:px-6 md:grid-cols-2">
+          <div>
+            <p className="text-sm font-bold text-teal">Talk to Nora</p>
+            <h2 className="mt-2 font-display text-3xl font-black tracking-tight sm:text-4xl">Rather say it than type it? Call Nora in the app.</h2>
+            <p className="mt-4 text-muted">Tap the voice button in the chat and talk, in any of the eight languages. Nora answers out loud, with live captions of both of you on screen.</p>
+            <ul className="mt-6 space-y-3 text-muted">
+              <li><b className="text-sea">Saying yes books nothing.</b> A booking or payment waits for the button on your screen.</li>
+              <li><b className="text-sea">Payment links are never read aloud;</b> they arrive as a secure button.</li>
+              <li><b className="text-sea">Nothing is recorded.</b> Calls run on Stream with recording switched off.</li>
+            </ul>
+            <p className="mt-6 text-xs text-muted">The call on the right is a sample with scripted lines. In the app, Nora answers your own questions.</p>
+          </div>
+          <VoiceSample />
         </div>
       </section>
 
