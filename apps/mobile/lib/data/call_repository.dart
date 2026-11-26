@@ -88,7 +88,7 @@ class StreamCallRepository implements CallRepository {
       request.headers.contentType = ContentType.json;
       request.write(jsonEncode({'thread': 'call-$callId', 'accept': accept}));
       final response = await request.close().timeout(
-        const Duration(seconds: 150),
+        const Duration(seconds: 240),
       );
       await response.drain<void>();
     } finally {
