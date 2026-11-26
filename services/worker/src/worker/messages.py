@@ -93,7 +93,8 @@ def dollars(cents: int) -> str:
 def render(kind: str, ctx: Context) -> Message:
     """Subjects carry the day and time, never the treatment (they show on lock screens); the body has the minimum."""
     e, name, at = escape, ctx.first_name, when(ctx)
-    where = f"Northgate Dental, {ctx.clinic_name}"
+    video = "video" in ctx.service_name.lower()   # D9995: the visit happens in the app, not at the clinic
+    where = "Video call in the Northgate Dental app" if video else f"Northgate Dental, {ctx.clinic_name}"
     details = [("When", at), ("Where", where), ("For", ctx.service_name)]
     manage = ("Change or cancel", ctx.link) if ctx.link else None
     no_link = "To change or cancel, open the Northgate Dental app."
@@ -101,7 +102,8 @@ def render(kind: str, ctx: Context) -> Message:
         subject, pre = f"You're booked: {at}", f"Your {ctx.service_name} at {ctx.clinic_name} is confirmed."
         eyebrow, headline = "Visit confirmed", f"You're booked, {name}"
         intro, cta, note = f"Your {ctx.service_name} is confirmed. We'll send a reminder before the day.", manage, \
-            "Please arrive 10 minutes early and bring your dental plan card if you have one."
+            ("Join from Visits in the app: the button appears the day before. Find a quiet spot with good light."
+             if video else "Please arrive 10 minutes early and bring your dental plan card if you have one.")
     elif kind.startswith("reminder:"):
         lead = {"72h": ("In 3 days", f"See you in 3 days, {name}"), "24h": ("Tomorrow", f"See you tomorrow, {name}"),
                 "6h": ("Today", f"See you today, {name}")}[kind.split(":")[1]]
