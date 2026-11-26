@@ -45,7 +45,8 @@ jobs:
           check "host is the session pooler on port 5432" '[[ "$u" == *pooler.supabase.com:5432/* ]]'
           exit $fail
       # Migrations only, never the seed: Supabase's guidance is never to push seed data to production.
-      - run: supabase db push --remote "$DB_URL" --yes
+      # --include-all: pull requests merge in any order, so an older migration may land after a newer one
+      - run: supabase db push --remote "$DB_URL" --yes --include-all
       # The signing secret lives in Supabase Vault, where private.record_stripe_event() reads it: never in Git or n8n.
       - name: load the Stripe webhook signing secret into Vault
         if: env.STRIPE_WEBHOOK_SECRET != ''
