@@ -16,7 +16,6 @@ import 'care_widgets.dart';
 import 'dentist_screen.dart';
 import 'plan_screen.dart';
 import 'shell.dart';
-import 'team_chat_screen.dart';
 import 'video_visit_screen.dart';
 
 class HomeScreen extends ConsumerWidget {
@@ -151,10 +150,6 @@ class _Body extends ConsumerWidget {
         Reveal(child: next != null ? _NextVisit(next) : const _BookPrompt()),
         const SizedBox(height: 22),
         const Reveal(child: _AskReceptionist()),
-        const SizedBox(height: 10),
-        const Reveal(child: _MessageTeam()),
-        const SizedBox(height: 10),
-        const Reveal(child: _VideoVisit()),
         const SizedBox(height: 22),
         if (_recentAftercare(care) case (final visit, final sheet)) ...[
           Reveal(
@@ -477,6 +472,7 @@ class _NextVisit extends ConsumerWidget {
           ],
         ),
         const SizedBox(height: 14),
+        JoinVideoButton(appointment: appointment),
         const Divider(height: 1, color: Color(0xFFE8EFEE)),
         const SizedBox(height: 10),
         // Side by side when both fit; on narrow phones or large text the button moves under the dentist, never "Cancel vi...".
@@ -929,106 +925,6 @@ class _OurServices extends ConsumerWidget {
           ),
         ),
       ],
-    ),
-  );
-}
-
-/// Opens the patient's video consultation room with the team.
-class _VideoVisit extends ConsumerWidget {
-  const _VideoVisit();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) => Semantics(
-    container: true,
-    button: true,
-    child: Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(22),
-      child: InkWell(
-        key: const Key('open-video-visit'),
-        borderRadius: BorderRadius.circular(22),
-        onTap: () => openVideoVisit(context, ref),
-        child: const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-          child: Row(
-            children: [
-              Icon(Icons.videocam_rounded, color: Palette.teal, size: 28),
-              SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Video consultation',
-                      style: TextStyle(
-                        fontSize: 15.5,
-                        fontWeight: FontWeight.w700,
-                        color: Palette.deepSea,
-                      ),
-                    ),
-                    SizedBox(height: 2),
-                    Text(
-                      'See a member of our team on video',
-                      style: TextStyle(fontSize: 13, color: Palette.muted),
-                    ),
-                  ],
-                ),
-              ),
-              Icon(Icons.chevron_right_rounded, color: Palette.muted),
-            ],
-          ),
-        ),
-      ),
-    ),
-  );
-}
-
-/// Opens the patient's chat with the clinic team: real people, replying during opening hours.
-class _MessageTeam extends ConsumerWidget {
-  const _MessageTeam();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) => Semantics(
-    container: true,
-    button: true,
-    child: Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(22),
-      child: InkWell(
-        key: const Key('open-team-chat-home'),
-        borderRadius: BorderRadius.circular(22),
-        onTap: () => openTeamChat(context, ref),
-        child: const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-          child: Row(
-            children: [
-              Icon(Icons.support_agent_rounded, color: Palette.teal, size: 28),
-              SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Message our team',
-                      style: TextStyle(
-                        fontSize: 15.5,
-                        fontWeight: FontWeight.w700,
-                        color: Palette.deepSea,
-                      ),
-                    ),
-                    SizedBox(height: 2),
-                    Text(
-                      'Real people, replying during opening hours',
-                      style: TextStyle(fontSize: 13, color: Palette.muted),
-                    ),
-                  ],
-                ),
-              ),
-              Icon(Icons.chevron_right_rounded, color: Palette.muted),
-            ],
-          ),
-        ),
-      ),
     ),
   );
 }

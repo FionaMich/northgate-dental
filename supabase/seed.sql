@@ -42,7 +42,8 @@ join (values
 
 insert into public.specialties (code, name) values
   ('general', 'General dentistry'), ('hygiene', 'Dental hygiene'), ('oral-surgery', 'Oral surgery'),
-  ('endodontics', 'Endodontics'), ('orthodontics', 'Orthodontics'), ('paediatric', 'Paediatric dentistry');
+  ('endodontics', 'Endodontics'), ('orthodontics', 'Orthodontics'), ('paediatric', 'Paediatric dentistry')
+on conflict (code) do nothing;   -- general dentistry already exists: the video consultation migration adds it
 
 insert into public.services (code, name, duration_minutes, specialty_id, requires_resource)
 select v.code, v.name, v.minutes, s.id, v.resource::public.resource_kind
@@ -85,7 +86,8 @@ from (values
   ('cambridge', 'D0150', 14000), ('cambridge', 'D1110', 12000), ('cambridge', 'D1120', 9000),
   ('cambridge', 'D2391', 20000), ('cambridge', 'D8090', 520000), ('cambridge', 'D9972', 45000),
   ('quincy',    'D0150', 12000), ('quincy',    'D1110', 11000), ('quincy',    'D2391', 18000),
-  ('quincy',    'D7140', 19000), ('quincy',    'D5110', 160000), ('quincy',   'D9110', 15000)
+  ('quincy',    'D7140', 19000), ('quincy',    'D5110', 160000), ('quincy',   'D9110', 15000),
+  ('back-bay',  'D9995', 4500),  ('cambridge', 'D9995', 4500),  ('quincy',   'D9995', 4500)   -- video consultation
 ) as p(location, service, price_cents)
 join public.locations l on l.code = p.location
 join public.services s on s.code = p.service;

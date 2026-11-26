@@ -209,13 +209,22 @@ def test_a_reply_that_handed_over_tells_the_app_to_offer_the_team_chat():
     assert api._reply({"messages": [api.HumanMessage("hours?"), api.AIMessage("We open at 07:00.")]}).team is False
 
 
-def test_a_video_consultation_is_the_patients_own_room_and_only_the_server_lets_the_team_in(client, monkeypatch):
+def test_a_video_room_is_only_for_the_patients_own_booked_video_consultation(client, monkeypatch):
     signed_in(monkeypatch)
-    ticket = client.post("/assistant/consult", headers={"Authorization": "Bearer good"}).json()
-    assert ticket["call_type"] == "consult" and ticket["call_id"] == "consult-user-1" and registered[-1] == "user-1"
-    assert client.post("/assistant/consult").status_code == 422, "no session, no room"
-    url = "/assistant/consult/consult-user-1/team"
+    visits = {"v-video": {"id": "v-video", "status": "booked", "location_services": {"services": {"code": "D9995"}}},
+              "v-clean": {"id": "v-clean", "status": "booked", "location_services": {"services": {"code": "D1110"}}},
+              "v-gone": {"id": "v-gone", "status": "cancelled", "location_services": {"services": {"code": "D9995"}}}}
+    # the patient's session only ever returns their own visits (row level security); someone else's is just absent
+    monkeypatch.setattr(api.tools, "_get", lambda session, path, **p: [v for k, v in visits.items() if p["id"] == f"eq.{k}"])
+    post = lambda vid: client.post("/assistant/consult", json={"appointment_id": vid}, headers={"Authorization": "Bearer good"})
+    ticket = post("v-video").json()
+    assert ticket["call_type"] == "consult" and ticket["call_id"] == "consult-v-video" and registered[-1] == "user-1"
+    assert post("v-clean").status_code == 404, "a cleaning has no video room"
+    assert post("v-gone").status_code == 404, "a cancelled visit has no video room"
+    assert post("someone-elses").status_code == 404
+    assert client.post("/assistant/consult", json={"appointment_id": "v-video"}).status_code == 422, "no session"
+    url = "/assistant/consult/consult-v-video/team"
     assert client.post(url, headers={"X-Internal-Key": "wrong"}).status_code == 401
     team = client.post(url, headers={"X-Internal-Key": "internal"}).json()
-    assert team["user_id"] == "northgate-team" and team["call_id"] == "consult-user-1"
+    assert team["user_id"] == "northgate-team" and team["call_id"] == "consult-v-video"
     assert client.post("/assistant/consult/other/team", headers={"X-Internal-Key": "internal"}).status_code == 404

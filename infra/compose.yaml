@@ -139,6 +139,10 @@ services:
       STREAM_API_SECRET: ${STREAM_API_SECRET:-}
       ASSISTANT_INTERNAL_KEY: ${ASSISTANT_INTERNAL_KEY:-}  # shared with the voice service; empty means no voice service
       VOICE_LANGUAGES: ${VOICE_LANGUAGES:-en,fr,nl,de,es,it,lt,sv}
+      JIRA_SITE: ${JIRA_SITE:-}                    # handovers as tickets on the team's board (ADR 0019); empty means none
+      JIRA_PROJECT: ${JIRA_PROJECT:-NGD}
+      JIRA_EMAIL: ${JIRA_EMAIL:-}
+      JIRA_API_TOKEN: ${JIRA_API_TOKEN:-}
     networks: [app]
     mem_limit: 512m
 

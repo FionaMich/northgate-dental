@@ -212,13 +212,32 @@ def shop_search(query: str, config: RunnableConfig) -> str:
 
 
 @tool
-def handoff_to_staff(category: str, summary_in_english: str, config: RunnableConfig) -> str:
+def handoff_to_staff(category: str, summary_in_english: str, config: RunnableConfig, reply_by: str = "app",
+                     phone: str = "") -> str:
     """Pass the conversation to the clinic team. category is one of booking, billing, clinical_question, shop, other.
     Always use clinical_question for anything about symptoms, medicines or treatment advice. Write a short summary in
-    English of what the patient needs, without diagnosing."""
+    English of what the patient needs, without diagnosing. reply_by is "call" or "app"; for "call", phone is the
+    number the patient gave for the call back."""
     s = _session(config)
+    reply_by = "call" if reply_by == "call" else "app"
+    if reply_by == "call":
+        phone = _phone_number(phone)
     _rpc(s, "request_handover", category=category, language=s.language, summary=summary_in_english[:600])
+    try:  # the team's board; the staff inbox above already has the request if Jira is down
+        from . import jira
+        jira.ticket(category, s.language, summary_in_english[:600], reply_by, phone if reply_by == "call" else "",
+                    s.patient_id)
+    except Exception:
+        pass
     return "handed_over"
+
+
+def _phone_number(raw: str) -> str:
+    """A callback number as the patient gave it, checked: digits with an optional leading +, 7 to 15 digits."""
+    digits = "".join(c for c in raw if c.isdigit())
+    if not 7 <= len(digits) <= 15:
+        raise ToolRefused("that phone number does not look complete; ask the patient for it again")
+    return ("+" if raw.strip().startswith("+") else "") + digits
 
 
 ALL = [clinic_info, services, find_slots, book_visit, my_visits, cancel_visit, pay_link, shop_search, handoff_to_staff]

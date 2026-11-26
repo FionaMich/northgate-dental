@@ -2,16 +2,47 @@ import 'package:dental/ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:stream_video_flutter/stream_video_flutter.dart' as sv;
 
+import '../data/care_repository.dart';
 import '../data/consult_repository.dart';
 import '../design/tokens.dart';
 import '../state.dart';
 
-/// Opens the patient's video consultation room, or says plainly that it is not available.
-Future<void> openVideoVisit(BuildContext context, WidgetRef ref) async {
+/// "Join video consultation" on a booked video visit, from the day before until it ends.
+class JoinVideoButton extends ConsumerWidget {
+  const JoinVideoButton({super.key, required this.appointment});
+  final Appointment appointment;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (!appointment.canJoinAt(DateTime.now())) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: FilledButton.icon(
+        key: Key('join-video-${appointment.id}'),
+        onPressed: () => openVideoVisit(context, ref, appointment.id),
+        style: FilledButton.styleFrom(
+          backgroundColor: Palette.teal,
+          minimumSize: const Size.fromHeight(48),
+        ),
+        icon: const Icon(Icons.videocam_rounded),
+        label: const Text('Join video consultation'),
+      ),
+    );
+  }
+}
+
+/// Opens the room for one booked video consultation, or says plainly that it is not available.
+Future<void> openVideoVisit(
+  BuildContext context,
+  WidgetRef ref,
+  String appointmentId,
+) async {
   final navigator = Navigator.of(context);
   final messenger = ScaffoldMessenger.of(context);
   try {
-    final ticket = await ref.read(consultRepositoryProvider).ticket();
+    final ticket = await ref
+        .read(consultRepositoryProvider)
+        .ticket(appointmentId);
     await navigator.push(
       MaterialPageRoute(builder: (_) => VideoVisitScreen(ticket: ticket)),
     );

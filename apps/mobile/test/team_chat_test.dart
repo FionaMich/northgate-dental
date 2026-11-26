@@ -14,18 +14,27 @@ void main() {
     bool available = true,
   }) async {
     final repo = FakeTeamChatRepository(available: available);
+    final nora = FakeAssistantRepository()..handOver = true;
     await pumpApp(
       tester,
       FakeAccountRepository(patients: [elena]),
+      assistant: nora,
       extra: [teamChatRepositoryProvider.overrideWithValue(repo)],
     );
     await signIn(tester);
-    await tapKey(tester, 'open-team-chat-home');
+    // the team is reached through Nora: once she hands over, her chat offers the team chat
+    await tapKey(tester, 'open-assistant');
+    await tester.enterText(
+      find.byKey(const Key('assistant-input')),
+      'I would like to speak to a member of the Northgate team',
+    );
+    await tapKey(tester, 'assistant-send');
+    await tapKey(tester, 'open-team-chat');
     return repo;
   }
 
   testWidgets(
-    'Home opens the team chat; the team\'s messages, typing and read ticks show',
+    'after Nora hands over, the team chat opens; the team\'s messages, typing and read ticks show',
     (tester) async {
       final chat = (await openTeamChat(tester)).chats.single;
       expect(chat.opened, isTrue);
@@ -79,23 +88,4 @@ void main() {
     expect(repo.chats, isEmpty);
     expect(find.textContaining('team chat is unavailable'), findsOneWidget);
   });
-
-  testWidgets(
-    'Home offers a video consultation and says plainly when it is unavailable',
-    (tester) async {
-      final consult = FakeConsultRepository(available: false);
-      await pumpApp(
-        tester,
-        FakeAccountRepository(patients: [elena]),
-        extra: [consultRepositoryProvider.overrideWithValue(consult)],
-      );
-      await signIn(tester);
-      await tapKey(tester, 'open-video-visit');
-      expect(consult.asked, 1);
-      expect(
-        find.textContaining('Video consultations are unavailable'),
-        findsOneWidget,
-      );
-    },
-  );
 }

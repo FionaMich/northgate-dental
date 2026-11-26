@@ -536,6 +536,7 @@ class FakeAssistantRepository implements AssistantRepository {
   final sent = <String>[];
   final answers = <bool>[];
   bool proposeBooking = false;
+  bool handOver = false; // the reply passed the conversation to the team
 
   @override
   Future<String> hello(String language) async => language == 'es'
@@ -560,6 +561,11 @@ class FakeAssistantRepository implements AssistantRepository {
               'yes': language == 'es' ? 'Confirmar' : 'Confirm',
               'no': language == 'es' ? 'Ahora no' : 'Not now',
             },
+          )
+        : handOver
+        ? const AssistantTurn(
+            reply: 'I have passed this to our team.',
+            team: true,
           )
         : const AssistantTurn(reply: 'Quincy opens at 07:00 on Mondays.');
   }
@@ -719,11 +725,11 @@ class FakeTeamChatRepository implements TeamChatRepository {
 class FakeConsultRepository implements ConsultRepository {
   FakeConsultRepository({this.available = true});
   final bool available;
-  int asked = 0;
+  final asked = <String>[];
 
   @override
-  Future<Map<String, dynamic>> ticket() async {
-    asked += 1;
+  Future<Map<String, dynamic>> ticket(String appointmentId) async {
+    asked.add(appointmentId);
     if (!available) throw const ConsultUnavailable();
     return {
       'api_key': 'k',

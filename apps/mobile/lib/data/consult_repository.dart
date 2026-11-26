@@ -14,8 +14,8 @@ class ConsultUnavailable implements Exception {
 }
 
 abstract class ConsultRepository {
-  /// The ticket for the patient's room: api_key, token, user_id, call_type, call_id.
-  Future<Map<String, dynamic>> ticket();
+  /// The ticket for one booked video consultation's room: api_key, token, user_id, call_type, call_id.
+  Future<Map<String, dynamic>> ticket(String appointmentId);
 }
 
 class HttpConsultRepository implements ConsultRepository {
@@ -23,7 +23,7 @@ class HttpConsultRepository implements ConsultRepository {
   final GoTrueClient _auth;
 
   @override
-  Future<Map<String, dynamic>> ticket() async {
+  Future<Map<String, dynamic>> ticket(String appointmentId) async {
     final http = HttpClient()..connectionTimeout = const Duration(seconds: 15);
     try {
       final request = await http.postUrl(
@@ -33,6 +33,8 @@ class HttpConsultRepository implements ConsultRepository {
       if (token != null) {
         request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $token');
       }
+      request.headers.contentType = ContentType.json;
+      request.write(jsonEncode({'appointment_id': appointmentId}));
       final response = await request.close().timeout(
         const Duration(seconds: 20),
       );

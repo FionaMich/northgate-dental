@@ -18,7 +18,7 @@ from langgraph.types import Command
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from pydantic import BaseModel, Field
 
-from . import graph, metrics, safety, stream
+from . import graph, metrics, safety, stream, tools
 from .tools import Session
 
 if os.environ.get("LANGSMITH_API_KEY"):
@@ -196,20 +196,37 @@ def start_call(w: Who = Depends(who)) -> CallTicket:
     return CallTicket(api_key=key, token=stream.user_token(w.user_id, secret), user_id=w.user_id, call_id=call_id)
 
 
+class ConsultIn(BaseModel):
+    appointment_id: str = Field(min_length=1, max_length=64)
+
+
+VIDEO_SERVICE = "D9995"   # teledentistry, synchronous: the only visit type that has a video room
+
+
 @app.post("/assistant/consult", response_model=CallTicket)
-def consult(w: Who = Depends(who)) -> CallTicket:
-    """The signed-in patient's video consultation room and a one-hour token (ADR 0015). The room is named after the
-    verified session, so nobody can join someone else's; Stream records and transcribes nothing on this call type."""
+def consult(body: ConsultIn, w: Who = Depends(who)) -> CallTicket:
+    """A one-hour token for the video room of one booked video consultation (ADR 0015). The visit is read with the
+    patient's own session, so row level security only returns it if it is theirs; it must be booked and be a video
+    consultation. Stream records and transcribes nothing on this call type."""
     conf = stream.settings()
     if conf is None:
         raise HTTPException(503, "video consultations are not available")
+    try:
+        rows = tools._get(w.session, "/appointments", select="id,status,location_services(services(code))",
+                          id=f"eq.{body.appointment_id}")
+    except httpx.HTTPError:
+        raise HTTPException(503, "video consultations are not available")
+    visit = rows[0] if rows else None
+    if (visit is None or visit["status"] not in ("booked", "arrived")
+            or (visit.get("location_services") or {}).get("services", {}).get("code") != VIDEO_SERVICE):
+        raise HTTPException(404, "no such video consultation")
     key, secret = conf
     try:
         stream.register_user(w.user_id, key, secret)
     except httpx.HTTPError:
         raise HTTPException(503, "video consultations are not available")
     return CallTicket(api_key=key, token=stream.user_token(w.user_id, secret), user_id=w.user_id,
-                      call_type="consult", call_id=f"consult-{w.user_id}")
+                      call_type="consult", call_id=f"consult-{visit['id']}")
 
 
 @app.post("/assistant/consult/{call_id}/team", response_model=CallTicket, dependencies=[Depends(internal)])

@@ -4,6 +4,7 @@ import 'package:dental/ui.dart';
 import '../data/care_repository.dart';
 import '../design/format.dart';
 import '../design/motion.dart';
+import 'video_visit_screen.dart';
 import '../design/tokens.dart';
 import '../design/widgets.dart';
 import '../state.dart';
@@ -310,6 +311,7 @@ class _VisitCard extends StatelessWidget {
               ),
             ],
             const SizedBox(height: 14),
+            JoinVideoButton(appointment: a),
             Row(
               children: [
                 Expanded(
