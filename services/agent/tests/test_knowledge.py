@@ -77,3 +77,17 @@ def test_if_the_embedder_is_down_keywords_still_answer(monkeypatch):
     out = tools.search_clinic_knowledge.func(question_in_english="payment plan",
                                              config={"configurable": {"session": session()}})
     assert sent["query_embedding"] is None and "6 monthly payments" in out
+
+
+def test_the_sql_for_the_deploy_upserts_every_document_and_escapes_its_text(tmp_path):
+    (tmp_path / "parking.md").write_text("---\ntitle: Getting here\nversion: 2\nreviewed_by: Practice manager\n"
+                                         "reviewed_on: 2026-11-26\n---\n## Quincy\nThe clinic's own car park.\n")
+
+    class Fake:
+        def embed_documents(self, texts):
+            return [[0.5] * 1024 for _ in texts]
+    sql = knowledge.to_sql(tmp_path, Fake())
+    assert sql.startswith("begin;") and sql.rstrip().endswith("commit;"), "all or nothing"
+    assert "on conflict (slug) do update" in sql and "delete from public.knowledge_passages" in sql
+    assert "The clinic''s own car park." in sql, "a quote in a document cannot end the SQL string"
+    assert "'[0.5,0.5," in sql

@@ -2,6 +2,7 @@
 split at their headings, embedded with bge-m3 on the same Ollama as Gemma, and stored in Postgres for hybrid search.
 
     python -m agent.knowledge ingest [folder]   # needs SUPABASE_URL, SUPABASE_SECRET_KEY and OLLAMA_URL
+    python -m agent.knowledge sql [folder] | psql "$DB_URL"   # the same upserts as SQL (the deploy workflow)
 
 Ingestion is idempotent: an unchanged document (same checksum) is skipped; a changed one replaces its passages."""
 
@@ -106,8 +107,36 @@ def ingest(folder: Path, url: str, key: str) -> dict:
     return done
 
 
+def _literal(value) -> str:
+    return "null" if value is None else "'" + str(value).replace("'", "''") + "'"
+
+
+def to_sql(folder: Path, embedder=None) -> str:
+    """Every document as one statement: upsert the document by slug, replace its passages. Run in one transaction."""
+    embedder = embedder or _embedder()
+    statements = []
+    for path in sorted(p for p in folder.glob("*.md") if p.name != "README.md"):
+        meta, passages = parse(path)
+        vectors = embedder.embed_documents([f"{meta['title']}. {h}. {c}" for h, c in passages])
+        rows = ",\n".join(f"((select id from d), {i}, {_literal(h)}, {_literal(c)}, {_literal(as_vector(v))}::extensions.vector)"
+                          for i, ((h, c), v) in enumerate(zip(passages, vectors), start=1))
+        statements.append(
+            "with d as (insert into public.knowledge_documents (slug, title, version, reviewed_by, reviewed_on, checksum)\n"
+            f"values ({_literal(path.stem)}, {_literal(meta['title'])}, {_literal(meta['version'])}, "
+            f"{_literal(meta.get('reviewed_by'))}, {_literal(meta.get('reviewed_on'))}::date, "
+            f"{_literal(hashlib.sha256(path.read_bytes()).hexdigest())})\n"
+            "on conflict (slug) do update set title = excluded.title, version = excluded.version,\n"
+            "  reviewed_by = excluded.reviewed_by, reviewed_on = excluded.reviewed_on, checksum = excluded.checksum, updated_at = now()\n"
+            "returning id), gone as (delete from public.knowledge_passages where document_id = (select id from d))\n"
+            f"insert into public.knowledge_passages (document_id, ordinal, heading, content, embedding) values\n{rows};")
+    return "begin;\n" + "\n".join(statements) + "\ncommit;\n"
+
+
 if __name__ == "__main__":
-    if len(sys.argv) < 2 or sys.argv[1] != "ingest":
-        sys.exit("usage: python -m agent.knowledge ingest [folder]")
+    if len(sys.argv) < 2 or sys.argv[1] not in ("ingest", "sql"):
+        sys.exit("usage: python -m agent.knowledge ingest|sql [folder]")
     folder = Path(sys.argv[2]) if len(sys.argv) > 2 else Path(__file__).parents[4] / "knowledge"
-    print(json.dumps(ingest(folder, os.environ["SUPABASE_URL"].rstrip("/"), os.environ["SUPABASE_SECRET_KEY"])))
+    if sys.argv[1] == "sql":
+        print(to_sql(folder))
+    else:
+        print(json.dumps(ingest(folder, os.environ["SUPABASE_URL"].rstrip("/"), os.environ["SUPABASE_SECRET_KEY"])))
