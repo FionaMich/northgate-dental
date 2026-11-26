@@ -1,0 +1,35 @@
+# The live journey checked every 15 minutes (AGENTS.md section 14.4): the website answers, the public catalogue comes
+# back from the database, and Nora's API is healthy. A failure fails this run, and GitHub emails the repository owner.
+name: synthetic-check
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  journey:
+    name: live journey (website, catalogue, assistant)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SITE: https://northgate-dental.vercel.app
+      SUPABASE_URL: https://dxkfsslymzqbgtoijuut.supabase.co        # staging; not a secret
+      ASSISTANT: https://84-12-126-31.sslip.io
+      PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}          # publishable: grants nothing without a session
+    steps:
+      - name: the website answers
+        run: |
+          curl -fsS --max-time 20 "$SITE/" | grep -q "Northgate Dental" && echo "ok: home"
+          curl -fsS --max-time 20 "$SITE/services/" | grep -q "Services and prices" && echo "ok: services"
+      - name: the public catalogue comes from the database
+        run: |
+          n=$(curl -fsS --max-time 20 -X POST "$SUPABASE_URL/rest/v1/rpc/public_catalogue" \
+                -H "apikey: $PUBLISHABLE_KEY" -H 'Content-Type: application/json' -d '{}' | jq '.locations | length')
+          [ "$n" -eq 3 ] && echo "ok: $n clinics"
+      - name: Nora's API is healthy
+        run: |
+          curl -fsS --max-time 20 "$ASSISTANT/assistant/health" | jq -e '.ok == true' && echo "ok: assistant"
