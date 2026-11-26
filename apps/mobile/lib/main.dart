@@ -6,6 +6,7 @@ import 'app.dart';
 import 'data/account_repository.dart';
 import 'data/assistant_repository.dart';
 import 'data/call_repository.dart';
+import 'data/consult_repository.dart';
 import 'data/team_chat_repository.dart';
 import 'data/care_repository.dart';
 import 'data/shop_repository.dart';
@@ -46,6 +47,9 @@ Future<void> main() async {
         ),
         callRepositoryProvider.overrideWithValue(
           StreamCallRepository(Supabase.instance.client.auth),
+        ),
+        consultRepositoryProvider.overrideWithValue(
+          HttpConsultRepository(Supabase.instance.client.auth),
         ),
         teamChatRepositoryProvider.overrideWithValue(
           StreamTeamChatRepository(Supabase.instance.client.auth),

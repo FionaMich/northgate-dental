@@ -582,4 +582,8 @@ const lt = <String, String>{
   'Chat with the team': 'Rašyti komandai',
   'Message our team': 'Parašykite mūsų komandai',
   'Real people, replying during opening hours': 'Tikri žmonės, atsakantys darbo valandomis',
+  'Video consultation': 'Vaizdo konsultacija',
+  'See a member of our team on video': 'Susitikite su mūsų komandos nariu vaizdo skambučiu',
+  'Video consultations are unavailable right now. Please call your clinic.': 'Vaizdo konsultacijos šiuo metu nepasiekiamos. Paskambinkite į kliniką.',
+  'The video consultation could not start. Please try again or call your clinic.': 'Vaizdo konsultacijos pradėti nepavyko. Bandykite dar kartą arba paskambinkite į kliniką.',
 };

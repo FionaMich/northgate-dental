@@ -6,6 +6,7 @@ import 'package:dental/data/care_repository.dart';
 import 'package:dental/data/shop_repository.dart';
 import 'package:dental/data/assistant_repository.dart';
 import 'package:dental/data/call_repository.dart';
+import 'package:dental/data/consult_repository.dart';
 import 'package:dental/data/team_chat_repository.dart';
 import 'package:dental/data/aligner_reminders.dart';
 import 'package:dental/data/wear_log.dart';
@@ -712,5 +713,24 @@ class FakeTeamChatRepository implements TeamChatRepository {
     final chat = FakeTeamChat();
     chats.add(chat);
     return chat;
+  }
+}
+
+class FakeConsultRepository implements ConsultRepository {
+  FakeConsultRepository({this.available = true});
+  final bool available;
+  int asked = 0;
+
+  @override
+  Future<Map<String, dynamic>> ticket() async {
+    asked += 1;
+    if (!available) throw const ConsultUnavailable();
+    return {
+      'api_key': 'k',
+      'token': 't',
+      'user_id': 'u',
+      'call_type': 'consult',
+      'call_id': 'consult-u',
+    };
   }
 }

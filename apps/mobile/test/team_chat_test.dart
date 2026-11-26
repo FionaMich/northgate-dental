@@ -79,4 +79,23 @@ void main() {
     expect(repo.chats, isEmpty);
     expect(find.textContaining('team chat is unavailable'), findsOneWidget);
   });
+
+  testWidgets(
+    'Home offers a video consultation and says plainly when it is unavailable',
+    (tester) async {
+      final consult = FakeConsultRepository(available: false);
+      await pumpApp(
+        tester,
+        FakeAccountRepository(patients: [elena]),
+        extra: [consultRepositoryProvider.overrideWithValue(consult)],
+      );
+      await signIn(tester);
+      await tapKey(tester, 'open-video-visit');
+      expect(consult.asked, 1);
+      expect(
+        find.textContaining('Video consultations are unavailable'),
+        findsOneWidget,
+      );
+    },
+  );
 }
