@@ -114,6 +114,10 @@ String _translate(String text, Map<String, String> table, String language) {
   return text;
 }
 
+/// [text] in a named language, for words that follow something other than the app's language (Nora's chat can be
+/// set to its own).
+String trIn(String language, String text) => _tables[language]?[text] ?? text;
+
 /// A sentence built from parts at one call site: [template] has `{}` where each of [parts] goes. The translation
 /// may put them to different words but keeps their order. Stored under `=template`, so it is never matched against
 /// other text the way the patterns in [tr] are.

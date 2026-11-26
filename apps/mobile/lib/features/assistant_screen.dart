@@ -317,7 +317,7 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> {
                               key: Key('starter-$s'),
                               avatar: Icon(icon),
                               label: Text(s),
-                              onPressed: () => _send(s),
+                              onPressed: () => _send(trIn(_language, s)), // in the patient's language, as they would write it
                             ),
                         ],
                       ),
@@ -342,6 +342,29 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> {
               ),
             ),
           ),
+          // The same four requests stay one tap away for the whole conversation, like quick replies in a messenger.
+          if (_lines.length > 1 && !_waiting && _confirm == null)
+            SizedBox(
+              height: 46,
+              child: ListView(
+                key: const Key('quick-replies'),
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.fromLTRB(10, 0, 10, 6),
+                children: [
+                  for (final MapEntry(key: s, value: icon) in _starters.entries)
+                    Padding(
+                      padding: const EdgeInsetsDirectional.only(end: 8),
+                      child: ActionChip(
+                        key: Key('quick-$s'),
+                        avatar: Icon(icon, size: 18),
+                        label: Text(s),
+                        backgroundColor: Colors.white,
+                        onPressed: () => _send(trIn(_language, s)),
+                      ),
+                    ),
+                ],
+              ),
+            ),
           ChatComposer(
             controller: _input,
             onSend: _send,
