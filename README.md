@@ -405,6 +405,11 @@ flowchart TD
 | Identity is never a model argument | The patient comes from the verified token; tools call Supabase with that token, so the database decides what the assistant may see |
 | Nothing is booked or cancelled without the patient | LangGraph pauses (`interrupt`) until the patient presses Confirm; declining books nothing (tested) |
 | No invented prices or times | A grounding check replaces a reply whose price or time no tool returned, and really hands it over |
+| Only clinic-approved policy answers | Policy questions are answered only from approved documents (hybrid RAG). A weak match, or a failed search, makes Nora offer the team instead of guessing |
+| The team is reached by buttons, not by the model | When Nora hands over, the app shows "Reply in the app" or "Call me back", with a checked phone number, so the handover cannot be promised and then forgotten |
+| Nora can be switched off at once | A practice manager turns her off in the portal. Within 30 seconds every patient gets a fixed message with the clinic's number, and the model is not used |
+| Every turn is on record | `ai_events` logs each turn's outcome, tools, model, prompt version and timing, never the words. A failed write sets off an alert |
+| A long reply cannot outlive the sign-in | The app refreshes the session before talking to Nora when less than 5 minutes are left, since a reply can take minutes on the CPU server |
 
 **Languages:** English, French, Dutch, German, Spanish, Italian, Lithuanian and Swedish (Fiona's choice, 23 November 2026). Every non-English safety text is marked draft until a native speaker reviews it, as health messaging requires.
 
@@ -620,23 +625,40 @@ Live at [northgate-dental.vercel.app](https://northgate-dental.vercel.app). The 
 
 | Services and prices | On a phone | Staff sign-in |
 | --- | --- | --- |
-| ![Services and prices](.github/readme/web-services.jpg) | ![The site on a phone](.github/readme/web-phone.jpg) | ![Staff sign-in](.github/readme/web-portal-signin.jpg) |
+| ![Services and prices](.github/readme/web-services.jpg) | ![The site on a phone](.github/readme/web-phone.jpg) | ![Staff sign-in](.github/readme/portal-signin.jpg) |
 
 - **Pages built from the database.** Services, summaries, prices at each clinic, opening hours and phone numbers come from one database function, `public_catalogue()`, at build time. A bundled snapshot is the fallback, so a build never depends on the API. Each service has its own page: what happens at the visit, who you will usually see, and the price at each clinic.
 - **The same brand as the app.** Same colours, the same bundled fonts (nothing loaded from a font service), the same photographs and the same team bios.
 - **A voice call sample.** It shows how a call with Nora looks in the app: her portrait, captions of both sides, and the Confirm card. It is scripted, because website visitors are not signed in.
 - **An enquiry form that keeps visitors out of the database.** Signed-out visitors get two functions and nothing else. `submit_lead()` asks for consent, limits each address to three enquiries a day, and turns each enquiry into a task for the chosen clinic. Only that clinic's staff can read it; it is kept 12 months.
-- **The staff portal** (`/portal`): password, then an authenticator-app code; staff tables return nothing without it. Pages:
-  - **Schedule:** a day board, one column per dentist.
-  - **Dentist desk:** your own visits.
-  - **Inbox:** Nora's handovers and website questions.
-  - **Coverage queue:** verify or reject insurance cards.
-  - **Roster**
+- **The staff portal** (`/portal`), built as a clinical workspace like a hospital's: dense tables, square corners, one accent colour, Boston time throughout. **Try it without an account:** [northgate-dental.vercel.app/portal/demo](https://northgate-dental.vercel.app/portal/demo/) shows every page with sample data made in the browser (60 patients, a day of visits for six clinicians, tasks, insurance cards, payments and Nora activity). Nothing there touches a database, and changes are forgotten on reload.
+
+| Overview | Schedule | Patients |
+| --- | --- | --- |
+| ![Portal overview](.github/readme/portal-overview.jpg) | ![Schedule by dentist](.github/readme/portal-schedule.jpg) | ![Patient register](.github/readme/portal-patients.jpg) |
+
+  - **Overview:** today's figures, the next patients, what needs attention, chair time booked per clinic, and Nora today.
+  - **Schedule:** a time grid, one column per clinician from 07:00 to 20:00, with visits coloured by status and a line at the current time.
+  - **Patients:** a register with record number, age, language, home clinic, next visit, insurance and balance.
+  - **Dentist desk:** a clinician's own day. A manager picks whose day to view.
+  - **Inbox:** Nora's handovers and website questions, with Mark done.
+  - **Coverage:** verify or reject insurance cards.
+  - **Roster:** the week's shifts per clinician, on-call marked.
   - **Payments**
   - **Nora activity:** from `ai_events`: what Nora did, never what anyone said.
-  - **Settings:** the Nora on/off switch, for an organisation admin only.
+  - **Settings:** the Nora on/off switch (practice manager only) and the clinic settings.
 
-  Row level security in the database decides what each person sees.
+  A clinic switcher and patient search sit in the top bar. Row level security in the database decides what each person sees.
+
+**Staff sign-in: password plus an authenticator app.**
+
+![Staff sign-in](.github/readme/portal-signin.jpg)
+
+1. Staff sign in with their work email and password (Supabase Auth).
+2. The first time, the portal asks Supabase to enrol an authenticator (TOTP) and shows its QR code. The staff member scans it with an authenticator app (Google Authenticator, Microsoft Authenticator, 1Password) and types the 6-digit code it shows.
+3. On every later sign-in, the portal asks for the current code (`challengeAndVerify`).
+
+Without the second step the session stays at assurance level `aal1`, and a restrictive row level security policy on every staff table (`staff_need_mfa`) returns nothing. So two-factor is enforced by the database itself, not by the page, and pgTAP tests prove a password-only staff session reads no patient data. The secret lives only in the person's authenticator app and in Supabase Auth.
 
 </details>
 
@@ -881,6 +903,24 @@ On the VM, `scripts/bootstrap-vm.sh` hardens the machine once, and `scripts/issu
 5. Tracing switches on by itself when the key is set; the project appears in the dashboard with the first conversation. Hidden inputs and outputs mean the dashboard shows steps, tools and timings, never what a patient wrote.
 
 </details>
+
+## How this was built
+
+The project was built section by section, the way a small product team works:
+
+- **Plan, then build test first.** Each section starts with a written plan and its governance answers: where the data lives, which vendor and region, what goes into every model call. Then the tests are written first: pgTAP for the database, pytest for the services, Flutter widget tests for the app.
+- **One change per pull request.** Every pull request runs the whole CI suite before it can merge into `develop`: database, services, app, web, the WAF rules, secret scanning, house style, and a check that no private files are tracked. Changes to row level security, money, patient messages or Nora's safety gate get a line-by-line human review.
+- **Deployments are automated:**
+  - **Database:** migrations reach staging through a GitHub Actions workflow, which also loads the clinic documents for Nora with their embeddings.
+  - **Assistant and workers:** they run as Docker Compose services on the Oracle VM.
+  - **Website:** it is a static build on Vercel.
+- **Watched in production.** Grafana Cloud receives the assistant's metrics through Alloy. Four alert rules each point to a runbook.
+- **Real problems found by real runs.** Recording the demo videos on a phone against staging exposed real problems:
+  - **Handovers:** Nora sometimes promised a handover she never made.
+  - **Prices:** the safety check refused a correct price written as "$500,", and accepted an invented "$50" because a document said "$500".
+  - **Sign-in tokens:** a token expired in the middle of a long reply.
+
+  Each became a failing test first, then a fix.
 
 ## Branches and pull requests
 
