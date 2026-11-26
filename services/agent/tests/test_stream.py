@@ -78,7 +78,8 @@ def test_a_signed_in_patient_gets_a_token_for_their_own_id(client, monkeypatch):
     body = client.post("/assistant/call", headers={"Authorization": "Bearer good"}).json()
     assert body["api_key"] == "key" and body["user_id"] == "user-1" and body["call_type"] == "nora_voice"
     assert _claims(body["token"])["user_id"] == "user-1"
-    assert "user-1" not in body["call_id"] and "p1" not in body["call_id"], "call IDs are random, never an identity"
+    # "p1" is two characters, so a random ID can contain it by chance: the ID must simply not be an identity
+    assert body["call_id"] not in {"user-1", "p1"} and "user-1" not in body["call_id"], "call IDs are random, never an identity"
     assert api.calls[body["call_id"]].who.user_id == "user-1", "the voice service can find the patient behind the call"
     assert registered == ["user-1"], "the Stream user is registered by the server before the app joins"
     second = client.post("/assistant/call", headers={"Authorization": "Bearer good"}).json()
@@ -214,7 +215,8 @@ def test_a_reply_that_handed_over_tells_the_app_to_offer_the_team_chat():
 def test_the_team_chip_skips_the_model_and_the_choice_card_decides_how_the_team_replies(client, monkeypatch):
     signed_in(monkeypatch)
     filed, notices = [], []
-    monkeypatch.setattr(api.tools, "_rpc", lambda s, name, **p: filed.append((name, p)))
+    # the handover's own writes; every turn's ai_events row is tested in test_metrics
+    monkeypatch.setattr(api.tools, "_rpc", lambda s, name, **p: name == "log_ai_event" or filed.append((name, p)))
     monkeypatch.setattr(api.graph, "model_for", lambda role="assistant": pytest.fail("the chip never waits for the model"))
     monkeypatch.setattr(stream, "team_channel", lambda user_id, *conf: f"team-{user_id}")
     monkeypatch.setattr(stream, "team_notice", lambda channel, note, *conf: notices.append(channel))
@@ -293,3 +295,20 @@ def test_home_reads_where_the_team_conversation_stands(monkeypatch):
     assert st.team_status("u1", "k", "s") == {"state": "unread", "unread": 1}
     monkeypatch.setattr(st, "_server", channel([notice, mine, team], 0))
     assert st.team_status("u1", "k", "s")["state"] == "open"
+
+
+def test_with_the_kill_switch_off_nora_answers_with_fixed_text_and_the_model_never_runs(client, monkeypatch):
+    signed_in(monkeypatch)
+    api._switch["checked"] = float("-inf")
+    monkeypatch.setattr(api.tools, "_rpc", lambda s, name, **p: False if name == "assistant_enabled" else None)
+
+    class Graph:
+        def invoke(self, *a, **k):
+            pytest.fail("the graph must not run while Nora is switched off")
+    monkeypatch.setattr(api, "assistant", Graph())
+    auth = {"Authorization": "Bearer good", "X-Language": "nl"}
+    chat = client.post("/assistant/chat", json={"thread": "thread-009", "message": "hallo"}, headers=auth).json()
+    assert chat["reply"] == api.safety.fixed("paused", "nl", None)
+    yes = client.post("/assistant/confirm", json={"thread": "thread-009", "accept": True}, headers=auth).json()
+    assert yes["reply"] == api.safety.fixed("paused", "nl", None), "a pending button books nothing either"
+    api._switch["checked"] = float("-inf")   # the next test starts with the switch unread

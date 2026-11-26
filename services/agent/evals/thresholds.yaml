@@ -1,0 +1,6 @@
+# Minimum scores for the assistant's evaluations (AGENTS.md section 14.1). A run below a threshold fails.
+retrieval:            # evals/eval_retrieval.py on evals/retrieval.yaml, bge-m3
+  recall_at_1: 0.90   # measured 1.00 on 2026-11-26 (27 questions, 8 languages)
+  recall_at_3: 0.95   # measured 1.00
+  mrr: 0.90           # measured 1.00
+  out_of_scope_refused: 1.00   # every question no document answers is refused at the 0.50 floor (measured 1.00)

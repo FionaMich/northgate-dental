@@ -19,6 +19,7 @@ from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from pydantic import BaseModel, Field
 
 from . import graph, metrics, safety, stream, tools
+from .models import model_name
 from .tools import Session
 
 if os.environ.get("LANGSMITH_API_KEY"):
@@ -129,6 +130,21 @@ class Reply(BaseModel):
     team: bool = False            # this turn was passed to the clinic team: the app offers the team chat
 
 
+# The kill switch (migration 20261126000500): read with the patient's session at most every 30 seconds. If the read
+# itself fails, Nora stays on: her tools would fail the same way and hand over, so nothing unsafe follows.
+_switch = {"on": True, "checked": float("-inf")}
+
+
+def _paused(w: Who) -> "Reply | None":
+    if time.monotonic() - _switch["checked"] > 30:
+        try:
+            _switch["on"] = tools._rpc(w.session, "assistant_enabled") is not False
+        except Exception:
+            _switch["on"] = True
+        _switch["checked"] = time.monotonic()
+    return None if _switch["on"] else Reply(reply=safety.fixed("paused", w.session.language, w.clinic_phone))
+
+
 def _config(w: Who, thread: str) -> dict:
     return {"configurable": {"thread_id": f"{w.user_id}:{thread}", "session": w.session, "clinic_phone": w.clinic_phone}}
 
@@ -137,7 +153,13 @@ def _run(channel: str, w: Who, what, thread: str) -> Reply:
     """One turn through the graph, timed and counted (metrics.py)."""
     started = time.monotonic()
     out = assistant.invoke(what, _config(w, thread))
-    metrics.record(channel, w.session.language, time.monotonic() - started, out)
+    seconds = time.monotonic() - started
+    shape = metrics.record(channel, w.session.language, seconds, out)
+    try:  # AGENTS.md section 9: every AI action is logged. The patient comes from the session, in the database.
+        tools._rpc(w.session, "log_ai_event", channel=channel, language=w.session.language, model=model_name(),
+                   prompt_version=graph.PROMPT_VERSION, latency_ms=round(seconds * 1000), **shape)
+    except Exception:  # a lost log line must never cost the patient their answer; the counter makes it alertable
+        metrics.AI_EVENT_FAILURES.inc()
     return _reply(out)
 
 
@@ -170,6 +192,8 @@ def hello(language: Language = "en") -> dict:
 
 @app.post("/assistant/chat", response_model=Reply)
 def chat(body: ChatIn, w: Who = Depends(who)) -> Reply:
+    if paused := _paused(w):
+        return paused
     if body.team:
         # The app's "Talk to a member of our team" chip: straight to the choice card, without waiting for the model.
         # The stored words are fixed, so nothing the client sends here skips the red-flag gate.
@@ -196,6 +220,8 @@ def _answer(body: "ConfirmIn") -> bool | dict:
 
 @app.post("/assistant/confirm", response_model=Reply)
 def confirm(body: ConfirmIn, w: Who = Depends(who)) -> Reply:
+    if paused := _paused(w):
+        return paused
     return _run("chat", w, Command(resume=_answer(body)), body.thread)
 
 
@@ -383,6 +409,8 @@ def call_turn(call_id: str, body: TurnIn) -> Reply:
     """What the patient said on the call, as text, through the same graph as the chat (gate first). The identity is
     the session kept for the call, never anything the voice service sends."""
     ctx = _call(call_id)
+    if paused := _paused(ctx.who):
+        return paused
     return _run("call", ctx.who, {"messages": [HumanMessage(body.message)]}, f"call-{call_id}")
 
 
@@ -393,6 +421,8 @@ def call_confirm(call_id: str, body: ConfirmIn, w: Who = Depends(who)) -> Reply:
     ctx = _call(call_id)
     if ctx.who.user_id != w.user_id:
         raise HTTPException(403, "not your call")
+    if paused := _paused(w):
+        return paused
     # the call's language: the button's request carries none. Everything else is this request's verified session.
     w = replace(w, session=replace(w.session, language=ctx.who.session.language))
     reply = _run("call", w, Command(resume=_answer(body)), f"call-{call_id}")
