@@ -8,7 +8,14 @@ import 'l10n/l10n.dart';
 export 'package:material_ui/material_ui.dart' hide Text;
 
 export 'l10n/l10n.dart'
-    show appLanguage, appLanguages, loadAppLanguage, setAppLanguage, tr, trf;
+    show
+        appLanguage,
+        appLanguages,
+        loadAppLanguage,
+        setAppLanguage,
+        tr,
+        trIn,
+        trf;
 
 /// Material's Text, translating its string on the way to the screen. In English it is exactly Material's Text.
 class Text extends m.Text {
