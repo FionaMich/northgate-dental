@@ -410,7 +410,7 @@ Three calls, one per language, each solving four requests in one conversation: o
 
 After the booking is confirmed, each video shows the confirmation email the notification worker sends for that visit (the same template and details; the image is a render of it).
 
-How the videos were made, so nothing in them is taken for more than it is: each is one real call on a phone against the staging server, and every answer, tool call, booking and payment link is the assistant's own. The patient ("Michelle") is a generated voice played from a laptop. For these recordings her words were given to the assistant as text from the script, so the videos show the conversation, the tools and the voice, not speech recognition; recognition was checked separately in English, where a live take transcribed her question word for word. The waiting between turns (7 to 40 seconds on a CPU-only server) is cut, Nora's voice is the audio our voice service sent to the phone, and both voices are levelled to the same loudness.
+How the videos were made, so nothing in them is taken for more than it is: each is one real call on a phone against the staging server, and every answer, tool call, booking and payment link is the assistant's own. The patient ("Michelle") is a generated voice played through a speaker beside the phone. For these recordings her words were given to the assistant as text from the script, so the videos show the conversation, the tools and the voice, not speech recognition; recognition was checked separately in English, where a live take transcribed her question word for word. The waiting between turns (7 to 40 seconds on a CPU-only server) is cut, Nora's voice is the audio our voice service sent to the phone, and both voices are levelled to the same loudness.
 
 **Chat with the clinic team:** when Nora passes something to the team, the app offers a second conversation, with real people. It runs on Stream Chat and looks like a messenger: each message shows its time, grey ticks when the team has it and blue ticks when they have read it, and "typing…" while they write. Our server checks the session, makes the patient's own channel and signs the token, so nobody can open another patient's conversation; writing as the team needs the server's internal key. Stream learns an opaque user ID and the fixed name "Patient"; it does store the conversation text, which is why this is for demo data until Stream's HIPAA plan and agreement are in place. The staff side arrives with the staff portal; until then the team's replies in the demo are sent through the server's team endpoint.
 
@@ -488,7 +488,7 @@ The AWS account holds backups only, so it is locked down to match. `infra/terraf
 - **Account-wide S3 Block Public Access:** no bucket can be made public, whatever its own settings say.
 - **Password policy:** at least 14 characters with every character class, and the last 24 passwords blocked. There is no forced expiry, following NIST SP 800-63B; MFA protects instead.
 - **Cost alerts:** Cost Anomaly Detection sends a daily email if unusual spend reaches US$1, alongside a US$1 budget.
-- **Storage Lens dashboard** for storage use by region and bucket.
+- **Storage Lens dashboard** (`northgate-storage`, home region Stockholm) for what the account stores, where, and how it changes day by day. It answers the governance question "where does our data sit?" with numbers: total bytes and objects, by bucket, region and storage class, with 14 days of daily history. Today it covers the two buckets in eu-north-1: the nightly encrypted database backups and the CloudTrail audit log. A bucket that appears in another region, or a backup bucket that stops growing, shows here first. It is the free tier, so the numbers live in the console only.
 
 IAM Access Analyzer would normally be part of this baseline. AWS blocks it on free plan accounts with a service control policy, so it waits until the account is upgraded.
 
@@ -700,7 +700,7 @@ The pictures were generated for the fictional practice (no stock licence to trac
 **What was built:**
 - the whole patient app in eight languages, switched in Profile without leaving the screen;
 - Prometheus metrics in the assistant, a Grafana Alloy collector on the server and a Grafana Cloud dashboard, with objectives in `ops/slos.yaml`;
-- Nora's voice service as a container on the server, so calls no longer need a laptop; a call from the phone was answered there, speech recognition included;
+- Nora's voice service as a container on the server, so every call is answered there; a call from the phone was answered there, speech recognition included;
 - the notification worker rebuilt from the current code, so bookings send the designed confirmation email (the server had been running a build from 21 November with the older plain email);
 - the booking confirmation email shown in the three call videos, right after Nora confirms the visit.
 - a chat with the clinic team on Stream Chat, opened from Home or after Nora hands over, with delivery and read ticks; tested on the phone with a live reply.
@@ -746,7 +746,7 @@ infra/scripts/ssh-vm.sh deploy 'cd /opt/northgate/infra && docker compose --prof
 ```bash
 # the assistant on the server, after each merge
 infra/scripts/ssh-vm.sh deploy 'cd /opt/northgate && git pull --ff-only && cd infra && docker compose --profile assistant up -d --build assistant'
-# the voice service (run on a laptop for the recordings)
+# the voice service, for the recordings
 cd services/voice && set -a && . ./.env && set +a && uv run python -m voice.agent
 # the app on the phone
 cd apps/mobile && flutter build apk --release --dart-define-from-file=staging.env && adb install -r build/app/outputs/flutter-apk/app-release.apk
@@ -1101,7 +1101,7 @@ infra/scripts/restore-test.sh s3://<bucket>/nightly/<file>.dump.age ~/.config/no
 - [ ] S3 bucket properties, showing versioning, encryption, Block Public Access and the lifecycle rule: https://eu-north-1.console.aws.amazon.com/s3/buckets?region=eu-north-1
 - [ ] The nightly backups in the bucket (`nightly/`)
 - [ ] IAM user `northgate-backup-upload` with its single inline policy: https://us-east-1.console.aws.amazon.com/iam/home#/users
-- [ ] Storage Lens dashboard `northgate-storage` (first data within 48 hours): https://eu-north-1.console.aws.amazon.com/s3/lens?region=eu-north-1
+- [ ] Storage Lens dashboard `northgate-storage`: open https://eu-north-1.console.aws.amazon.com/s3/lens?region=eu-north-1 and pick **northgate-storage** from the dashboard list. Do not use the account's default dashboard (`default-account-dashboard`): it lives in us-east-1, which the AWS organisation's policy blocks, so it shows "couldn't be retrieved".
 - [ ] AWS Budgets, showing the US$1 alert: https://us-east-1.console.aws.amazon.com/costmanagement/home#/budgets
 - [ ] GitHub rulesets, showing 8 required checks on `develop` and `main`
 

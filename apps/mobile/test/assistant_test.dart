@@ -39,6 +39,9 @@ void main() {
       expect(find.text('Quincy opens at 07:00 on Mondays.'), findsOneWidget);
       // messenger manners: the patient's message shows as read once Nora has answered, and nobody is typing
       expect(find.byKey(const Key('ticks-read')), findsOneWidget);
+      // the quick replies stay after the first message and send in the patient's language
+      await tapKey(tester, 'quick-Opening hours');
+      expect(assistant.sent.last, 'es:Horario de apertura');
       expect(find.byKey(const Key('chat-typing')), findsNothing);
       expect(find.text('AI assistant · online'), findsOneWidget);
       expect(find.textContaining('up to a minute'), findsNothing);
