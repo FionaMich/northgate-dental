@@ -72,3 +72,20 @@ export const ACCESS: Record<string, string> = {
   cambridge: "Two patient parking spaces behind the building and bike racks at the front door. Step-free entrance.",
   quincy: "Free parking in the clinic's own car park, with two accessible spaces by the door. Step-free entrance.",
 };
+
+// What a visit is like, for each service page. How the visit runs, never clinical advice: the dentist explains the
+// clinical side at the visit. Who you usually see comes from the team above.
+export const DETAILS: Record<string, { who: string; steps: string[] }> = {
+  D0150: { who: "Dr Hannah Brooks", steps: ["Check in with your ID and insurance card, or in the app before you arrive.", "The dentist looks at your teeth, gums and bite, and takes X-rays only if they are needed.", "You leave with a written plan and prices for anything the dentist suggests.", "Book any follow-up visit in the app or at the desk."] },
+  D1110: { who: "Priya Raman, RDH", steps: ["A hygienist removes plaque and tartar, then polishes your teeth.", "You get a few tips on what to focus on at home.", "Most people book their next cleaning in six months; the app reminds you."] },
+  D1120: { who: "Dr Diego Alvarez", steps: ["A parent or guardian stays with children under 12.", "A gentle clean and polish, with brushing tips the child can follow.", "A quick check on growing teeth, with time for parents' questions."] },
+  D2391: { who: "Dr Hannah Brooks", steps: ["The dentist explains the filling and the price before starting.", "Numbing first, so you feel pressure rather than pain.", "A tooth-coloured filling, usually finished in one visit."] },
+  D7140: { who: "Dr Laura Bennett", steps: ["The dentist checks the tooth and explains the plan and price first.", "Numbing so you feel pressure, not pain.", "You get written aftercare from the dentist before you leave."] },
+  D3330: { who: "Dr Samuel Okafor", steps: ["An X-ray and a check of the tooth before treatment starts.", "Treatment under numbing, unhurried, with each step explained.", "Often one long visit; sometimes a second to finish."] },
+  D6010: { who: "Dr Laura Bennett", steps: ["A 3D scan to plan where the implant goes, at Back Bay.", "Placement under numbing, with written aftercare.", "Healing takes a few months before the crown goes on; we plan each step with you."] },
+  D8090: { who: "Dr Mei Chen", steps: ["A 3D scan, so you see the planned result before you start.", "Clear aligners you change every couple of weeks, worn about 22 hours a day.", "Check-ins along the way; the app's aligner timer helps you keep track."] },
+  D9972: { who: "Dr Hannah Brooks", steps: ["A quick check that whitening suits your teeth.", "Whitening in the clinic, with protection for your gums.", "Advice on keeping the colour afterwards."] },
+  D5110: { who: "Dr Hannah Brooks", steps: ["Impressions and measurements at the first visit.", "A few fittings to get the fit and look right.", "Adjustments after you start wearing it, at no extra charge."] },
+  D9110: { who: "The dentist on duty", steps: ["Call your clinic: we keep time free every day for urgent visits.", "The dentist relieves the pain or protects the tooth first.", "You leave with a plan for any treatment that follows."] },
+  D9995: { who: "Dr Hannah Brooks", steps: ["Book in the app or with Nora and pay in advance with a secure link.", "Join from Visits in the app; the Join button appears 10 minutes before.", "The dentist advises you, or helps you decide what to book next. We never record the call."] },
+};

@@ -83,7 +83,7 @@ export default async function Home() {
             {featured.map((s) => {
               const prices = Object.values(s.prices);
               return (
-                <Link key={s.code} href={`/services#${s.code}`} className="group overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-line transition hover:-translate-y-1 hover:shadow-lg">
+                <Link key={s.code} href={`/services/${s.code}`} className="group overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-line transition hover:-translate-y-1 hover:shadow-lg">
                   <div className="relative aspect-[16/9]">
                     <Image src={servicePicture(s.code)} alt="" fill className="object-cover" sizes="(min-width: 1024px) 33vw, 50vw" />
                   </div>
