@@ -820,8 +820,9 @@ class FakeProgrammeRepository implements ProgrammeRepository {
       'note': note,
     });
     if ((note ?? '').contains('spreading') ||
-        (symptoms.contains('swelling') && symptoms.contains('fever')))
+        (symptoms.contains('swelling') && symptoms.contains('fever'))) {
       return 'emergency';
+    }
     if (pain >= 7) return 'task';
     return 'ok';
   }
