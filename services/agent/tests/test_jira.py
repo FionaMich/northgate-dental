@@ -24,22 +24,22 @@ def board(monkeypatch):
     return sent, db
 
 
-def handoff(**args):
-    session = tools.Session("u", "k", "j", "patient-42", "fr")
-    return tools.handoff_to_staff.func(config={"configurable": {"session": session}}, **args)
+def handoff(category, summary_in_english, reply_by="app", phone=""):
+    """The handover once the patient has chosen how the team replies (the choice card is tested in test_graph)."""
+    return tools.hand_over(tools.Session("u", "k", "j", "patient-42", "fr"), category, summary_in_english, reply_by, phone)
 
 
 def test_a_call_back_request_becomes_a_ticket_with_the_checked_number_and_no_name(board):
     sent, db = board
     assert handoff(category="billing", summary_in_english="Wants to check insurance before Monday",
-                   reply_by="call", phone="+1 (617) 555-0142") == "handed_over"
+                   reply_by="call", phone="+1 (617) 555-0142") == "handed_over_call"
     assert db[0][0] == "request_handover", "the staff inbox still gets it first"
     body = sent[0].read().decode()
     assert "+16175550142" in body and "patient-42" in body and "lang-fr" in body and "call back" in body
     assert sent[0].url.path == "/rest/api/3/issue"
 
 
-def test_a_number_that_is_not_a_phone_number_is_refused_so_nora_asks_again(board):
+def test_a_number_that_is_not_a_phone_number_is_refused(board):
     sent, db = board
     with pytest.raises(tools.ToolRefused):
         handoff(category="other", summary_in_english="x", reply_by="call", phone="call me")

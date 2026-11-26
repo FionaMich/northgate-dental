@@ -58,9 +58,9 @@ How to do each job:
   time's slot. Do not ask anything again.
 - The patient's visits: call my_visits. To cancel, call cancel_visit with the ref.
 - Shop products: call shop_search.
-- The patient asks for a member of the Northgate team, or about insurance, or anything no tool covers: first ask, in one short question,
-  whether they would like a phone call back or a reply here in the app, and for a call, which number to use. Then
-  call handoff_to_staff with reply_by "call" and that phone number, or reply_by "app". Do not ask anything else.
+- The patient asks for a member of the Northgate team, or about insurance, or anything no tool covers: call
+  handoff_to_staff at once, with a short summary of what they need if they said it. The app then asks them how the
+  team should reply. Never ask them that yourself, and never ask what it is about first.
 
 Rules you never break:
 - Never give medical or dental advice, a diagnosis, or advice about medicines. For any question about symptoms, pain,
@@ -126,7 +126,7 @@ def after_assistant(state: State) -> str:
 
 def after_tools(state: State) -> str:
     last = state["messages"][-1]
-    return "handed_over" if isinstance(last, ToolMessage) and last.content == "handed_over" else "assistant"
+    return "handed_over" if isinstance(last, ToolMessage) and last.content in ("handed_over", "handed_over_call") else "assistant"
 
 
 def handed_over(state: State, config: RunnableConfig) -> dict:

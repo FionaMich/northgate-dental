@@ -216,13 +216,25 @@ def shop_search(query: str, config: RunnableConfig) -> str:
 
 
 @tool
-def handoff_to_staff(category: str, summary_in_english: str, config: RunnableConfig, reply_by: str = "app",
-                     phone: str = "") -> str:
+def handoff_to_staff(category: str, summary_in_english: str, config: RunnableConfig) -> str:
     """Pass the conversation to the clinic team. category is one of booking, billing, clinical_question, shop, other.
     Always use clinical_question for anything about symptoms, medicines or treatment advice. Write a short summary in
-    English of what the patient needs, without diagnosing. reply_by is "call" or "app"; for "call", phone is the
-    number the patient gave for the call back."""
+    English of what the patient needs, without diagnosing. The app asks the patient how the team should reply."""
     s = _session(config)
+    if category == "clinical_question":   # a clinical question goes straight to the team, who reply in the app
+        return hand_over(s, category, summary_in_english)
+    from .safety import fixed
+    choice = interrupt({**_card(s, "team", ""), "call": fixed("call_team", s.language),
+                        "phone": fixed("phone_team", s.language)})
+    if not choice:
+        return "The patient chose not to contact the team now."
+    choice = choice if isinstance(choice, dict) else {"reply_by": "app"}   # a plain yes (the call screen): in the app
+    return hand_over(s, category, summary_in_english, choice.get("reply_by", "app"), choice.get("phone") or "")
+
+
+def hand_over(s: Session, category: str, summary_in_english: str, reply_by: str = "app", phone: str = "") -> str:
+    """The handover itself, once the patient has chosen how the team replies: the staff inbox, the team's board, and
+    for a reply in the app, the patient's conversation with the team."""
     reply_by = "call" if reply_by == "call" else "app"
     if reply_by == "call":
         phone = _phone_number(phone)
@@ -245,7 +257,7 @@ def handoff_to_staff(category: str, summary_in_english: str, config: RunnableCon
                 stream.team_notice(channel, note, *conf)
         except Exception:
             pass
-    return "handed_over"
+    return "handed_over" if reply_by == "app" else "handed_over_call"   # only an in-app reply has a chat to open
 
 
 def _phone_number(raw: str) -> str:

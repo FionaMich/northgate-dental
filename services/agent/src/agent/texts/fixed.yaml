@@ -14,6 +14,10 @@ en:
   yes_book: Confirm
   yes_cancel: Cancel visit
   not_now: Not now
+  confirm_team: "How would you like the team to reply?"
+  yes_team: "Reply in the app"
+  call_team: "Call me back"
+  phone_team: "Your phone number"
 fr:
   status: draft
   name: Français
@@ -27,6 +31,10 @@ fr:
   yes_book: Confirmer
   yes_cancel: Annuler le rendez-vous
   not_now: Pas maintenant
+  confirm_team: "Comment l'équipe doit-elle vous répondre ?"
+  yes_team: "Réponse dans l'application"
+  call_team: "Me rappeler"
+  phone_team: "Votre numéro de téléphone"
 nl:
   status: draft
   name: Nederlands
@@ -40,6 +48,10 @@ nl:
   yes_book: Bevestigen
   yes_cancel: Afspraak annuleren
   not_now: Nu niet
+  confirm_team: "Hoe wilt u dat het team reageert?"
+  yes_team: "Antwoord in de app"
+  call_team: "Bel mij terug"
+  phone_team: "Uw telefoonnummer"
 de:
   status: draft
   name: Deutsch
@@ -53,6 +65,10 @@ de:
   yes_book: Bestätigen
   yes_cancel: Termin absagen
   not_now: Jetzt nicht
+  confirm_team: "Wie soll das Team Ihnen antworten?"
+  yes_team: "Antwort in der App"
+  call_team: "Rückruf"
+  phone_team: "Ihre Telefonnummer"
 es:
   status: draft
   name: Español
@@ -66,6 +82,10 @@ es:
   yes_book: Confirmar
   yes_cancel: Cancelar cita
   not_now: Ahora no
+  confirm_team: "¿Cómo quiere que le responda el equipo?"
+  yes_team: "Respuesta en la app"
+  call_team: "Llámenme"
+  phone_team: "Su número de teléfono"
 it:
   status: draft
   name: Italiano
@@ -79,6 +99,10 @@ it:
   yes_book: Conferma
   yes_cancel: Annulla appuntamento
   not_now: Non ora
+  confirm_team: "Come preferisce che il team le risponda?"
+  yes_team: "Risposta nell'app"
+  call_team: "Richiamatemi"
+  phone_team: "Il suo numero di telefono"
 lt:
   status: draft
   name: Lietuvių
@@ -92,6 +116,10 @@ lt:
   yes_book: Patvirtinti
   yes_cancel: Atšaukti vizitą
   not_now: Ne dabar
+  confirm_team: "Kaip norėtumėte, kad komanda jums atsakytų?"
+  yes_team: "Atsakymas programėlėje"
+  call_team: "Paskambinkite man"
+  phone_team: "Jūsų telefono numeris"
 sv:
   status: draft
   name: Svenska
@@ -105,3 +133,7 @@ sv:
   yes_book: Bekräfta
   yes_cancel: Avboka besöket
   not_now: Inte nu
+  confirm_team: "Hur vill du att teamet svarar?"
+  yes_team: "Svar i appen"
+  call_team: "Ring upp mig"
+  phone_team: "Ditt telefonnummer"
