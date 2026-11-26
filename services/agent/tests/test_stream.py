@@ -32,7 +32,7 @@ def client(monkeypatch):
     monkeypatch.setenv("STREAM_API_KEY", "key")
     monkeypatch.setenv("STREAM_API_SECRET", "secret")
     monkeypatch.setattr(api, "INTERNAL_KEY", "internal")
-    monkeypatch.setattr(stream, "register_user", lambda user_id, key, secret, http=None: registered.append(user_id))
+    monkeypatch.setattr(stream, "register_user", lambda user_id, key, secret, http=None, **kw: registered.append(user_id))
     api.calls.clear(); registered.clear()
     return TestClient(api.app)
 
@@ -207,3 +207,15 @@ def test_a_reply_that_handed_over_tells_the_app_to_offer_the_team_chat():
                            api.AIMessage("I've passed this to our team.")]}
     assert api._reply(handed).team is True
     assert api._reply({"messages": [api.HumanMessage("hours?"), api.AIMessage("We open at 07:00.")]}).team is False
+
+
+def test_a_video_consultation_is_the_patients_own_room_and_only_the_server_lets_the_team_in(client, monkeypatch):
+    signed_in(monkeypatch)
+    ticket = client.post("/assistant/consult", headers={"Authorization": "Bearer good"}).json()
+    assert ticket["call_type"] == "consult" and ticket["call_id"] == "consult-user-1" and registered[-1] == "user-1"
+    assert client.post("/assistant/consult").status_code == 422, "no session, no room"
+    url = "/assistant/consult/consult-user-1/team"
+    assert client.post(url, headers={"X-Internal-Key": "wrong"}).status_code == 401
+    team = client.post(url, headers={"X-Internal-Key": "internal"}).json()
+    assert team["user_id"] == "northgate-team" and team["call_id"] == "consult-user-1"
+    assert client.post("/assistant/consult/other/team", headers={"X-Internal-Key": "internal"}).status_code == 404

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'data/account_repository.dart';
 import 'data/assistant_repository.dart';
 import 'data/call_repository.dart';
+import 'data/consult_repository.dart';
 import 'data/team_chat_repository.dart';
 import 'data/care_repository.dart';
 import 'data/shop_repository.dart';
@@ -162,6 +163,11 @@ final voiceEngineProvider = Provider<VoiceEngine>((ref) => DeviceVoiceEngine());
 
 /// Voice calls with Nora through Stream (main.dart: the real SDK; tests: a fake). Absent on the server means the
 /// voice screen on the phone takes over.
+/// The patient's video consultation room through Stream (main.dart: the server; tests: a fake).
+final consultRepositoryProvider = Provider<ConsultRepository>(
+  (ref) => throw UnimplementedError('override in main or tests'),
+);
+
 /// The patient's chat with the clinic team through Stream Chat (main.dart: the real client; tests: a fake).
 final teamChatRepositoryProvider = Provider<TeamChatRepository>(
   (ref) => throw UnimplementedError('override in main or tests'),

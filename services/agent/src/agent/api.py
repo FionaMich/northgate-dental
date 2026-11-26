@@ -196,6 +196,37 @@ def start_call(w: Who = Depends(who)) -> CallTicket:
     return CallTicket(api_key=key, token=stream.user_token(w.user_id, secret), user_id=w.user_id, call_id=call_id)
 
 
+@app.post("/assistant/consult", response_model=CallTicket)
+def consult(w: Who = Depends(who)) -> CallTicket:
+    """The signed-in patient's video consultation room and a one-hour token (ADR 0015). The room is named after the
+    verified session, so nobody can join someone else's; Stream records and transcribes nothing on this call type."""
+    conf = stream.settings()
+    if conf is None:
+        raise HTTPException(503, "video consultations are not available")
+    key, secret = conf
+    try:
+        stream.register_user(w.user_id, key, secret)
+    except httpx.HTTPError:
+        raise HTTPException(503, "video consultations are not available")
+    return CallTicket(api_key=key, token=stream.user_token(w.user_id, secret), user_id=w.user_id,
+                      call_type="consult", call_id=f"consult-{w.user_id}")
+
+
+@app.post("/assistant/consult/{call_id}/team", response_model=CallTicket, dependencies=[Depends(internal)])
+def consult_team(call_id: str) -> CallTicket:
+    """A token for the team member who takes the consultation. Internal key only: the staff portal will call this."""
+    conf = stream.settings()
+    if conf is None or not call_id.startswith("consult-"):
+        raise HTTPException(404, "no such consultation")
+    key, secret = conf
+    try:
+        stream.register_user(stream.TEAM, key, secret, name="Northgate team", role="admin")
+    except httpx.HTTPError:
+        raise HTTPException(503, "video consultations are not available")
+    return CallTicket(api_key=key, token=stream.user_token(stream.TEAM, secret), user_id=stream.TEAM,
+                      call_type="consult", call_id=call_id)
+
+
 class TeamChatTicket(BaseModel):
     """What the app needs to open the patient's conversation with the clinic team (ADR 0018)."""
     api_key: str

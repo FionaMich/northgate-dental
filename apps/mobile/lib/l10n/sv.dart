@@ -582,4 +582,8 @@ const sv = <String, String>{
   'Chat with the team': 'Chatta med teamet',
   'Message our team': 'Skriv till vårt team',
   'Real people, replying during opening hours': 'Riktiga människor, som svarar under öppettiderna',
+  'Video consultation': 'Videokonsultation',
+  'See a member of our team on video': 'Träffa någon i vårt team på video',
+  'Video consultations are unavailable right now. Please call your clinic.': 'Videokonsultationer är inte tillgängliga just nu. Ring din klinik.',
+  'The video consultation could not start. Please try again or call your clinic.': 'Videokonsultationen kunde inte starta. Försök igen eller ring din klinik.',
 };

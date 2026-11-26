@@ -34,14 +34,15 @@ def user_token(user_id: str, secret: str, now: float | None = None) -> str:
 API = os.environ.get("STREAM_API_URL", "https://video.stream-io-api.com")
 
 
-def register_user(user_id: str, key: str, secret: str, http: httpx.Client | None = None) -> None:
+def register_user(user_id: str, key: str, secret: str, http: httpx.Client | None = None,
+                  name: str = "Patient", role: str = "user") -> None:
     """Stream refuses a call for a user it has never seen, so the server registers the patient's Stream user when it
     issues the ticket: the opaque ID, the fixed display name "Patient" and the plain user role. Nothing else."""
     server = _jwt({"server": True, "iat": int(time.time())}, secret)
     client = http or httpx.Client(timeout=10)
     r = client.post(f"{API}/api/v2/users", params={"api_key": key},
                     headers={"Authorization": server, "stream-auth-type": "jwt"},
-                    json={"users": {user_id: {"id": user_id, "name": "Patient", "role": "user"}}})
+                    json={"users": {user_id: {"id": user_id, "name": name, "role": role}}})
     r.raise_for_status()
 
 

@@ -582,4 +582,8 @@ const it = <String, String>{
   'Chat with the team': 'Chatta con il team',
   'Message our team': 'Scrivi al nostro team',
   'Real people, replying during opening hours': 'Persone reali, che rispondono negli orari di apertura',
+  'Video consultation': 'Videoconsulto',
+  'See a member of our team on video': 'Vedi un membro del nostro team in video',
+  'Video consultations are unavailable right now. Please call your clinic.': 'Le videoconsulti non sono disponibili al momento. Chiama la tua clinica.',
+  'The video consultation could not start. Please try again or call your clinic.': 'Impossibile avviare il videoconsulto. Riprova o chiama la tua clinica.',
 };
