@@ -19,7 +19,7 @@ from psycopg.rows import dict_row
 import base64
 from datetime import date
 
-from .messages import Context, decide, receipt_document, render, render_alert, render_order
+from .messages import Context, decide, receipt_document, render, render_alert, render_care, render_care_alert, render_order
 from .pdf import PdfError, render_pdf
 from .senders import ResendSender, SendError
 
@@ -110,9 +110,32 @@ def handle_order(conn, msg: dict, sender) -> None:
     archive(conn, "notifications", msg["msg_id"])
 
 
+def handle_care(conn, msg: dict, sender) -> None:
+    """A care programme message (W24 check-in, W27 nudge, W28 booking offer, recall): only while the patient is still
+    in the programme, once per enrolment, kind and day however often the message is delivered."""
+    request = msg["message"]
+    enrolment, kind = request["enrolment_id"], request["kind"]
+    key = f"care:{enrolment}:{kind}:{date.today().isoformat()}"
+    ctx = conn.execute("select * from private.care_context(%s)", (enrolment,)).fetchone()
+    if ctx is None or ctx["status"] != "active":
+        log(event="skipped", reason="not in the programme", kind=f"care:{kind}", enrolment_id=enrolment)
+    elif not ctx["email"]:
+        log(event="skipped", reason="no app sign-in email", kind=f"care:{kind}", enrolment_id=enrolment)
+    elif conn.execute("select private.mark_processed('worker', %s) as first", (key,)).fetchone()["first"]:
+        message = render_care(kind, ctx["first_name"], ctx["programme"], ctx["clinic_name"], ctx["clinic_phone"],
+                              float(ctx["wear_target_hours"]) if ctx["wear_target_hours"] is not None else None)
+        sender.send(ctx["email"], message, idempotency_key=f"{key}:email")
+        log(event="sent", kind=f"care:{kind}", channel="email", enrolment_id=enrolment)
+    else:
+        log(event="duplicate", kind=f"care:{kind}", enrolment_id=enrolment)
+    archive(conn, "notifications", msg["msg_id"])
+
+
 def handle_notification(conn, msg: dict, sender, link_base: str = "", pdf_url: str = "") -> None:
     if msg["message"].get("type") == "order":
         return handle_order(conn, msg, sender)
+    if msg["message"].get("type") == "care":
+        return handle_care(conn, msg, sender)
     request = msg["message"]
     appointment, kind_type = request["appointment_id"], request["type"]
     kind = kind_type if "kind" not in request else f"{kind_type}:{request['kind']}"
@@ -152,6 +175,15 @@ def handle_notification(conn, msg: dict, sender, link_base: str = "", pdf_url: s
 def handle_urgent(conn, msg: dict, sender, alert_to: str | None) -> None:
     """Check-ins that need a clinician: an alert to the clinic's inbox at once, IDs only."""
     request = msg["message"]
+    if request.get("type") == "care_alert":
+        checkin = request["checkin_id"]
+        ctx = conn.execute("select clinic_name from private.care_context(%s)", (request["enrolment_id"],)).fetchone()
+        if not alert_to or ctx is None:
+            log(event="skipped", reason="no clinic alert address", kind="care_alert", checkin_id=checkin)
+        elif conn.execute("select private.mark_processed('worker', %s) as first", (f"care_alert:{checkin}",)).fetchone()["first"]:
+            sender.send(alert_to, render_care_alert(ctx["clinic_name"], checkin), idempotency_key=f"care_alert:{checkin}:email")
+            log(event="sent", kind="care_alert", channel="email", checkin_id=checkin)
+        return archive(conn, "urgent", msg["msg_id"])
     appointment, checkin = request["appointment_id"], request["checkin_id"]
     kind = f"alert:{checkin}"
     ctx = conn.execute("select clinic_name from private.notification_context(%s)", (appointment,)).fetchone()

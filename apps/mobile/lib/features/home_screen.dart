@@ -10,6 +10,8 @@ import '../design/motion.dart';
 import '../design/tokens.dart';
 import '../design/widgets.dart';
 import '../state.dart';
+import '../data/programme_repository.dart';
+import 'checkin_screen.dart';
 import 'assistant_screen.dart';
 import 'aftercare_screen.dart';
 import 'booking_screen.dart';
@@ -154,6 +156,12 @@ class _Body extends ConsumerWidget {
         const Reveal(child: _AskReceptionist()),
         const _TeamConversation(),
         const SizedBox(height: 22),
+        for (final p
+            in ref.watch(programmesProvider).value ??
+                const <CareProgramme>[]) ...[
+          Reveal(child: CareProgrammeCard(programme: p)),
+          const SizedBox(height: 22),
+        ],
         if (_recentAftercare(care) case (final visit, final sheet)) ...[
           Reveal(
             child: _AftercareCard(visit: visit, sheet: sheet),

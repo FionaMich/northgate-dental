@@ -21,6 +21,7 @@ Future<FakeAccountRepository> pumpApp(
   FakeVoiceEngine? voice,
   FakeCallRepository? calls,
   FakeTeamChatRepository? teamChat,
+  FakeProgrammeRepository? programmes,
   List<dynamic> extra = const [],
 }) async {
   // Tests run with the phone's reduce-motion setting on, as some patients will; the floating art then stays still.
@@ -37,6 +38,9 @@ Future<FakeAccountRepository> pumpApp(
           assistant ?? FakeAssistantRepository(),
         ),
         introDurationProvider.overrideWithValue(Duration.zero),
+        programmeRepositoryProvider.overrideWithValue(
+          programmes ?? FakeProgrammeRepository(),
+        ),
         wearStoreProvider.overrideWithValue(wear ?? MemoryWearStore()),
         alignerRemindersProvider.overrideWithValue(
           reminders ?? FakeAlignerReminders(),

@@ -4,6 +4,7 @@ import 'data/account_repository.dart';
 import 'data/assistant_repository.dart';
 import 'data/call_repository.dart';
 import 'data/consult_repository.dart';
+import 'data/programme_repository.dart';
 import 'data/team_chat_repository.dart';
 import 'data/care_repository.dart';
 import 'data/shop_repository.dart';
@@ -176,3 +177,17 @@ final teamChatRepositoryProvider = Provider<TeamChatRepository>(
 final callRepositoryProvider = Provider<CallRepository>(
   (ref) => throw UnimplementedError('override in main or tests'),
 );
+
+/// Continuous care programmes (main.dart: Supabase; tests: a fake).
+final programmeRepositoryProvider = Provider<ProgrammeRepository>(
+  (ref) => throw UnimplementedError('override in main or tests'),
+);
+
+/// The signed-in patient's open care programmes; empty when there are none or the list cannot load.
+final programmesProvider = FutureProvider<List<CareProgramme>>((ref) async {
+  try {
+    return await ref.watch(programmeRepositoryProvider).mine();
+  } on Exception {
+    return const [];
+  }
+});
