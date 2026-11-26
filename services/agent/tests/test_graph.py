@@ -67,6 +67,26 @@ def test_a_clinical_question_is_handed_over_with_the_fixed_text(db):
     assert model.calls == 1, "the reply after a handover is fixed text, not another model call"
 
 
+def test_asking_for_the_team_shows_a_choice_card_and_hands_over_only_after_the_patients_choice(db):
+    model = ScriptedModel(call("handoff_to_staff", category="other", summary_in_english="Asks about insurance."))
+    app, config, out = run(model, "Een medewerker spreken", language="nl")
+    card = out["__interrupt__"][0].value
+    assert card["action"] == "team" and card["title"] == fixed("confirm_team", "nl")
+    assert card["yes"] == fixed("yes_team", "nl") and card["call"] == fixed("call_team", "nl")
+    assert db == [], "nothing reaches the team before the patient chooses"
+    out = app.invoke(Command(resume={"reply_by": "app"}), config)
+    assert db[0][0] == "request_handover" and db[0][1]["summary"] == "Asks about insurance."
+    assert out["messages"][-1].content == fixed("handover", "nl", "(617) 555-0130")
+    assert model.calls == 1, "the choice and the handover need no second model call"
+
+
+def test_not_now_on_the_team_card_hands_nothing_over(db):
+    model = ScriptedModel(call("handoff_to_staff", category="other", summary_in_english="x"), AIMessage("Of course."))
+    app, config, _ = run(model, "I want to talk to the team")
+    app.invoke(Command(resume=False), config)
+    assert db == []
+
+
 def test_booking_waits_for_the_patients_button(db):
     model = ScriptedModel(
         call("book_visit", clinic_code="quincy", service_code="D1110", slot="2026-11-27T10:00"),

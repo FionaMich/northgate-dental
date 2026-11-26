@@ -68,11 +68,12 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> {
     );
   }
 
+  static const _team = 'Talk to a member of our team';
   static const _starters = {
     'Book a cleaning': Icons.event_available_rounded,
     'Opening hours': Icons.schedule_rounded,
     'Pay my bill': Icons.credit_card_rounded,
-    'Talk to a member of our team': Icons.support_agent_rounded,
+    _team: Icons.support_agent_rounded,
   };
 
   @override
@@ -145,7 +146,7 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> {
     }
   }
 
-  void _send([String? text]) {
+  void _send([String? text, bool team = false]) {
     final message = (text ?? _input.text).trim();
     if (message.isEmpty || _waiting) return;
     _input.clear();
@@ -153,26 +154,25 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> {
     _run(
       () => ref
           .read(assistantRepositoryProvider)
-          .send(_thread, message, _language),
+          .send(_thread, message, _language, team: team),
     );
   }
 
-  void _answer(bool accept) {
+  /// The patient's button on a card; [replyBy] ("app" or "call") answers the team card.
+  void _answer(bool accept, {String? replyBy, String? phone}) {
+    final said = switch (replyBy) {
+      'call' => _confirm?['call'] as String? ?? 'Call me back',
+      _ when accept => _confirm?['yes'] as String? ?? 'Confirm',
+      _ => _confirm?['no'] as String? ?? 'Not now',
+    };
     setState(() {
-      _lines.add(
-        _Line(
-          accept
-              ? (_confirm?['yes'] as String? ?? 'Confirm')
-              : (_confirm?['no'] as String? ?? 'Not now'),
-          mine: true,
-        ),
-      );
+      _lines.add(_Line(said, mine: true));
       _confirm = null;
     });
     _run(
       () => ref
           .read(assistantRepositoryProvider)
-          .confirm(_thread, accept, _language),
+          .confirm(_thread, accept, _language, replyBy: replyBy, phone: phone),
     );
   }
 
@@ -317,12 +317,15 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> {
                               key: Key('starter-$s'),
                               avatar: Icon(icon),
                               label: Text(s),
-                              onPressed: () => _send(trIn(_language, s)), // in the patient's language, as they would write it
+                              onPressed: () =>
+                                  _send(trIn(_language, s), s == _team), // in the patient's language, as they would write it
                             ),
                         ],
                       ),
                     ),
-                  if (_confirm != null)
+                  if (_confirm?['action'] == 'team')
+                    _TeamCard(card: _confirm!, onAnswer: _answer)
+                  else if (_confirm != null)
                     _ConfirmCard(confirm: _confirm!, onAnswer: _answer),
                   if (_teamOffered && !_waiting)
                     Padding(
@@ -361,7 +364,7 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> {
                         avatar: Icon(icon, size: 18),
                         label: Text(s),
                         backgroundColor: Colors.white,
-                        onPressed: () => _send(trIn(_language, s)),
+                        onPressed: () => _send(trIn(_language, s), s == _team),
                       ),
                     ),
                 ],
@@ -445,6 +448,120 @@ class _ConfirmCard extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// How the team should reply: here in the app, or a call back on a number the patient types. The wording comes from
+/// the server's reviewed texts in the patient's language; the number is checked here and again on the server.
+class _TeamCard extends StatefulWidget {
+  const _TeamCard({required this.card, required this.onAnswer});
+  final Map<String, dynamic> card;
+  final void Function(bool, {String? replyBy, String? phone}) onAnswer;
+
+  @override
+  State<_TeamCard> createState() => _TeamCardState();
+}
+
+class _TeamCardState extends State<_TeamCard> {
+  final _phone = TextEditingController();
+  bool _calling = false;
+
+  @override
+  void dispose() {
+    _phone.dispose();
+    super.dispose();
+  }
+
+  String _text(String key, String fallback) =>
+      (widget.card[key] as String?) ?? fallback;
+
+  bool get _numberOk {
+    final digits = _phone.text.replaceAll(RegExp(r'\D'), '').length;
+    return digits >= 7 &&
+        digits <= 15; // the server's rule for a callback number
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(top: 10),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Palette.teal, width: 1.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.support_agent_rounded, color: Palette.teal),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  _text('title', 'How would you like the team to reply?'),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: Palette.deepSea,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          if (!_calling) ...[
+            FilledButton.icon(
+              key: const Key('team-app'),
+              onPressed: () => widget.onAnswer(true, replyBy: 'app'),
+              style: FilledButton.styleFrom(backgroundColor: Palette.teal),
+              icon: const Icon(Icons.chat_bubble_outline_rounded),
+              label: Text(_text('yes', 'Reply in the app')),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              key: const Key('team-call'),
+              onPressed: () => setState(() => _calling = true),
+              icon: const Icon(Icons.call_rounded),
+              label: Text(_text('call', 'Call me back')),
+            ),
+          ] else ...[
+            TextField(
+              key: const Key('team-phone'),
+              controller: _phone,
+              autofocus: true,
+              keyboardType: TextInputType.phone,
+              autofillHints: const [AutofillHints.telephoneNumber],
+              onChanged: (_) => setState(() {}),
+              decoration: InputDecoration(
+                labelText: _text('phone', 'Your phone number'),
+                prefixIcon: const Icon(Icons.call_rounded),
+                border: const OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 10),
+            FilledButton(
+              key: const Key('team-call-send'),
+              onPressed: _numberOk
+                  ? () => widget.onAnswer(
+                      true,
+                      replyBy: 'call',
+                      phone: _phone.text.trim(),
+                    )
+                  : null,
+              style: FilledButton.styleFrom(backgroundColor: Palette.teal),
+              child: Text(_text('call', 'Call me back')),
+            ),
+          ],
+          TextButton(
+            key: const Key('team-no'),
+            onPressed: () => widget.onAnswer(false),
+            child: Text(_text('no', 'Not now')),
           ),
         ],
       ),

@@ -202,11 +202,38 @@ def test_only_the_internal_key_can_write_as_the_team(client, monkeypatch):
 
 
 def test_a_reply_that_handed_over_tells_the_app_to_offer_the_team_chat():
-    handed = {"messages": [api.HumanMessage("a person please"),
-                           api.AIMessage("", tool_calls=[{"name": "handoff_to_staff", "args": {}, "id": "1"}]),
-                           api.AIMessage("I've passed this to our team.")]}
-    assert api._reply(handed).team is True
+    def handed(result):
+        return {"messages": [api.HumanMessage("a person please"),
+                             api.AIMessage("", tool_calls=[{"name": "handoff_to_staff", "args": {}, "id": "1"}]),
+                             api.ToolMessage(result, tool_call_id="1"), api.AIMessage("I've passed this to our team.")]}
+    assert api._reply(handed("handed_over")).team is True
+    assert api._reply(handed("handed_over_call")).team is False, "a call back has no chat to open"
     assert api._reply({"messages": [api.HumanMessage("hours?"), api.AIMessage("We open at 07:00.")]}).team is False
+
+
+def test_the_team_chip_skips_the_model_and_the_choice_card_decides_how_the_team_replies(client, monkeypatch):
+    signed_in(monkeypatch)
+    filed, notices = [], []
+    monkeypatch.setattr(api.tools, "_rpc", lambda s, name, **p: filed.append((name, p)))
+    monkeypatch.setattr(api.graph, "model_for", lambda role="assistant": pytest.fail("the chip never waits for the model"))
+    monkeypatch.setattr(stream, "team_channel", lambda user_id, *conf: f"team-{user_id}")
+    monkeypatch.setattr(stream, "team_notice", lambda channel, note, *conf: notices.append(channel))
+    auth = {"Authorization": "Bearer good"}
+
+    card = client.post("/assistant/chat", json={"thread": "thread-001", "message": "Talk to a member of our team",
+                                                "team": True}, headers=auth).json()["confirm"]
+    assert card["action"] == "team" and filed == []
+    bad = client.post("/assistant/confirm", json={"thread": "thread-001", "accept": True, "reply_by": "call",
+                                                  "phone": "call me"}, headers=auth)
+    assert bad.status_code == 422 and filed == [], "a broken number is refused before anything is filed"
+    called = client.post("/assistant/confirm", json={"thread": "thread-001", "accept": True, "reply_by": "call",
+                                                     "phone": "617 555 0142"}, headers=auth).json()
+    assert filed[0][0] == "request_handover" and called["team"] is False and notices == []
+
+    client.post("/assistant/chat", json={"thread": "thread-002", "message": "x", "team": True}, headers=auth)
+    in_app = client.post("/assistant/confirm", json={"thread": "thread-002", "accept": True, "reply_by": "app"},
+                         headers=auth).json()
+    assert in_app["team"] is True and notices == ["team-user-1"], "the conversation opens with the request line"
 
 
 def test_a_video_room_is_only_for_the_patients_own_booked_video_consultation(client, monkeypatch):

@@ -28,9 +28,69 @@ void main() {
       'I would like to speak to a member of the Northgate team',
     );
     await tapKey(tester, 'assistant-send');
+    await tapKey(
+      tester,
+      'team-app',
+    ); // the choice card: a reply here in the app
     await tapKey(tester, 'open-team-chat');
     return repo;
   }
+
+  testWidgets(
+    'the team chip shows the choice card at once; a reply in the app opens the team chat',
+    (tester) async {
+      final nora = FakeAssistantRepository();
+      await pumpApp(
+        tester,
+        FakeAccountRepository(patients: [elena]),
+        assistant: nora,
+        teamChat: FakeTeamChatRepository(),
+      );
+      await signIn(tester);
+      await tapKey(tester, 'open-assistant');
+      await tapKey(tester, 'starter-Talk to a member of our team');
+      expect(
+        nora.sent.single,
+        startsWith('en:team:'),
+        reason: 'the chip skips Nora',
+      );
+      expect(
+        find.text('How would you like the team to reply?'),
+        findsOneWidget,
+      );
+      await tapKey(tester, 'team-app');
+      expect(nora.choices, ['app']);
+      expect(find.byKey(const Key('open-team-chat')), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'a call back needs a real phone number, and then no team chat is offered',
+    (tester) async {
+      final nora = FakeAssistantRepository();
+      await pumpApp(
+        tester,
+        FakeAccountRepository(patients: [elena]),
+        assistant: nora,
+      );
+      await signIn(tester);
+      await tapKey(tester, 'open-assistant');
+      await tapKey(tester, 'starter-Talk to a member of our team');
+      await tapKey(tester, 'team-call');
+      await tester.enterText(find.byKey(const Key('team-phone')), 'call me');
+      await tester.pump();
+      final send = find.byKey(const Key('team-call-send'));
+      expect(tester.widget<FilledButton>(send).onPressed, isNull);
+      await tester.enterText(
+        find.byKey(const Key('team-phone')),
+        '617 555 0142',
+      );
+      await tester.pump();
+      await tapKey(tester, 'team-call-send');
+      expect(nora.choices, ['call:617 555 0142']);
+      expect(find.byKey(const Key('open-team-chat')), findsNothing);
+    },
+  );
 
   testWidgets(
     'after Nora hands over, the team chat opens; the team\'s messages, typing and read ticks show',

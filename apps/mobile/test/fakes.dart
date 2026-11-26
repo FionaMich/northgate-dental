@@ -543,13 +543,16 @@ class FakeAssistantRepository implements AssistantRepository {
       ? 'Hola, soy la recepcionista virtual (IA).'
       : 'Hi, I am an AI assistant.';
 
+  final choices = <String>[]; // the team card's answers: app, or call:<number>
+
   @override
   Future<AssistantTurn> send(
     String thread,
     String message,
-    String language,
-  ) async {
-    sent.add('$language:$message');
+    String language, {
+    bool team = false,
+  }) async {
+    sent.add('$language:${team ? 'team:' : ''}$message');
     return proposeBooking
         ? AssistantTurn(
             confirm: {
@@ -562,10 +565,16 @@ class FakeAssistantRepository implements AssistantRepository {
               'no': language == 'es' ? 'Ahora no' : 'Not now',
             },
           )
-        : handOver
+        : handOver || team
         ? const AssistantTurn(
-            reply: 'I have passed this to our team.',
-            team: true,
+            confirm: {
+              'action': 'team',
+              'title': 'How would you like the team to reply?',
+              'yes': 'Reply in the app',
+              'call': 'Call me back',
+              'phone': 'Your phone number',
+              'no': 'Not now',
+            },
           )
         : const AssistantTurn(reply: 'Quincy opens at 07:00 on Mondays.');
   }
@@ -574,9 +583,18 @@ class FakeAssistantRepository implements AssistantRepository {
   Future<AssistantTurn> confirm(
     String thread,
     bool accept,
-    String language,
-  ) async {
+    String language, {
+    String? replyBy,
+    String? phone,
+  }) async {
     answers.add(accept);
+    if (replyBy != null) {
+      choices.add(replyBy == 'call' ? 'call:$phone' : replyBy);
+      return AssistantTurn(
+        reply: 'I have passed this to our team.',
+        team: replyBy == 'app',
+      );
+    }
     return AssistantTurn(reply: accept ? 'Booked.' : 'No problem.');
   }
 }

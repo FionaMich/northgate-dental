@@ -13,7 +13,7 @@ from typing import Literal
 
 import httpx
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Response
-from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langgraph.types import Command
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from pydantic import BaseModel, Field
@@ -65,11 +65,14 @@ async def who(authorization: str = Header(...), x_language: Language = Header("e
 class ChatIn(BaseModel):
     thread: str = Field(pattern=r"^[A-Za-z0-9-]{8,64}$")
     message: str = Field(min_length=1, max_length=2000)
+    team: bool = False   # the "Talk to a member of our team" chip
 
 
 class ConfirmIn(BaseModel):
     thread: str = Field(pattern=r"^[A-Za-z0-9-]{8,64}$")
     accept: bool
+    reply_by: Literal["app", "call"] | None = None   # the team card's choice
+    phone: str = Field("", max_length=32)
 
 
 class CallTicket(BaseModel):
@@ -144,7 +147,7 @@ def _reply(out: dict) -> Reply:
     messages = out["messages"]
     last = next((m for m in reversed(messages) if isinstance(m, AIMessage) and m.content), None)
     since = max((i for i, m in enumerate(messages) if isinstance(m, HumanMessage)), default=0)
-    team = any(c["name"] == "handoff_to_staff" for m in messages[since:] if isinstance(m, AIMessage) for c in (m.tool_calls or []))
+    team = any(isinstance(m, ToolMessage) and m.content == "handed_over" for m in messages[since:])
     return Reply(reply=str(last.content) if last else None, team=team)
 
 
@@ -167,12 +170,33 @@ def hello(language: Language = "en") -> dict:
 
 @app.post("/assistant/chat", response_model=Reply)
 def chat(body: ChatIn, w: Who = Depends(who)) -> Reply:
+    if body.team:
+        # The app's "Talk to a member of our team" chip: straight to the choice card, without waiting for the model.
+        # The stored words are fixed, so nothing the client sends here skips the red-flag gate.
+        assistant.update_state(_config(w, body.thread), {"messages": [
+            HumanMessage("I would like to talk to a member of the Northgate team."),
+            AIMessage("", tool_calls=[{"name": "handoff_to_staff", "id": f"team-{secrets.token_hex(4)}", "args": {
+                "category": "other", "summary_in_english": "The patient asked to speak to the team."}}])]},
+            as_node="assistant")
+        return _run("chat", w, None, body.thread)
     return _run("chat", w, {"messages": [HumanMessage(body.message)]}, body.thread)
+
+
+def _answer(body: "ConfirmIn") -> bool | dict:
+    """What the patient's button resumes the graph with: yes or no, or how the team should reply."""
+    if not (body.accept and body.reply_by):
+        return body.accept
+    if body.reply_by == "call":
+        try:
+            tools._phone_number(body.phone)
+        except tools.ToolRefused:
+            raise HTTPException(422, "check the phone number") from None
+    return {"reply_by": body.reply_by, "phone": body.phone}
 
 
 @app.post("/assistant/confirm", response_model=Reply)
 def confirm(body: ConfirmIn, w: Who = Depends(who)) -> Reply:
-    return _run("chat", w, Command(resume=body.accept), body.thread)
+    return _run("chat", w, Command(resume=_answer(body)), body.thread)
 
 
 @app.post("/assistant/call", response_model=CallTicket)  # under /assistant/, the prefix Nginx proxies
@@ -371,7 +395,7 @@ def call_confirm(call_id: str, body: ConfirmIn, w: Who = Depends(who)) -> Reply:
         raise HTTPException(403, "not your call")
     # the call's language: the button's request carries none. Everything else is this request's verified session.
     w = replace(w, session=replace(w.session, language=ctx.who.session.language))
-    reply = _run("call", w, Command(resume=body.accept), f"call-{call_id}")
+    reply = _run("call", w, Command(resume=_answer(body)), f"call-{call_id}")
     ctx.to_say.append(_spoken(reply))
     return reply
 

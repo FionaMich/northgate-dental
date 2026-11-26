@@ -40,8 +40,23 @@ const assistantBase = String.fromEnvironment(
 
 abstract class AssistantRepository {
   Future<String> hello(String language);
-  Future<AssistantTurn> send(String thread, String message, String language);
-  Future<AssistantTurn> confirm(String thread, bool accept, String language);
+
+  /// [team]: the "Talk to a member of our team" chip, answered with the team card without waiting for the model.
+  Future<AssistantTurn> send(
+    String thread,
+    String message,
+    String language, {
+    bool team = false,
+  });
+
+  /// [replyBy] ("app" or "call", with [phone]) answers the team card.
+  Future<AssistantTurn> confirm(
+    String thread,
+    bool accept,
+    String language, {
+    String? replyBy,
+    String? phone,
+  });
 }
 
 /// Talks to the assistant service with the patient's own Supabase token; the service checks it with Supabase.
@@ -101,11 +116,13 @@ class HttpAssistantRepository implements AssistantRepository {
   Future<AssistantTurn> send(
     String thread,
     String message,
-    String language,
-  ) async => _turn(
+    String language, {
+    bool team = false,
+  }) async => _turn(
     await _call('POST', '/assistant/chat', language, {
       'thread': thread,
       'message': message,
+      if (team) 'team': true,
     }),
   );
 
@@ -113,11 +130,15 @@ class HttpAssistantRepository implements AssistantRepository {
   Future<AssistantTurn> confirm(
     String thread,
     bool accept,
-    String language,
-  ) async => _turn(
+    String language, {
+    String? replyBy,
+    String? phone,
+  }) async => _turn(
     await _call('POST', '/assistant/confirm', language, {
       'thread': thread,
       'accept': accept,
+      'reply_by': ?replyBy,
+      'phone': ?phone,
     }),
   );
 }
