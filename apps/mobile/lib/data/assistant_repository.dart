@@ -71,7 +71,7 @@ class HttpAssistantRepository implements AssistantRepository {
     }
     // The model runs on a CPU server: allow a long reply rather than give up on a patient mid-sentence.
     final response = await request.close().timeout(
-      const Duration(seconds: 150),
+      const Duration(seconds: 240),
     );
     final text = await response.transform(utf8.decoder).join();
     if (response.statusCode != 200) {
