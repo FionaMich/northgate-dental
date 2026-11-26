@@ -141,3 +141,15 @@ def test_a_reply_that_only_promises_to_check_gets_one_second_look_and_the_tool_r
     _, _, out = run(model, "Je voudrais un détartrage à Quincy la semaine prochaine", language="fr")
     assert ("available_slots" in [name for name, _ in db]), "the tool the first reply skipped was called"
     assert out["messages"][-1].content == "Le premier créneau est lundi."
+
+
+
+def test_free_times_carry_the_price_so_a_reply_that_quotes_it_is_not_refused(db, monkeypatch):
+    real = tools._get
+    monkeypatch.setattr(tools, "_get", lambda s, path, **p: [{"price_cents": 4500}] if path == "/location_services" else real(s, path, **p))
+    model = ScriptedModel(
+        call("find_slots", clinic_code="quincy", service_code="video", day="2026-11-27"),
+        AIMessage("The earliest video consultation is Friday at 10:00, and it costs $45.00. Shall I book it?"),
+    )
+    _, _, out = run(model, "A video consultation at Quincy, the earliest you have")
+    assert out["messages"][-1].content.startswith("The earliest video consultation"), "not replaced by the handover text"

@@ -137,7 +137,10 @@ def find_slots(clinic_code: str, service_code: str, day: str, config: RunnableCo
     date.fromisoformat(day)
     slots = _rpc(s, "available_slots", loc=loc, service=svc, from_day=day, days=3) or []
     lines = [f"{_local(x['starts_at'], tz)} (slot {_slot_ref(x['starts_at'], tz)})" for x in slots[:12]]
-    return f"{service}, free times:\n" + "\n".join(lines) if lines else "No free times on those days."
+    # the price with the times, so a reply that mentions it is grounded in a tool result, not refused
+    price = _get(s, "/location_services", select="price_cents", location_id=f"eq.{loc}", service_id=f"eq.{svc}")
+    cost = f", {_money(price[0]['price_cents'])}" if price else ""
+    return f"{service}{cost}, free times:\n" + "\n".join(lines) if lines else "No free times on those days."
 
 
 @tool
