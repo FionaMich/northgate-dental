@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import EnquiryForm from "@/components/EnquiryForm";
+import StoreBadges from "@/components/StoreBadges";
 import VoiceSample from "@/components/VoiceSample";
 import { ACCESS, TEAM, catalogue, money, openingLines, phone, servicePicture } from "@/lib/data";
 
@@ -162,10 +163,7 @@ export default async function Home() {
           <div>
             <h2 className="font-display text-3xl font-black tracking-tight sm:text-4xl">Everything in one app</h2>
             <p className="mt-4 text-white/80">Book and move visits, pay securely, see your treatment plan and X-rays, join video consultations, and message the team.</p>
-            <div className="mt-8 flex flex-wrap gap-3" aria-label="Download the app">
-              <span className="rounded-xl bg-black px-5 py-3 text-sm font-semibold ring-1 ring-white/30">Google Play · coming soon</span>
-              <span className="rounded-xl bg-black px-5 py-3 text-sm font-semibold ring-1 ring-white/30">App Store · coming soon</span>
-            </div>
+            <div className="mt-8"><StoreBadges /></div>
           </div>
           <ul className="grid grid-cols-2 gap-3 text-sm">
             {["Book in under a minute", "Pay with a secure link", "Video consultations", "Your X-rays and plans", "Reminders that let you reschedule", "Chat with Nora or the team"].map((t) => (
