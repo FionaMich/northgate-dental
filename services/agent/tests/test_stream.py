@@ -78,7 +78,8 @@ def test_a_signed_in_patient_gets_a_token_for_their_own_id(client, monkeypatch):
     body = client.post("/assistant/call", headers={"Authorization": "Bearer good"}).json()
     assert body["api_key"] == "key" and body["user_id"] == "user-1" and body["call_type"] == "nora_voice"
     assert _claims(body["token"])["user_id"] == "user-1"
-    assert "user-1" not in body["call_id"] and "p1" not in body["call_id"], "call IDs are random, never an identity"
+    # "p1" is two characters, so a random ID can contain it by chance: the ID must simply not be an identity
+    assert body["call_id"] not in {"user-1", "p1"} and "user-1" not in body["call_id"], "call IDs are random, never an identity"
     assert api.calls[body["call_id"]].who.user_id == "user-1", "the voice service can find the patient behind the call"
     assert registered == ["user-1"], "the Stream user is registered by the server before the app joins"
     second = client.post("/assistant/call", headers={"Authorization": "Bearer good"}).json()

@@ -425,6 +425,42 @@ How the videos were made, so nothing in them is taken for more than it is: each 
 </details>
 
 <details>
+<summary><b>How Nora knows clinic policy: hybrid RAG in Postgres</b></summary>
+
+Patients ask how things work: "is there a fee if I miss a visit?", "can I pay in instalments?", "is there parking in Quincy?". Nora answers these from documents the clinic has approved (`knowledge/`), names the document, and hands over when no document answers.
+
+```mermaid
+flowchart LR
+  q[Patient question, any of 8 languages] --> tool[search_clinic_knowledge<br/>question in English]
+  tool --> emb[bge-m3 on our own Ollama<br/>1024-number vector]
+  tool --> sql
+  emb --> sql[search_knowledge in Postgres<br/>full-text ranking + pgvector ranking<br/>reciprocal rank fusion]
+  sql --> gate{Similarity at least 0.50?}
+  gate -->|yes| answer[Gemma answers from the passages<br/>and names the document]
+  gate -->|no| team[Offer to pass it to the team]
+  answer --> grounded{Every price, time and link<br/>is in a passage?}
+  grounded -->|yes| reply[Reply]
+  grounded -->|no| team
+```
+
+**Which RAG, and why:**
+
+| Choice | Why |
+| --- | --- |
+| **Hybrid** retrieval: keywords (Postgres full-text search) plus meaning (pgvector), fused by reciprocal rank fusion in one SQL function | Keywords catch exact terms ("no-show fee", "HSA"); meaning catches the same question in other words or another language. Fusing by rank needs no tuning between two score scales. Postgres only: no extra database to run or secure |
+| Retrieval as a **tool** Nora calls, not text added to every prompt | Most turns (booking, paying) need no documents; on a CPU every prompt token costs time |
+| **Corrective** step as a calibrated similarity gate, not a model grader | A grader would add 20 to 60 seconds per question on a CPU. The floor (0.50) sits between the weakest answerable question (0.563) and the closest out-of-scope one (0.448) in the golden set |
+| **No web search** fallback | Health information from the open web is not approved by the clinic |
+| The existing **grounding check** covers the answer | A fee or time in the reply must appear in a passage, so the model cannot invent one |
+| **Not GraphRAG** | The questions are single-hop and the corpus is a few pages; the relationships Nora needs (patient, visit, clinic) are foreign keys her tools already follow |
+
+**Evaluation** (`services/agent/evals/`): 27 questions in all eight languages and 6 that no document answers. recall@1 1.00, recall@3 1.00, mean reciprocal rank 1.00, every out-of-scope question refused. The thresholds in `thresholds.yaml` fail the run if a score drops.
+
+**Governance:** the embedding model runs on our own server, so questions never leave it; only the question is embedded, with no patient identifier; passages are checked at ingestion for instructions aimed at a model; `ai_events` records that the tool ran, never the question. Clinical aftercare stays with the team until a clinician signs a document off.
+
+</details>
+
+<details>
 <summary><b>The tooth chart: sculpted arches, painted surfaces</b></summary>
 
 ![Tooth chart](.github/readme/tooth-chart.png)

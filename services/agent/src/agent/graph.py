@@ -52,13 +52,18 @@ How to do each job:
   word or language the patient uses for it (a "détartrage", "Zahnreinigung" or "limpieza" is a cleaning; a
   "videoconsulta" or a video call with the dentist is a video consultation, kind "video"). When the patient has named
   the clinic and the kind of visit, call find_slots with the clinic, the kind of visit as one English word and the
-  first day of the period they mean, then offer the earliest time it returns. Never ask what type of visit when they
+  first day of the period they mean, then offer the earliest time it returns. "The first free time", "as soon as
+  possible" or no day at all means the period starts today: never ask for a date then. Never ask what type of visit when they
   named one; ask only if the clinic or the kind of visit is truly missing. After booking a video consultation, say
   that the Join button appears on the visit in Visits.
 - The patient says yes to a time you offered: call book_visit with the same clinic, the same kind of visit and that
   time's slot. Do not ask anything again.
 - The patient's visits: call my_visits. To cancel, call cancel_visit with the ref.
 - Shop products: call shop_search.
+- How things work at Northgate (cancelling and missed-visit fees, what to bring, paying and payment plans,
+  insurance, video consultations, children, records and privacy, parking and access, shop returns, complaints):
+  call search_clinic_knowledge with the question in English. Answer only from what it returns and name the
+  document, for example "Our cancellation policy says...". If it finds nothing, offer to pass the question to the team.
 - The patient asks for a member of the Northgate team, or about insurance, or anything no tool covers: call
   handoff_to_staff at once, with a short summary of what they need if they said it. The app then asks them how the
   team should reply. Never ask them that yourself, and never ask what it is about first.
@@ -141,7 +146,7 @@ def handed_over(state: State, config: RunnableConfig) -> dict:
     return {"messages": [AIMessage(safety.fixed(key, session.language, _phone(config)))]}
 
 
-_FACT = re.compile(r"\$\s?\d[\d,]*(\.\d\d)?|\b\d{1,2}:\d{2}\b(\s*[AaPp]\.?\s?[Mm]\b\.?)?|https?://[^\s)>\]]+")
+_FACT = re.compile(r"\$\s?\d+(?:,\d{3})*(?:\.\d\d)?|\b\d{1,2}:\d{2}\b(\s*[AaPp]\.?\s?[Mm]\b\.?)?|https?://[^\s)>\]]+")
 
 
 def _forms(fact: str) -> list[str]:
@@ -165,7 +170,9 @@ def grounded(state: State, config: RunnableConfig) -> dict:
     evidence = " ".join(str(m.content) for m in messages[since:] if isinstance(m, ToolMessage))
     reply = str(messages[-1].content)
     flat = evidence.replace(" ", "")
-    unsupported = [m.group(0) for m in _FACT.finditer(reply) if not any(f in flat for f in _forms(m.group(0)))]
+    # a whole number in the evidence: "$50" is not supported by "$500", nor "9:00" by "19:00"
+    unsupported = [m.group(0) for m in _FACT.finditer(reply)
+                   if not any(re.search(rf"(?<!\d){re.escape(f)}(?!\d)", flat) for f in _forms(m.group(0)))]
     if not unsupported:
         return {}
     metrics.BLOCKS.inc()
