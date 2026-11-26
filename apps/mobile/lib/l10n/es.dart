@@ -586,4 +586,13 @@ const es = <String, String>{
   'See a member of our team on video': 'Vea a un miembro de nuestro equipo por vídeo',
   'Video consultations are unavailable right now. Please call your clinic.': 'Las videoconsultas no están disponibles en este momento. Llame a su clínica.',
   'The video consultation could not start. Please try again or call your clinic.': 'La videoconsulta no se pudo iniciar. Inténtelo de nuevo o llame a su clínica.',
+  '1 new message from the team': '1 mensaje nuevo del equipo',
+  '{} new messages from the team': '{} mensajes nuevos del equipo',
+  'Tap to read and reply': 'Toque para leer y responder',
+  'Your request to the team': 'Su solicitud al equipo',
+  'Waiting for a reply': 'Esperando respuesta',
+  'Your conversation with the team': 'Su conversación con el equipo',
+  'Open': 'Abrir',
+  'Open your conversation with the team': 'Abrir su conversación con el equipo',
+  'Join video consultation': 'Unirse a la videoconsulta',
 };

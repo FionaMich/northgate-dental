@@ -23,9 +23,13 @@ class ChatBubble extends StatelessWidget {
     this.mine = false,
     this.delivery,
     this.first = true,
+    this.name,
   });
 
   final String text;
+
+  /// The writer, for the team's messages ("Sam · front desk"); none for the patient or Nora.
+  final String? name;
   final DateTime at;
   final bool mine;
 
@@ -69,6 +73,22 @@ class ChatBubble extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.end,
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (name != null && first)
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                widthFactor: 1,
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 2),
+                  child: Text(
+                    name!,
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                      color: Palette.teal,
+                    ),
+                  ),
+                ),
+              ),
             Align(
               alignment: AlignmentDirectional.centerStart,
               widthFactor: 1,
@@ -114,6 +134,38 @@ class ChatBubble extends StatelessWidget {
       ),
     );
   }
+}
+
+/// A line written by the system, not a person ("Request NGD-12 sent to the team"): centred, muted, no bubble.
+class ChatSystemLine extends StatelessWidget {
+  const ChatSystemLine(this.text, {super.key});
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 28),
+    child: Row(
+      children: [
+        const Expanded(child: Divider(color: Color(0xFFC9D8D5))),
+        Flexible(
+          flex: 6,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            child: Text(
+              text,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 12.5,
+                height: 1.4,
+                color: Palette.muted,
+              ),
+            ),
+          ),
+        ),
+        const Expanded(child: Divider(color: Color(0xFFC9D8D5))),
+      ],
+    ),
+  );
 }
 
 class ChatDayChip extends StatelessWidget {

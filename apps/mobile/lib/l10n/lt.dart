@@ -586,4 +586,13 @@ const lt = <String, String>{
   'See a member of our team on video': 'Susitikite su mūsų komandos nariu vaizdo skambučiu',
   'Video consultations are unavailable right now. Please call your clinic.': 'Vaizdo konsultacijos šiuo metu nepasiekiamos. Paskambinkite į kliniką.',
   'The video consultation could not start. Please try again or call your clinic.': 'Vaizdo konsultacijos pradėti nepavyko. Bandykite dar kartą arba paskambinkite į kliniką.',
+  '1 new message from the team': '1 nauja komandos žinutė',
+  '{} new messages from the team': 'Naujų komandos žinučių: {}',
+  'Tap to read and reply': 'Bakstelėkite, kad perskaitytumėte ir atsakytumėte',
+  'Your request to the team': 'Jūsų užklausa komandai',
+  'Waiting for a reply': 'Laukiama atsakymo',
+  'Your conversation with the team': 'Jūsų pokalbis su komanda',
+  'Open': 'Atidaryti',
+  'Open your conversation with the team': 'Atidaryti pokalbį su komanda',
+  'Join video consultation': 'Prisijungti prie vaizdo konsultacijos',
 };

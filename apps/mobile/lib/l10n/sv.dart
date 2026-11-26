@@ -586,4 +586,13 @@ const sv = <String, String>{
   'See a member of our team on video': 'Träffa någon i vårt team på video',
   'Video consultations are unavailable right now. Please call your clinic.': 'Videokonsultationer är inte tillgängliga just nu. Ring din klinik.',
   'The video consultation could not start. Please try again or call your clinic.': 'Videokonsultationen kunde inte starta. Försök igen eller ring din klinik.',
+  '1 new message from the team': '1 nytt meddelande från teamet',
+  '{} new messages from the team': '{} nya meddelanden från teamet',
+  'Tap to read and reply': 'Tryck för att läsa och svara',
+  'Your request to the team': 'Din förfrågan till teamet',
+  'Waiting for a reply': 'Väntar på svar',
+  'Your conversation with the team': 'Din konversation med teamet',
+  'Open': 'Öppna',
+  'Open your conversation with the team': 'Öppna din konversation med teamet',
+  'Join video consultation': 'Gå med i videokonsultationen',
 };

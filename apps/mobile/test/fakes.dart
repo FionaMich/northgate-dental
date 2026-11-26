@@ -709,7 +709,14 @@ class FakeTeamChat implements TeamChat {
 }
 
 class FakeTeamChatRepository implements TeamChatRepository {
-  FakeTeamChatRepository({this.available = true});
+  FakeTeamChatRepository({
+    this.available = true,
+    this.state = const TeamStatus('none', 0),
+  });
+  TeamStatus state;
+
+  @override
+  Future<TeamStatus> status() async => state;
   final bool available;
   final chats = <FakeTeamChat>[];
 

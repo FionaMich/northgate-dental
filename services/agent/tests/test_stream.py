@@ -225,6 +225,44 @@ def test_a_video_room_is_only_for_the_patients_own_booked_video_consultation(cli
     assert client.post("/assistant/consult", json={"appointment_id": "v-video"}).status_code == 422, "no session"
     url = "/assistant/consult/consult-v-video/team"
     assert client.post(url, headers={"X-Internal-Key": "wrong"}).status_code == 401
-    team = client.post(url, headers={"X-Internal-Key": "internal"}).json()
-    assert team["user_id"] == "northgate-team" and team["call_id"] == "consult-v-video"
+    team = client.post(url, params={"name": "Dr Hannah Brooks"}, headers={"X-Internal-Key": "internal"}).json()
+    assert team["user_id"] == "staff-dr-hannah-brooks" and team["call_id"] == "consult-v-video"
     assert client.post("/assistant/consult/other/team", headers={"X-Internal-Key": "internal"}).status_code == 404
+
+
+def test_a_patient_message_to_the_team_is_checked_for_red_flags_first(client, monkeypatch):
+    signed_in(monkeypatch)
+    sent, alerts = [], []
+    monkeypatch.setattr(api.stream, "_server", lambda key, secret, http, path, body: sent.append((path, body)) or {})
+    monkeypatch.setattr(api.tools, "_rpc", lambda session, name, **p: alerts.append((name, p)))
+    ok = client.post("/assistant/team-chat/send", json={"message": "Is parking free at Quincy?"},
+                     headers={"Authorization": "Bearer good"})
+    assert ok.json() == {"emergency": None}
+    assert sent == [("/channels/messaging/team-user-1/message", {"message": {"text": "Is parking free at Quincy?", "user_id": "user-1"}})]
+    assert alerts == []
+    sent.clear()
+    urgent = client.post("/assistant/team-chat/send", json={"message": "My mouth won't stop bleeding after the extraction"},
+                         headers={"Authorization": "Bearer good"}).json()
+    assert urgent["emergency"] and "911" in urgent["emergency"], "the emergency text comes at once"
+    assert sent[1][1]["message"]["type"] == "system", "and is posted in the conversation as a system line"
+    assert alerts[0][0] == "request_handover" and alerts[0][1]["category"] == "emergency"
+    summary = alerts[0][1]["summary"]
+    assert "heavy_bleeding" in summary and "mouth" not in summary and "extraction" not in summary, "flags, not words"
+
+
+def test_home_reads_where_the_team_conversation_stands(monkeypatch):
+    from agent import stream as st
+    def channel(messages, unread):
+        return lambda key, secret, http, path, body: {"channels": [{"messages": messages, "read": [
+            {"user": {"id": "u1"}, "unread_messages": unread}]}]}
+    notice = {"type": "system", "user": {"id": "northgate-team"}}
+    mine = {"type": "regular", "user": {"id": "u1"}}
+    team = {"type": "regular", "user": {"id": "northgate-team"}}
+    monkeypatch.setattr(st, "_server", lambda *a, **k: {"channels": []})
+    assert st.team_status("u1", "k", "s") == {"state": "none", "unread": 0}
+    monkeypatch.setattr(st, "_server", channel([notice, mine], 0))
+    assert st.team_status("u1", "k", "s")["state"] == "waiting"
+    monkeypatch.setattr(st, "_server", channel([notice, mine, team], 1))
+    assert st.team_status("u1", "k", "s") == {"state": "unread", "unread": 1}
+    monkeypatch.setattr(st, "_server", channel([notice, mine, team], 0))
+    assert st.team_status("u1", "k", "s")["state"] == "open"

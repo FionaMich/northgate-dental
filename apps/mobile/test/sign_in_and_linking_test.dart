@@ -20,6 +20,7 @@ Future<FakeAccountRepository> pumpApp(
   FakeAlignerReminders? reminders,
   FakeVoiceEngine? voice,
   FakeCallRepository? calls,
+  FakeTeamChatRepository? teamChat,
   List<dynamic> extra = const [],
 }) async {
   // Tests run with the phone's reduce-motion setting on, as some patients will; the floating art then stays still.
@@ -43,6 +44,9 @@ Future<FakeAccountRepository> pumpApp(
         voiceEngineProvider.overrideWithValue(voice ?? FakeVoiceEngine()),
         callRepositoryProvider.overrideWithValue(
           calls ?? FakeCallRepository(available: false),
+        ),
+        teamChatRepositoryProvider.overrideWithValue(
+          teamChat ?? FakeTeamChatRepository(),
         ),
         ...extra,
       ],
