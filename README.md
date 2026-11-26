@@ -639,6 +639,34 @@ A clinician invites a patient to a care programme. The patient joins in the app,
 </details>
 
 <details>
+<summary><b>The dental-tools MCP server: Northgate's public tools for any AI assistant</b></summary>
+
+`services/mcp` is a Model Context Protocol server (the official Python SDK). Any MCP client, such as Claude Desktop, an IDE assistant or another agent, can use Northgate's public tools:
+
+| Tool | What it returns |
+| --- | --- |
+| `clinics` | Each clinic's address, phone number and opening hours |
+| `services_and_prices` | Every service, its length and the self-pay price at each clinic, optionally for one clinic |
+| `clinic_policies` | Passages from the approved policy documents, with the document named. It uses the same hybrid search as Nora and refuses weak matches |
+| `how_to_book` | Where booking, paying and changes happen: the app, Nora, or the clinic's phone |
+
+**No patient data, by design.** The tools read two public database functions, `public_catalogue()` and `public_search_knowledge()`, using the publishable key, which grants nothing else. Anything about a patient stays in the app and with Nora, under the patient's own session.
+
+Run it for a desktop client:
+
+```bash
+cd services/mcp && uv run dental-mcp                                     # stdio
+MCP_TRANSPORT=streamable-http MCP_PORT=8300 uv run dental-mcp            # HTTP
+```
+
+```json
+{ "mcpServers": { "northgate-dental": { "command": "uv", "args": ["--directory", "services/mcp", "run", "dental-mcp"],
+  "env": { "SUPABASE_PUBLISHABLE_KEY": "<the project's publishable key>" } } } }
+```
+
+</details>
+
+<details>
 <summary><b>The website and the staff portal: Next.js on Vercel, Supabase from the browser</b></summary>
 
 Live at [northgate-dental.vercel.app](https://northgate-dental.vercel.app). The code is in `apps/web`: Next.js with the App Router and Tailwind, exported as static files, and served by Vercel's free Hobby plan. No server code runs at Vercel, so nothing there can read patient data.
