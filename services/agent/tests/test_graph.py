@@ -289,3 +289,24 @@ def test_n8n_tool_responses_are_read_as_the_database_answer():
         actions.parse('{"statusCode": 403, "body": {"message": "this visit is not yours"}}')
     with pytest.raises(actions.Unavailable):
         actions.parse('{"error": "workflow failed"}')
+
+
+@pytest.mark.parametrize("ending", [".", ",", "!", ";", ")."])
+def test_a_link_at_the_end_of_a_sentence_matches_the_tools_link(ending, monkeypatch):
+    """A full stop after a link is the sentence's, not the link's: the patient must get the link, not the handover."""
+    from langchain_core.messages import ToolMessage
+    monkeypatch.setattr(tools, "_rpc", lambda *a, **k: pytest.fail("a correct link must not be handed over"))
+    link = "https://n8n.example/webhook/pay?t=abc123"
+    state = {"messages": [HumanMessage("Email me a payment link"), ToolMessage(link, tool_call_id="c1"),
+                          AIMessage(f"Your secure payment link is ready, and it is in your email too: {link}{ending}")]}
+    config = {"configurable": {"session": tools.Session("u", "k", "j", "p")}}
+    assert graph.grounded(state, config) == {}
+
+
+def test_an_invented_link_is_still_refused_with_a_full_stop(monkeypatch):
+    from langchain_core.messages import ToolMessage
+    monkeypatch.setattr(tools, "_rpc", lambda *a, **k: None)
+    state = {"messages": [HumanMessage("Pay"), ToolMessage("https://n8n.example/webhook/pay?t=abc123", tool_call_id="c1"),
+                          AIMessage("Pay here: https://n8n.example/webhook/pay?t=abc124.")]}
+    config = {"configurable": {"session": tools.Session("u", "k", "j", "p")}}
+    assert graph.grounded(state, config) != {}
