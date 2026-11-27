@@ -197,8 +197,12 @@ def test_nora_s_links_email_once_a_day_and_the_reschedule_link_moves_the_visit(c
     move = next(m for _, m, _ in sender.sent if m.subject.startswith("Choose"))
     token = re.search(r"move\?t=([A-Za-z0-9_-]{32})", move.text).group(1)
 
+    conn.execute("select set_config('request.jwt.claims', '', true)")   # the page runs as n8n's role, nobody signed in
+    conn.execute("grant northgate_patient_actions to postgres")         # rolled back with the test
+    conn.execute("set local role northgate_patient_actions")
     options = conn.execute("select options from private.reschedule_options(%s)", (token,)).fetchone()["options"]
     assert conn.execute("select private.move_by_token(%s, %s) as r", (token, options[0]["at"])).fetchone()["r"] == "moved"
+    conn.execute("reset role")
     sender.sent.clear()
     for _ in range(3):
         run_once(conn, sender, link_base="https://n8n.example/webhook")

@@ -56,25 +56,33 @@ select throws_ok($$ select public.send_my_reschedule_link('4d000000-0000-4000-80
   'a session without the emailed sign-in code cannot ask for links');
 reset role;
 
--- the page and the button
+-- the page and the button run as n8n's database role, with nobody signed in (as on the server)
+select set_config('request.jwt.claims', '', true);
+grant northgate_patient_actions to postgres;   -- rolled back with the test
 create temp table tok as select private.issue_action_token('4d000000-0000-4000-8000-000000000001', 'reschedule') as t,
                                private.issue_action_token('4d000000-0000-4000-8000-000000000003', 'reschedule') as late;
-select is((select state from private.reschedule_options((select t from tok))), 'ok', 'a fresh reschedule link is usable');
-select ok(jsonb_array_length((select options from private.reschedule_options((select t from tok)))) between 1 and 8,
-  'the page offers between 1 and 8 free times');
-select is((select state from private.reschedule_options((select late from tok))), 'too_late',
-  'a visit inside the cancellation window cannot be moved by link');
-select is(private.move_by_token((select t from tok), now() + interval '3 hours'), 'taken',
-  'a time inside the cancellation window is refused');
-create temp table pick as select (o ->> 'at')::timestamptz as at
-  from private.reschedule_options((select t from tok)) r, jsonb_array_elements(r.options) o limit 1;
-select is(private.move_by_token((select t from tok), (select at from pick)), 'moved', 'the button moves the visit');
+grant select on tok to northgate_patient_actions;
+set local role northgate_patient_actions;   -- the work runs as n8n's role; the checks run after, as the test owner
+create temp table page as select * from private.reschedule_options((select t from tok));
+create temp table late as select * from private.reschedule_options((select late from tok));
+create temp table pick as select (o ->> 'at')::timestamptz as at from page, jsonb_array_elements(page.options) o limit 1;
+create temp table moves as
+  select 1 as n, private.move_by_token((select t from tok), now() + interval '3 hours') as r
+  union all select 2, private.move_by_token((select t from tok), (select at from pick))
+  union all select 3, private.move_by_token((select t from tok), (select at from pick) + interval '1 day');
+reset role;
+select is((select state from page), 'ok', 'a fresh reschedule link is usable');
+select ok(jsonb_array_length((select options from page)) between 1 and 8,
+  'the page offers between 1 and 8 free times, with nobody signed in');
+select is((select state from late), 'too_late', 'a visit inside the cancellation window cannot be moved by link');
+select is((select r from moves where n = 1), 'taken', 'a time inside the cancellation window is refused');
+select is((select r from moves where n = 2), 'moved', 'the button moves the visit');
+select is((select r from moves where n = 3), 'used', 'a link works once');
 select is((select status from appointments where id = '4d000000-0000-4000-8000-000000000001'), 'cancelled',
   'the old visit is cancelled');
 select is((select count(*) from appointments where replaces = '4d000000-0000-4000-8000-000000000001' and status = 'booked'
                                                 and starts_at = (select at from pick)), 1::bigint,
   'and the new one is booked at the chosen time, recording the visit it replaces');
-select is(private.move_by_token((select t from tok), (select at from pick) + interval '1 day'), 'used', 'a link works once');
 
 select * from finish();
 rollback;
