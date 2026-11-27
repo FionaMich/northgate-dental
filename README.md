@@ -257,9 +257,9 @@ sequenceDiagram
 - On staging, on 27 November 2026: Nora emailed a payment link (06:47 UTC), the patient paid $110.00 with Stripe's test
   card on the Checkout page (06:56), the database recorded it as paid, and the receipt email arrived the same minute.
 
-| Nora's "Pay securely" email | Stripe Checkout, test card |
-| --- | --- |
-| ![The payment link email](.github/readme/emails/paylink.png) | ![Stripe Checkout with the test card](.github/readme/stripe-checkout.png) |
+| In the chat | Nora's "Pay securely" email | Stripe Checkout, test card |
+| --- | --- | --- |
+| ![Nora's reply: the link highlighted, with a Pay securely button](.github/readme/nora-pay-link.jpg) | ![The payment link email](.github/readme/emails/paylink.png) | ![Stripe Checkout with the test card](.github/readme/stripe-checkout.png) |
 
 | Forged webhook refused | Payment tests |
 | --- | --- |

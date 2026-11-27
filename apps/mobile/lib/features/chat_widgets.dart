@@ -1,4 +1,5 @@
 import 'package:dental/ui.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../design/tokens.dart';
 
@@ -92,8 +93,8 @@ class ChatBubble extends StatelessWidget {
             Align(
               alignment: AlignmentDirectional.centerStart,
               widthFactor: 1,
-              child: SelectableText(
-                text,
+              child: SelectableText.rich(
+                TextSpan(children: _withLinks(text)),
                 style: const TextStyle(
                   fontSize: 15.5,
                   height: 1.35,
@@ -101,6 +102,30 @@ class ChatBubble extends StatelessWidget {
                 ),
               ),
             ),
+            for (final link in mine ? const <Uri>[] : chatLinks(text))
+              Padding(
+                padding: const EdgeInsets.only(top: 8, bottom: 2),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    key: Key('chat-link-${link.path.split('/').last}'),
+                    onPressed: () =>
+                        launchUrl(link, mode: LaunchMode.externalApplication),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Palette.teal,
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size.fromHeight(44),
+                    ),
+                    icon: Icon(
+                      link.path.endsWith('/pay')
+                          ? Icons.lock_rounded
+                          : Icons.open_in_new_rounded,
+                      size: 18,
+                    ),
+                    label: Text(linkLabel(link)),
+                  ),
+                ),
+              ),
             const SizedBox(height: 2),
             Row(
               mainAxisSize: MainAxisSize.min,
@@ -134,6 +159,50 @@ class ChatBubble extends StatelessWidget {
       ),
     );
   }
+}
+
+final _url = RegExp(r'https://[^\s)>\]]+');
+
+/// The https links in a message, without the full stop or comma of the sentence they end.
+List<Uri> chatLinks(String text) => [
+  for (final m in _url.allMatches(text))
+    ?Uri.tryParse(_trimmed(m.group(0)!)),
+];
+
+String _trimmed(String link) => link.replaceAll(RegExp(r'[.,;:!?]+$'), '');
+
+/// What the button under a link says: a payment link pays, a reschedule link chooses a time.
+String linkLabel(Uri link) => tr(
+  link.path.endsWith('/pay')
+      ? 'Pay securely'
+      : link.path.endsWith('/move')
+      ? 'Choose a new time'
+      : 'Open the link',
+);
+
+/// The message with every link highlighted, so a payment link can never be missed in the text.
+List<InlineSpan> _withLinks(String text) {
+  final spans = <InlineSpan>[];
+  var at = 0;
+  for (final m in _url.allMatches(text)) {
+    final link = _trimmed(m.group(0)!);
+    spans
+      ..add(TextSpan(text: text.substring(at, m.start)))
+      ..add(
+        TextSpan(
+          text: link,
+          style: const TextStyle(
+            color: Palette.teal,
+            fontWeight: FontWeight.w700,
+            decoration: TextDecoration.underline,
+            decorationColor: Palette.teal,
+            backgroundColor: Color(0xFFDDF4EE),
+          ),
+        ),
+      );
+    at = m.start + link.length;
+  }
+  return spans..add(TextSpan(text: text.substring(at)));
 }
 
 /// A line written by the system, not a person ("Request NGD-12 sent to the team"): centred, muted, no bubble.

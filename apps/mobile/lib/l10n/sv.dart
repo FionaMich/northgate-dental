@@ -171,6 +171,8 @@ const sv = <String, String>{
   'Paid': 'Betalt',
   'paid': 'betalt',
   'to pay': 'att betala',
+  'Choose a new time': 'Välj en ny tid',
+  'Open the link': 'Öppna länken',
   'Pay now': 'Betala nu',
   'Reschedule': 'Boka om',
   'Cancel': 'Avboka',

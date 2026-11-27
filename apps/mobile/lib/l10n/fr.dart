@@ -171,6 +171,8 @@ const fr = <String, String>{
   'Paid': 'Payé',
   'paid': 'payé',
   'to pay': 'à payer',
+  'Choose a new time': 'Choisir un nouvel horaire',
+  'Open the link': 'Ouvrir le lien',
   'Pay now': 'Payer maintenant',
   'Reschedule': 'Reporter',
   'Cancel': 'Annuler',

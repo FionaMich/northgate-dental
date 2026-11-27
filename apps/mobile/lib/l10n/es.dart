@@ -171,6 +171,8 @@ const es = <String, String>{
   'Paid': 'Pagado',
   'paid': 'pagado',
   'to pay': 'por pagar',
+  'Choose a new time': 'Elegir otra hora',
+  'Open the link': 'Abrir el enlace',
   'Pay now': 'Pagar ahora',
   'Reschedule': 'Cambiar la cita',
   'Cancel': 'Cancelar',
