@@ -127,3 +127,45 @@ server {
         try_files /nonexistent =404;
     }
 }
+
+# The public status page (Uptime Kuma). Only the status page and what it loads are public; Kuma's dashboard, login and
+# socket API answer 404 here and are reached through the Bastion, like the n8n editor.
+server {
+    listen 8443 ssl;
+    http2 on;
+    server_name status.${DOMAIN};
+
+    ssl_certificate     /etc/letsencrypt/live/northgate/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/northgate/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Content-Type-Options nosniff always;
+    add_header Referrer-Policy strict-origin-when-cross-origin always;
+
+    root /usr/share/nginx/static;
+    error_page 400 403 404 405 413 429 500 502 503 504 /error.html;
+    location = /error.html {
+        internal;
+        try_files /error.html =404;
+    }
+
+    location = / {
+        return 302 /status/northgate;
+    }
+
+    location ~ ^/(status/|api/status-page/|api/badge/|assets/|upload/|icon\.svg$|favicon\.ico$|apple-touch-icon\.png$|manifest\.json$) {
+        limit_except GET { deny all; }
+        limit_req zone=strict burst=40 nodelay;
+        resolver 127.0.0.11 valid=30s;  # Docker's DNS, so Nginx starts even when Kuma is not running
+        set $kuma http://status:3001;
+        proxy_pass $kuma;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto https;
+    }
+
+    location / {
+        try_files /nonexistent =404;
+    }
+}

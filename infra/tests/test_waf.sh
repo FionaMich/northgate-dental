@@ -27,6 +27,10 @@ check "path traversal is refused" 403 "$(status "$base/health?file=../../../../e
 check "shell command injection is refused" 403 "$(status "$base/health?cmd=;cat%20/etc/passwd")"
 check "the n8n editor is not on the internet" 404 "$(status -H "Host: n8n.$DOMAIN" "$base/")"
 check "the n8n API is not on the internet" 404 "$(status -H "Host: n8n.$DOMAIN" "$base/rest/login")"
+check "n8n's MCP tools are not on the internet" 404 "$(status -H "Host: n8n.$DOMAIN" "$base/mcp/nora-tools")"
+check "the status page root goes to the public page" 302 "$(status -H "Host: status.$DOMAIN" "$base/")"
+check "the status dashboard is not on the internet" 404 "$(status -H "Host: status.$DOMAIN" "$base/dashboard")"
+check "the status socket API is not on the internet" 404 "$(status -H "Host: status.$DOMAIN" "$base/socket.io/?EIO=4&transport=polling")"
 check "plain HTTP redirects to HTTPS" 301 "$(status "$plain/health")"
 check "Let's Encrypt challenge path is served over HTTP" 404 "$(status "$plain/.well-known/acme-challenge/missing")"
 

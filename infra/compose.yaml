@@ -235,6 +235,17 @@ services:
     networks: [app, data]
     mem_limit: 1g
 
+  # The public status page (Uptime Kuma, AGENTS.md section 14.4). It checks the live journey from inside the VM and
+  # from the outside URLs; only the status page itself is public (see the Nginx status server block).
+  status:
+    <<: *defaults
+    image: louislam/uptime-kuma:2.5.9-slim-rootless   # runs as a non-root user
+    profiles: [status]
+    ports: ["127.0.0.1:3001:3001"]   # the dashboard through an SSH tunnel only
+    volumes: [status_data:/app/data]
+    networks: [app]
+    mem_limit: 256m
+
 networks:
   edge: {}
   app: {}
@@ -246,5 +257,6 @@ volumes:
   ollama_models: {}
   n8n_db: {}
   n8n_data: {}
+  status_data: {}
   letsencrypt: {}
   certbot_www: {}
