@@ -172,8 +172,10 @@ def grounded(state: State, config: RunnableConfig) -> dict:
     reply = str(messages[-1].content)
     flat = evidence.replace(" ", "")
     # a whole number in the evidence: "$50" is not supported by "$500", nor "9:00" by "19:00"
-    unsupported = [m.group(0) for m in _FACT.finditer(reply)
-                   if not any(re.search(rf"(?<!\d){re.escape(f)}(?!\d)", flat) for f in _forms(m.group(0)))]
+    # a full stop or comma after a link ends the sentence, not the link
+    facts = [m.group(0).rstrip(".,;:!?") if m.group(0).startswith("http") else m.group(0) for m in _FACT.finditer(reply)]
+    unsupported = [f0 for f0 in facts
+                   if not any(re.search(rf"(?<!\d){re.escape(f)}(?!\d)", flat) for f in _forms(f0))]
     if not unsupported:
         return {}
     metrics.BLOCKS.inc()
