@@ -160,7 +160,7 @@ def book_visit(clinic_code: str, service_code: str, slot: str, config: RunnableC
 
 @tool
 def my_visits(config: RunnableConfig) -> str:
-    """The patient's own upcoming visits, with a reference for cancel_visit or pay_link."""
+    """The patient's own upcoming visits, with a reference for cancel_visit, reschedule_link or pay_link."""
     s = _session(config)
     rows = _get(s, "/appointments", select="id,starts_at,location_services(services(name),locations(name,time_zone))",
                 status="eq.booked", starts_at=f"gte.{datetime.now().astimezone().isoformat()}", order="starts_at")
@@ -186,22 +186,61 @@ def cancel_visit(visit_ref: str, config: RunnableConfig) -> str:
     return "Cancelled. A confirmation email is on its way."
 
 
+def _act(s: Session, n8n_tool: str, n8n_args: dict, rpc: str, **params):
+    """An action that reaches outside the conversation: through n8n's MCP tools (W14) as the patient, or, if n8n is
+    not configured or cannot be reached, the same Supabase function directly. The rule lives in the function either way."""
+    from . import actions
+    if actions.configured():
+        try:
+            return actions.call(n8n_tool, s.jwt, **n8n_args)
+        except actions.Refused as no:
+            raise ToolRefused(str(no)) from None
+        except actions.Unavailable:
+            pass
+    return _rpc(s, rpc, **params)
+
+
+def _pay(s: Session, visit: str) -> str:
+    return f"{s.link_base}/pay?t={_act(s, 'send_payment_link', {'visit_ref': visit}, 'send_my_payment_link', appointment=visit)}"
+
+
 @tool
 def pay_link(config: RunnableConfig, visit_ref: str = "") -> str:
-    """A secure link to pay for one of the patient's visits by card on Stripe's page. Leave visit_ref empty for the
-    patient's next visit. The price comes from the clinic's price list on the server."""
+    """A secure link to pay for one of the patient's visits by card on Stripe's page, also emailed to the patient. Leave
+    visit_ref empty for the patient's next visit. The patient confirms with a button first. The price comes from the
+    clinic's price list on the server."""
     s = _session(config)
+    if not interrupt(_card(s, "paylink", "")):
+        return "The patient chose not to get a payment link."
     if visit_ref:
-        return f"{s.link_base}/pay?t={_rpc(s, 'start_my_payment', appointment=visit_ref)}"
+        return _pay(s, visit_ref)
     # "pay my bill": the next visit that still has something to pay, found here so the model needs one step
     rows = _get(s, "/appointments", select="id", status="eq.booked", order="starts_at", limit="5",
                 starts_at=f"gte.{datetime.now().astimezone().isoformat()}")
     for row in rows:
         try:
-            return f"{s.link_base}/pay?t={_rpc(s, 'start_my_payment', appointment=row['id'])}"
+            return _pay(s, row["id"])
         except ToolRefused:   # already paid, or not payable: try the visit after it
             continue
     return "Nothing to pay: the patient's upcoming visits are already paid."
+
+
+@tool
+def reschedule_link(visit_ref: str, config: RunnableConfig) -> str:
+    """Email the patient a link to choose a new time for one of their upcoming visits (ref from my_visits). Use when the
+    patient wants to move or change a visit. The patient confirms with a button first; the visit stays booked until
+    they pick a new time."""
+    s = _session(config)
+    visit = _get(s, "/appointments", select="starts_at,location_services(services(name),locations(name,time_zone))", id=f"eq.{visit_ref}")
+    if not visit:
+        raise ToolRefused("that visit is not one of yours")
+    ls = visit[0]["location_services"]
+    detail = f"{ls['services']['name']} · {_local(visit[0]['starts_at'], ls['locations']['time_zone'])} · Northgate Dental, {ls['locations']['name']}"
+    if not interrupt(_card(s, "movelink", detail)):
+        return "The patient chose not to get a link."
+    _act(s, "reschedule_link", {"visit_ref": visit_ref}, "send_my_reschedule_link", appointment=visit_ref)
+    return ("SENT: tell the patient, in their language, that a link to choose a new time is on its way to their email "
+            "and that their visit stays booked until they pick one.")
 
 
 @tool
@@ -260,7 +299,8 @@ def hand_over(s: Session, category: str, summary_in_english: str, reply_by: str 
     reply_by = "call" if reply_by == "call" else "app"
     if reply_by == "call":
         phone = _phone_number(phone)
-    _rpc(s, "request_handover", category=category, language=s.language, summary=summary_in_english[:600])
+    _act(s, "ask_receptionist", {"category": category, "language": s.language, "summary": summary_in_english[:600]},
+         "request_handover", category=category, language=s.language, summary=summary_in_english[:600])
     key = None
     try:  # the team's board; the staff inbox above already has the request if Jira is down
         from . import jira
@@ -290,5 +330,5 @@ def _phone_number(raw: str) -> str:
     return ("+" if raw.strip().startswith("+") else "") + digits
 
 
-ALL = [clinic_info, services, find_slots, book_visit, my_visits, cancel_visit, pay_link, shop_search,
+ALL = [clinic_info, services, find_slots, book_visit, my_visits, cancel_visit, reschedule_link, pay_link, shop_search,
        search_clinic_knowledge, handoff_to_staff]

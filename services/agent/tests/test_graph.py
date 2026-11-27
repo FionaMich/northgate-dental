@@ -150,6 +150,7 @@ def test_pay_my_bill_skips_a_paid_visit_and_opens_the_next_unpaid_one(monkeypatc
         return "tok"
 
     monkeypatch.setattr(tools, "_rpc", rpc)
+    monkeypatch.setattr(tools, "interrupt", lambda card: True)   # the patient pressed Send
     session = tools.Session("u", "k", "j", "patient-1", "en", "https://x")
     assert tools.pay_link.func(config={"configurable": {"session": session}}) == "https://x/pay?t=tok"
 
@@ -210,3 +211,81 @@ def test_a_time_inside_a_longer_time_is_not_evidence(monkeypatch):
     config = {"configurable": {"session": tools.Session("u", "k", "j", "p", "en"), "clinic_phone": None}}
     monkeypatch.setattr(tools, "_rpc", lambda *a, **k: None)
     assert graph.grounded(state, config) != {}, "9:00 was never offered"
+
+
+def test_a_payment_link_is_emailed_only_after_the_patients_button(db):
+    model = ScriptedModel(call("pay_link", visit_ref="appt-9"), AIMessage("Done."))
+    app, config, out = run(model, "Envoyez-moi le lien de paiement", language="fr")
+    card = out["__interrupt__"][0].value
+    assert card["action"] == "paylink" and card["title"] == fixed("confirm_paylink", "fr")
+    assert db == [], "nothing is sent before the patient presses Send"
+    app.invoke(Command(resume=True), config)
+    assert db == [("send_my_payment_link", {"appointment": "appt-9"})]
+
+
+def test_a_reschedule_link_is_emailed_only_after_the_patients_button(visit_db):
+    db = visit_db
+    model = ScriptedModel(call("reschedule_link", visit_ref="appt-9"), AIMessage("Sent."))
+    app, config, out = run(model, "Can I move my cleaning?")
+    card = out["__interrupt__"][0].value
+    assert card["action"] == "movelink" and "Northgate Dental, Quincy" in card["detail"]
+    app.invoke(Command(resume=False), config)
+    assert db == [], "declining sends nothing"
+
+    model = ScriptedModel(call("reschedule_link", visit_ref="appt-9"), AIMessage("Sent."))
+    app, config, _ = run(model, "Can I move my cleaning?", thread="t2")
+    app.invoke(Command(resume=True), config)
+    assert db == [("send_my_reschedule_link", {"appointment": "appt-9"})]
+
+
+@pytest.fixture
+def visit_db(db, monkeypatch):
+    real = tools._get
+    monkeypatch.setattr(tools, "_get", lambda s, path, **p: [{"starts_at": "2026-12-03T15:00:00+00:00", "location_services": {
+        "services": {"name": "Adult cleaning"}, "locations": {"name": "Quincy", "time_zone": "America/New_York"}}}]
+        if path == "/appointments" else real(s, path, **p))
+    return db
+
+
+def test_actions_go_through_n8n_as_the_patient_from_the_session_never_the_model(visit_db, monkeypatch):
+    from agent import actions
+    sent = []
+    monkeypatch.setattr(actions, "configured", lambda: True)
+    monkeypatch.setattr(actions, "call", lambda tool, token, **args: sent.append((tool, token, args)) or "tok")
+    model = ScriptedModel(call("reschedule_link", visit_ref="appt-9", session_token="forged"), AIMessage("Sent."))
+    app, config, _ = run(model, "Move my visit")
+    app.invoke(Command(resume=True), config)
+    assert sent == [("reschedule_link", "jwt", {"visit_ref": "appt-9"})], "the token is the verified session's"
+    assert visit_db == [], "n8n did it, so the database was not called directly"
+
+
+def test_when_n8n_is_down_the_same_database_function_still_runs(visit_db, monkeypatch):
+    from agent import actions
+    def down(*a, **k):
+        raise actions.Unavailable("ConnectError")
+    monkeypatch.setattr(actions, "configured", lambda: True)
+    monkeypatch.setattr(actions, "call", down)
+    model = ScriptedModel(call("handoff_to_staff", category="billing", summary_in_english="Question about a bill."))
+    app, config, _ = run(model, "I want to talk to someone about my bill")
+    app.invoke(Command(resume={"reply_by": "app"}), config)
+    assert visit_db[0][0] == "request_handover", "the handover still reaches the inbox"
+
+
+def test_a_refusal_from_the_database_is_not_retried_around_n8n(monkeypatch):
+    from agent import actions
+    def refused(*a, **k):
+        raise actions.Refused("this visit is not yours")
+    monkeypatch.setattr(actions, "configured", lambda: True)
+    monkeypatch.setattr(actions, "call", refused)
+    monkeypatch.setattr(tools, "_rpc", lambda *a, **k: pytest.fail("a refusal must not fall back to a direct call"))
+    with pytest.raises(tools.ToolRefused, match="not yours"):
+        tools._act(tools.Session("u", "k", "j", "p"), "reschedule_link", {"visit_ref": "x"}, "send_my_reschedule_link", appointment="x")
+
+
+def test_n8n_tool_responses_are_read_as_the_database_answer():
+    from agent import actions
+    assert actions.parse('[{"statusCode": 200, "body": "tok", "headers": {}}]') == "tok"
+    with pytest.raises(actions.Refused, match="not yours"):
+        actions.parse('{"statusCode": 403, "body": {"message": "this visit is not yours"}}')
+    with pytest.raises(actions.Unavailable):
+        actions.parse('{"error": "workflow failed"}')

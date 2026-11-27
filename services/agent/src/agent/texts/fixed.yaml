@@ -15,6 +15,10 @@ en:
   yes_book: Confirm
   yes_cancel: Cancel visit
   not_now: Not now
+  confirm_paylink: "Email me a payment link?"
+  yes_paylink: "Send it"
+  confirm_movelink: "Email me a link to choose a new time?"
+  yes_movelink: "Send the link"
   confirm_team: "How would you like the team to reply?"
   yes_team: "Reply in the app"
   call_team: "Call me back"
@@ -33,6 +37,10 @@ fr:
   yes_book: Confirmer
   yes_cancel: Annuler le rendez-vous
   not_now: Pas maintenant
+  confirm_paylink: "M'envoyer un lien de paiement par e-mail ?"
+  yes_paylink: "Envoyer"
+  confirm_movelink: "M'envoyer un lien pour choisir un nouvel horaire ?"
+  yes_movelink: "Envoyer le lien"
   confirm_team: "Comment l'équipe doit-elle vous répondre ?"
   yes_team: "Réponse dans l'application"
   call_team: "Me rappeler"
@@ -51,6 +59,10 @@ nl:
   yes_book: Bevestigen
   yes_cancel: Afspraak annuleren
   not_now: Nu niet
+  confirm_paylink: "Een betaallink naar mijn e-mail sturen?"
+  yes_paylink: "Versturen"
+  confirm_movelink: "Een link sturen om een nieuwe tijd te kiezen?"
+  yes_movelink: "Link versturen"
   confirm_team: "Hoe wilt u dat het team reageert?"
   yes_team: "Antwoord in de app"
   call_team: "Bel mij terug"
@@ -69,6 +81,10 @@ de:
   yes_book: Bestätigen
   yes_cancel: Termin absagen
   not_now: Jetzt nicht
+  confirm_paylink: "Zahlungslink per E-Mail senden?"
+  yes_paylink: "Senden"
+  confirm_movelink: "Link für einen neuen Termin per E-Mail senden?"
+  yes_movelink: "Link senden"
   confirm_team: "Wie soll das Team Ihnen antworten?"
   yes_team: "Antwort in der App"
   call_team: "Rückruf"
@@ -87,6 +103,10 @@ es:
   yes_book: Confirmar
   yes_cancel: Cancelar cita
   not_now: Ahora no
+  confirm_paylink: "¿Enviarme un enlace de pago por correo?"
+  yes_paylink: "Enviar"
+  confirm_movelink: "¿Enviarme un enlace para elegir otra hora?"
+  yes_movelink: "Enviar enlace"
   confirm_team: "¿Cómo quiere que le responda el equipo?"
   yes_team: "Respuesta en la app"
   call_team: "Llámenme"
@@ -105,6 +125,10 @@ it:
   yes_book: Conferma
   yes_cancel: Annulla appuntamento
   not_now: Non ora
+  confirm_paylink: "Inviarmi un link di pagamento via e-mail?"
+  yes_paylink: "Invia"
+  confirm_movelink: "Inviarmi un link per scegliere un nuovo orario?"
+  yes_movelink: "Invia il link"
   confirm_team: "Come preferisce che il team le risponda?"
   yes_team: "Risposta nell'app"
   call_team: "Richiamatemi"
@@ -123,6 +147,10 @@ lt:
   yes_book: Patvirtinti
   yes_cancel: Atšaukti vizitą
   not_now: Ne dabar
+  confirm_paylink: "Atsiųsti mokėjimo nuorodą el. paštu?"
+  yes_paylink: "Siųsti"
+  confirm_movelink: "Atsiųsti nuorodą naujam laikui pasirinkti?"
+  yes_movelink: "Siųsti nuorodą"
   confirm_team: "Kaip norėtumėte, kad komanda jums atsakytų?"
   yes_team: "Atsakymas programėlėje"
   call_team: "Paskambinkite man"
@@ -141,6 +169,10 @@ sv:
   yes_book: Bekräfta
   yes_cancel: Avboka besöket
   not_now: Inte nu
+  confirm_paylink: "Mejla mig en betalningslänk?"
+  yes_paylink: "Skicka"
+  confirm_movelink: "Mejla mig en länk för att välja en ny tid?"
+  yes_movelink: "Skicka länken"
   confirm_team: "Hur vill du att teamet svarar?"
   yes_team: "Svar i appen"
   call_team: "Ring upp mig"

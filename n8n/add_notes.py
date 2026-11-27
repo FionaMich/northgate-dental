@@ -58,6 +58,27 @@ NOTES = {
         "- W05 later checks the paid subtotal and shipping against the order and records the tax.\n"
         "- Links are single-use hashes that expire in an hour.",
     ),
+    "w14-nora-action-tools": (
+        "## W14 Nora action tools (MCP)\n**Trigger:** n8n's MCP Server Trigger at `/mcp/nora-tools`, called only by Nora "
+        "over the server's private network (Nginx does not route `/mcp/`).\n\n"
+        "Three tools: `send_payment_link`, `reschedule_link`, `ask_receptionist`. Each is one call to a Supabase "
+        "function as the signed-in patient; the function holds the rule (own visit only, verified session, price list, "
+        "cancellation window, one email a day).",
+        "## Security and data\n- Bearer token `Nora MCP token` (n8n credential; the same value is in Nora's `.env`).\n"
+        "- `session_token` is set by Nora's code from the verified session, never by the model.\n"
+        "- The `apikey` header is the publishable key, which grants nothing on its own.\n"
+        "- No run data is saved, failed or successful: a run holds a session token.",
+    ),
+    "w15-reschedule-link": (
+        "## W15 Reschedule link\n**Trigger:** a patient opens the link Nora's `reschedule_link` emailed.\n\n"
+        "**Top row (GET):** shows the visit and up to 8 free times. Mail scanners open links, so opening one changes nothing.\n\n"
+        "**Bottom row (POST):** the button. `move_by_token()` books the new time and cancels the old one in one "
+        "transaction, once, outside the cancellation window. The worker then sends one \"your visit has moved\" email.",
+        "## Security and data\n- The link is a random token; the database stores only its SHA-256 hash.\n"
+        "- The page shows service, times and clinic: never the patient's name.\n"
+        "- Database login: `northgate_actions_app`, now allowed `reschedule_options` and `move_by_token` too.\n"
+        "- No run data is saved.",
+    ),
 }
 WIDTH, HEIGHT, GAP = 460, 300, 60
 
