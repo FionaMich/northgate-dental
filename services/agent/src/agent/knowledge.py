@@ -120,14 +120,19 @@ def to_sql(folder: Path, embedder=None) -> str:
         vectors = embedder.embed_documents([f"{meta['title']}. {h}. {c}" for h, c in passages])
         rows = ",\n".join(f"((select id from d), {i}, {_literal(h)}, {_literal(c)}, {_literal(as_vector(v))}::extensions.vector)"
                           for i, ((h, c), v) in enumerate(zip(passages, vectors), start=1))
+        slug = _literal(path.stem)
+        doc = f"(select id from public.knowledge_documents where slug = {slug})"
+        rows = ",\n".join(f"({doc}, {i}, {_literal(h)}, {_literal(c)}, {_literal(as_vector(v))}::extensions.vector)"
+                          for i, ((h, c), v) in enumerate(zip(passages, vectors), start=1))
+        # three statements, not one: inside a single statement the insert would not see the delete
         statements.append(
-            "with d as (insert into public.knowledge_documents (slug, title, version, reviewed_by, reviewed_on, checksum)\n"
-            f"values ({_literal(path.stem)}, {_literal(meta['title'])}, {_literal(meta['version'])}, "
+            "insert into public.knowledge_documents (slug, title, version, reviewed_by, reviewed_on, checksum)\n"
+            f"values ({slug}, {_literal(meta['title'])}, {_literal(meta['version'])}, "
             f"{_literal(meta.get('reviewed_by'))}, {_literal(meta.get('reviewed_on'))}::date, "
             f"{_literal(hashlib.sha256(path.read_bytes()).hexdigest())})\n"
             "on conflict (slug) do update set title = excluded.title, version = excluded.version,\n"
-            "  reviewed_by = excluded.reviewed_by, reviewed_on = excluded.reviewed_on, checksum = excluded.checksum, updated_at = now()\n"
-            "returning id), gone as (delete from public.knowledge_passages where document_id = (select id from d))\n"
+            "  reviewed_by = excluded.reviewed_by, reviewed_on = excluded.reviewed_on, checksum = excluded.checksum, updated_at = now();\n"
+            f"delete from public.knowledge_passages where document_id = {doc};\n"
             f"insert into public.knowledge_passages (document_id, ordinal, heading, content, embedding) values\n{rows};")
     return "begin;\n" + "\n".join(statements) + "\ncommit;\n"
 

@@ -89,6 +89,9 @@ def test_the_sql_for_the_deploy_upserts_every_document_and_escapes_its_text(tmp_
     sql = knowledge.to_sql(tmp_path, Fake())
     assert sql.startswith("begin;") and sql.rstrip().endswith("commit;"), "all or nothing"
     assert "on conflict (slug) do update" in sql and "delete from public.knowledge_passages" in sql
+    statements = [x.strip() for x in sql.split(";\n") if x.strip()]
+    assert [x.split()[0] for x in statements] == ["begin", "insert", "delete", "insert", "commit"], \
+        "delete and insert are separate statements, so a second load replaces the passages instead of colliding"
     assert "The clinic''s own car park." in sql, "a quote in a document cannot end the SQL string"
     assert "'[0.5,0.5," in sql
 
