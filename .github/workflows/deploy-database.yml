@@ -5,7 +5,7 @@ name: deploy-database
 on:
   push:
     branches: [develop, main]
-    paths: ['supabase/migrations/**', 'supabase/seed.sql']
+    paths: ['supabase/migrations/**', 'supabase/seed.sql', 'knowledge/**', 'services/agent/src/agent/knowledge.py']
   workflow_dispatch:
 
 permissions:
@@ -45,7 +45,8 @@ jobs:
           check "host is the session pooler on port 5432" '[[ "$u" == *pooler.supabase.com:5432/* ]]'
           exit $fail
       # Migrations only, never the seed: Supabase's guidance is never to push seed data to production.
-      - run: supabase db push --remote "$DB_URL" --yes
+      # --include-all: pull requests merge in any order, so an older migration may land after a newer one
+      - run: supabase db push --remote "$DB_URL" --yes --include-all
       # The signing secret lives in Supabase Vault, where private.record_stripe_event() reads it: never in Git or n8n.
       - name: load the Stripe webhook signing secret into Vault
         if: env.STRIPE_WEBHOOK_SECRET != ''
@@ -56,3 +57,14 @@ jobs:
            where not exists (select 1 from vault.secrets where name = 'stripe_webhook_secret');
           SQL
           echo "ok: webhook secret loaded"
+      # Clinic knowledge for Nora (ADR 0020): embed the approved documents with bge-m3, as the assistant does, and
+      # upsert them in one transaction. Only public clinic documents pass through this runner; no patient data.
+      - uses: astral-sh/setup-uv@v6
+      - name: load the clinic knowledge
+        working-directory: services/agent
+        run: |
+          curl -fsSL https://ollama.com/install.sh | sh >/dev/null
+          (ollama serve >/dev/null 2>&1 &) && sleep 5 && ollama pull bge-m3 >/dev/null
+          uv run --quiet python -m agent.knowledge sql ../../knowledge > /tmp/knowledge.sql
+          psql "$DB_URL" -q -v ON_ERROR_STOP=1 -f /tmp/knowledge.sql
+          psql "$DB_URL" -tA -c "select 'ok: ' || count(distinct document_id) || ' documents, ' || count(*) || ' passages' from public.knowledge_passages"

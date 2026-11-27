@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:material_ui/material_ui.dart';
+import 'package:dental/ui.dart';
+import 'package:material_ui/material_ui.dart' as m show Text;
 
 import '../data/account_repository.dart';
 import '../design/tokens.dart';
@@ -137,6 +138,20 @@ class ProfileScreen extends ConsumerWidget {
                     ],
                   ),
                 ],
+                const SizedBox(height: 22),
+                RowGroup(
+                  title: 'Language',
+                  rows: [
+                    GroupRow(
+                      key: const Key('open-language'),
+                      icon: Icons.translate_rounded,
+                      tint: Tint.teal,
+                      title: appLanguages[appLanguage.value]!,
+                      detail: 'The app and Nora use this language',
+                      onTap: () => _pickLanguage(context),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 22),
                 const RowGroup(
                   title: 'Privacy',
@@ -291,4 +306,29 @@ Future<void> _confirmSignOut(BuildContext context, WidgetRef ref) async {
   if (yes != true) return;
   ref.read(signedOutNoticeProvider.notifier).show();
   await ref.read(accountRepositoryProvider).signOut();
+}
+
+Future<void> _pickLanguage(BuildContext context) async {
+  final picked = await showModalBottomSheet<String>(
+    context: context,
+    showDragHandle: true,
+    isScrollControlled: true,
+    builder: (_) => SingleChildScrollView(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final MapEntry(:key, :value) in appLanguages.entries)
+            ListTile(
+              key: Key('app-language-$key'),
+              title: m.Text(value), // a language's own name is never translated
+              trailing: key == appLanguage.value
+                  ? const Icon(Icons.check_rounded, color: Palette.teal)
+                  : null,
+              onTap: () => Navigator.of(context).pop(key),
+            ),
+        ],
+      ),
+    ),
+  );
+  if (picked != null) await setAppLanguage(picked);
 }

@@ -1,0 +1,35 @@
+@import "tailwindcss";
+
+/* The app's palette (apps/mobile/lib/design/tokens.dart), so the site and the app read as one product. */
+@theme {
+  --color-sea: #0b2b2a;
+  --color-teal: #137c6c;
+  --color-teal-dark: #0e6b5e;
+  --color-shine: #1fbfa2;
+  --color-enamel: #e6f6f2;
+  --color-mist: #f1f6f5;
+  --color-line: #d6e3e0;
+  --color-muted: #4c6361;
+  --color-apricot: #f2a970;
+  --color-danger: #b3261e;
+  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-lato), var(--font-jakarta), ui-sans-serif, sans-serif;
+}
+
+html { scroll-behavior: smooth; }
+body { background: #fbfdfc; color: var(--color-sea); -webkit-font-smoothing: antialiased; }
+::selection { background: var(--color-enamel); }
+:focus-visible { outline: 3px solid var(--color-shine); outline-offset: 2px; border-radius: 6px; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .rise { animation: rise 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+  .rise-2 { animation-delay: 0.08s; }
+  .rise-3 { animation-delay: 0.16s; }
+  @keyframes rise { from { transform: translateY(14px); } }
+}
+
+/* The light that follows the pointer on tilting cards (components/Motion.tsx). */
+.tilt-glare {
+  position: absolute; inset: 0; z-index: 5; pointer-events: none; border-radius: inherit;
+  opacity: 0; transition: opacity 0.4s ease; mix-blend-mode: soft-light;
+}

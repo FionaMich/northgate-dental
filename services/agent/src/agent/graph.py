@@ -10,8 +10,9 @@
 
 A handover to the team ends the turn with the fixed handover text, never generated words."""
 
+import hashlib
 import re
-from datetime import date
+from datetime import date, timedelta
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_core.runnables import RunnableConfig
@@ -19,7 +20,7 @@ from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode
 
-from . import safety, tools
+from . import metrics, safety, tools
 from .models import model_for
 
 
@@ -28,20 +29,65 @@ class State(MessagesState):
 
 
 PROMPT = """You are Nora, the virtual receptionist of Northgate Dental, a dental group in Boston with clinics at Back Bay
-(code back-bay), Cambridge (cambridge) and Quincy (quincy). Today is {today}.
+(code back-bay), Cambridge (cambridge) and Quincy (quincy). Today is {today}; tomorrow is {tomorrow}. This week ends on Sunday; next week starts on {next_monday}.
+Work out every date the patient means ("today", "tomorrow", "next Monday", "this weekend") from today's date yourself.
+Never ask the patient what the date is.
 
 Reply only in {language}, briefly and warmly, in plain words.
 
-You can: answer questions about the clinics, hours and services (use clinic_info and services); find and book visits
-(services, then find_slots, then book_visit with the slot reference); list and cancel the patient's visits; give a
-payment link; suggest shop products; and pass anything else to the team with handoff_to_staff.
+The patient has already been greeted and told who you are. Never greet again or introduce yourself again, even when
+the patient says hello or gives their name. Use their first name at most once.
+
+You know nothing about the clinics, the patient's visits or prices except what a tool returns, so call the tool first
+and answer from its result. Act at once, in the same turn: never say you are going to check or look something up,
+never ask "would you like me to check?", and never ask the patient for something a tool can tell you. Whatever
+language the patient writes in, choose and call tools exactly as you would for the same request in English; only
+your final words are in {language}.
+
+How to do each job:
+- Hours, address or phone: call clinic_info, then answer for the day the patient means.
+- Pay a bill: call pay_link (with no ref it is for the patient's next visit), then say the secure payment link is
+  ready and also in their email, and give the link exactly as the tool returned it. Never write a link yourself.
+- Book a visit: a cleaning, a check-up, a filling, whitening or a video consultation is the kind of visit, whatever
+  word or language the patient uses for it (a "détartrage", "Zahnreinigung" or "limpieza" is a cleaning; a
+  "videoconsulta" or a video call with the dentist is a video consultation, kind "video"). When the patient has named
+  the clinic and the kind of visit, call find_slots with the clinic, the kind of visit as one English word and the
+  first day of the period they mean, then offer the earliest time it returns. "The first free time", "as soon as
+  possible" or no day at all means the period starts today: never ask for a date then. Never ask what type of visit when they
+  named one; ask only if the clinic or the kind of visit is truly missing. After booking a video consultation, say
+  that the Join button appears on the visit in Visits.
+- The patient says yes to a time you offered: call book_visit with the same clinic, the same kind of visit and that
+  time's slot. Do not ask anything again.
+- The patient's visits: call my_visits. To cancel, call cancel_visit with the ref. To move or change a visit, call
+  reschedule_link with the ref: it emails a link to choose a new time.
+- Shop products: call shop_search.
+- How things work at Northgate (cancelling and missed-visit fees, what to bring, paying and payment plans,
+  insurance, video consultations, children, records and privacy, parking and access, shop returns, complaints):
+  call search_clinic_knowledge with the question in English. Answer only from what it returns and name the
+  document, for example "Our cancellation policy says...". If it finds nothing, offer to pass the question to the team.
+- The patient asks for a member of the Northgate team, or about insurance, or anything no tool covers: call
+  handoff_to_staff at once, with a short summary of what they need if they said it. The app then asks them how the
+  team should reply. Never ask them that yourself, and never ask what it is about first.
 
 Rules you never break:
 - Never give medical or dental advice, a diagnosis, or advice about medicines. For any question about symptoms, pain,
   medicines or treatment choices, call handoff_to_staff with category clinical_question.
 - Never state a price, time or date unless a tool gave it to you in this conversation.
+- Never say or show a ref or slot code; they are for your tools only.
 - Never ask for or repeat a date of birth, insurance number or address; you already know who the patient is.
 - If you are unsure, hand over to the team rather than guess."""
+
+
+NUDGE = ("(Reminder from the system, not the patient.) You replied without calling a tool. If the patient's last "
+         "message is one of the jobs in your instructions, call the right tool now with what you already know. "
+         "If no tool applies, repeat your reply.")
+
+# Which instructions produced an answer (ai_events): changes whenever the prompt or the nudge changes, so it is never stale.
+PROMPT_VERSION = hashlib.sha256((PROMPT + NUDGE).encode()).hexdigest()[:12]
+
+
+def _day(d: date) -> str:
+    return d.strftime("%A %Y-%m-%d")   # the weekday is spelled out: opening hours are listed by weekday
 
 
 def _phone(config: RunnableConfig) -> str | None:
@@ -67,8 +113,19 @@ def assistant(state: State, config: RunnableConfig) -> dict:
     session = tools._session(config)
     language = safety.texts().get(session.language, safety.texts()["en"])["name"]
     model = config["configurable"].get("model") or model_for("assistant")
-    reply = model.bind_tools(tools.ALL).invoke(
-        [SystemMessage(PROMPT.format(today=date.today().isoformat(), language=language)), *state["messages"]])
+    bound = model.bind_tools(tools.ALL)
+    history = [SystemMessage(PROMPT.format(today=_day(date.today()), tomorrow=_day(date.today() + timedelta(days=1)),
+                                      next_monday=_day(date.today() + timedelta(days=7 - date.today().weekday())), language=language)), *state["messages"]]
+    reply = bound.invoke(history)
+    since = max((i for i, m in enumerate(state["messages"]) if isinstance(m, HumanMessage)), default=0)
+    used_a_tool = any(isinstance(m, ToolMessage) for m in state["messages"][since:])
+    if not getattr(reply, "tool_calls", None) and not used_a_tool:
+        # A small model sometimes says "I will check" and stops. One second look, before the patient sees anything.
+        second = bound.invoke([*history, reply, HumanMessage(NUDGE)])
+        used = bool(getattr(second, "tool_calls", None))
+        metrics.SECOND_LOOKS.labels("tool_called" if used else "kept").inc()
+        if used:
+            reply = second
     return {"messages": [reply]}
 
 
@@ -79,7 +136,7 @@ def after_assistant(state: State) -> str:
 
 def after_tools(state: State) -> str:
     last = state["messages"][-1]
-    return "handed_over" if isinstance(last, ToolMessage) and last.content == "handed_over" else "assistant"
+    return "handed_over" if isinstance(last, ToolMessage) and last.content in ("handed_over", "handed_over_call") else "assistant"
 
 
 def handed_over(state: State, config: RunnableConfig) -> dict:
@@ -90,18 +147,38 @@ def handed_over(state: State, config: RunnableConfig) -> dict:
     return {"messages": [AIMessage(safety.fixed(key, session.language, _phone(config)))]}
 
 
-_FACT = re.compile(r"\$\s?\d[\d,]*(\.\d\d)?|\b\d{1,2}:\d{2}\b")
+_FACT = re.compile(r"\$\s?\d+(?:,\d{3})*(?:\.\d\d)?|\b\d{1,2}:\d{2}\b(\s*[AaPp]\.?\s?[Mm]\b\.?)?|https?://[^\s)>\]]+")
+
+
+def _forms(fact: str) -> list[str]:
+    """The ways a fact may appear in a tool result. Tools give times on the 24-hour clock ("14:00"); Nora may say
+    "2:00 PM", which is the same time and must not be refused."""
+    m = re.fullmatch(r"(\d{1,2}):(\d{2})\s*([AaPp])?\.?\s?[Mm]?\.?", fact.strip())
+    if not m:
+        return [fact.replace(" ", "")]
+    hour, minute, half = int(m.group(1)), m.group(2), (m.group(3) or "").lower()
+    if half == "p" and hour < 12:
+        hour += 12
+    elif half == "a" and hour == 12:
+        hour = 0
+    return [f"{hour:02d}:{minute}", f"{hour}:{minute}"]
 
 
 def grounded(state: State, config: RunnableConfig) -> dict:
-    """Every price and time in the reply must appear in a tool result since the patient's last message."""
+    """Every price, time and link in the reply must appear in a tool result since the patient's last message."""
     messages = state["messages"]
     since = max(i for i, m in enumerate(messages) if isinstance(m, HumanMessage))
     evidence = " ".join(str(m.content) for m in messages[since:] if isinstance(m, ToolMessage))
     reply = str(messages[-1].content)
-    unsupported = [m.group(0) for m in _FACT.finditer(reply) if m.group(0).replace(" ", "") not in evidence.replace(" ", "")]
+    flat = evidence.replace(" ", "")
+    # a whole number in the evidence: "$50" is not supported by "$500", nor "9:00" by "19:00"
+    # a full stop or comma after a link ends the sentence, not the link
+    facts = [m.group(0).rstrip(".,;:!?") if m.group(0).startswith("http") else m.group(0) for m in _FACT.finditer(reply)]
+    unsupported = [f0 for f0 in facts
+                   if not any(re.search(rf"(?<!\d){re.escape(f)}(?!\d)", flat) for f in _forms(f0))]
     if not unsupported:
         return {}
+    metrics.BLOCKS.inc()
     session = tools._session(config)
     try:  # the fixed text says the team has it, so the team must really have it
         tools._rpc(session, "request_handover", category="other", language=session.language,

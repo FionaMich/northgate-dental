@@ -32,6 +32,15 @@ _RED_FLAGS: dict[str, list[str]] = {
         r"sanguin\w*.{0,30}(non si ferma|non smette|tanto|molto)",
         r"kraujav\w*.{0,30}(nesiliauja|nesustoja|stipr)",
         r"blöd\w*.{0,30}(slutar inte|kraftig|mycket)",
+        # the same in the other word order: "won't stop bleeding", "no para de sangrar", "hört nicht auf zu bluten"
+        r"(won.?t|will not|can.?t|cannot|doesn.?t|does not|not|never) stop(ped|s)?\s+bleed",
+        r"ne s'arr[êe]te pas de saigner|n'arr[êe]te pas de saigner",
+        r"blijft (maar )?bloeden",
+        r"h[öo]rt nicht auf zu bluten",
+        r"no (para|deja) de sangrar",
+        r"non (smette|si ferma) di sanguinare",
+        r"nesiliauja kraujuoti|nenustoja kraujuoti",
+        r"slutar inte (att )?blöda",
     ],
     "spreading_swelling": [
         r"swell\w*.{0,40}(eye|throat|neck|spread)",

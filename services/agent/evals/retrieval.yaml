@@ -1,0 +1,38 @@
+# Golden set for clinic knowledge retrieval (section 09; AGENTS.md section 14.1). Each item: the question as a
+# patient might ask it (any of Nora's languages), and the knowledge/ document that should answer it, or none when no
+# approved document should match (the relevance gate must refuse it).
+answerable:
+  - {lang: en, q: "Is there a fee if I miss my appointment?", doc: cancellations-and-missed-visits}
+  - {lang: en, q: "How late can I cancel without paying?", doc: cancellations-and-missed-visits}
+  - {lang: nl, q: "Moet ik betalen als ik mijn afspraak mis?", doc: cancellations-and-missed-visits}
+  - {lang: es, q: "¿Qué pasa si llego tarde a mi cita?", doc: cancellations-and-missed-visits}
+  - {lang: en, q: "What should I bring to my first visit?", doc: preparing-for-your-visit}
+  - {lang: de, q: "Was muss ich zum ersten Termin mitbringen?", doc: preparing-for-your-visit}
+  - {lang: fr, q: "J'ai peur du dentiste, que pouvez-vous faire ?", doc: preparing-for-your-visit}
+  - {lang: en, q: "Can I pay in instalments?", doc: paying-your-bill}
+  - {lang: it, q: "Accettate la carta HSA?", doc: paying-your-bill}
+  - {lang: sv, q: "Kan jag dela upp betalningen?", doc: paying-your-bill}
+  - {lang: en, q: "Do you take my insurance?", doc: insurance}
+  - {lang: lt, q: "Ar priimate mano draudimą?", doc: insurance}
+  - {lang: en, q: "How long does pre-authorisation take for a crown?", doc: insurance}
+  - {lang: en, q: "How do I join my video consultation?", doc: video-consultations}
+  - {lang: nl, q: "Wordt het videogesprek opgenomen?", doc: video-consultations}
+  - {lang: es, q: "¿Cuándo debe venir mi hijo por primera vez?", doc: children-and-guardians}
+  - {lang: en, q: "Can my 15 year old go in without me?", doc: children-and-guardians}
+  - {lang: en, q: "How do I get a copy of my dental records?", doc: records-and-privacy}
+  - {lang: de, q: "Wer kann meine Daten sehen?", doc: records-and-privacy}
+  - {lang: en, q: "Is there parking at the Quincy clinic?", doc: getting-here}
+  - {lang: fr, q: "Avez-vous un interprète ?", doc: getting-here}
+  - {lang: it, q: "La clinica di Back Bay è accessibile in sedia a rotelle?", doc: getting-here}
+  - {lang: en, q: "Can I return an opened toothbrush?", doc: shop-and-refills}
+  - {lang: sv, q: "Hur pausar jag min påfyllning?", doc: shop-and-refills}
+  - {lang: en, q: "Who do I call at night if my tooth breaks?", doc: urgent-and-out-of-hours}
+  - {lang: en, q: "I want to make a complaint", doc: feedback-and-complaints}
+  - {lang: lt, q: "Kaip pateikti skundą?", doc: feedback-and-complaints}
+nothing:
+  - {lang: en, q: "Which toothpaste whitens teeth best?"}
+  - {lang: en, q: "Should I take ibuprofen after an extraction?"}
+  - {lang: nl, q: "Wat is de hoofdstad van Frankrijk?"}
+  - {lang: es, q: "¿Me puede recomendar un buen restaurante?"}
+  - {lang: en, q: "What is the weather tomorrow?"}
+  - {lang: de, q: "Wie programmiere ich in Python?"}

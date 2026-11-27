@@ -1,4 +1,5 @@
 import '../data/care_repository.dart';
+import '../l10n/l10n.dart';
 
 const _days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const _months = [
@@ -16,11 +17,12 @@ const _months = [
   'December',
 ];
 
-String weekday(DateTime d) => _days[d.weekday - 1];
-String shortMonth(DateTime d) => _months[d.month - 1].substring(0, 3);
-String dayMonth(DateTime d) => '${d.day} ${_months[d.month - 1]}';
+String weekday(DateTime d) => tr(_days[d.weekday - 1]);
+String shortMonth(DateTime d) =>
+    String.fromCharCodes(tr(_months[d.month - 1]).runes.take(3));
+String dayMonth(DateTime d) => '${d.day} ${tr(_months[d.month - 1])}';
 String dayMonthYear(DateTime d) => '${dayMonth(d)} ${d.year}';
-String monthYear(DateTime d) => '${_months[d.month - 1]} ${d.year}';
+String monthYear(DateTime d) => '${tr(_months[d.month - 1])} ${d.year}';
 String clock(DateTime d) =>
     '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
 
@@ -35,7 +37,11 @@ String visitTitle(String kind) => switch (kind) {
 
 String procedureLabel(Procedure p) => p.tooth == null
     ? p.service
-    : '${p.service} · tooth ${p.tooth}${p.surface == null ? '' : ', ${surfaceLabel(p.surface!)}'}';
+    : trf('{} · tooth {}{}', [
+        tr(p.service),
+        p.tooth,
+        p.surface == null ? '' : ', ${surfaceLabel(p.surface!)}',
+      ]);
 
 /// Whole cents as US dollars: 21000 becomes \$210.00.
 String dollars(int cents) {
@@ -57,7 +63,7 @@ String surfaceLabel(String surface) {
     'F': 'lip side',
     'I': 'biting edge',
   };
-  return surface.split('').map((c) => words[c] ?? c).join(' and ');
+  return surface.split('').map((c) => tr(words[c] ?? c)).join(' ${tr('and')} ');
 }
 
 /// What the dentist noted on a tooth, in plain words.

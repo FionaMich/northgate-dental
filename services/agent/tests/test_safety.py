@@ -16,6 +16,16 @@ EMERGENCIES = [
     ("sv", "Jag har ont i bröstet", "chest_pain"),
     ("de", "Ich will mich umbringen", "self_harm"),
     ("en", "Sometimes I want to end my life", "self_harm"),
+    # heavy bleeding said the other way round, in every language
+    ("en", "My mouth won't stop bleeding after my extraction", "heavy_bleeding"),
+    ("en", "It has not stopped bleeding since this morning", "heavy_bleeding"),
+    ("fr", "Ma bouche ne s'arrête pas de saigner", "heavy_bleeding"),
+    ("nl", "Mijn tandvlees blijft maar bloeden", "heavy_bleeding"),
+    ("de", "Es hört nicht auf zu bluten", "heavy_bleeding"),
+    ("es", "No para de sangrar desde la extracción", "heavy_bleeding"),
+    ("it", "La gengiva non smette di sanguinare", "heavy_bleeding"),
+    ("lt", "Žaizda nesiliauja kraujuoti", "heavy_bleeding"),
+    ("sv", "Det slutar inte blöda", "heavy_bleeding"),
 ]
 
 

@@ -137,8 +137,50 @@ services:
       LANGSMITH_HIDE_OUTPUTS: "true"
       STREAM_API_KEY: ${STREAM_API_KEY:-}          # Stream Video (ADR 0015); empty means calls are unavailable
       STREAM_API_SECRET: ${STREAM_API_SECRET:-}
+      ASSISTANT_INTERNAL_KEY: ${ASSISTANT_INTERNAL_KEY:-}  # shared with the voice service; empty means no voice service
+      VOICE_LANGUAGES: ${VOICE_LANGUAGES:-en,fr,nl,de,es,it,lt,sv}
+      JIRA_SITE: ${JIRA_SITE:-}                    # handovers as tickets on the team's board (ADR 0019); empty means none
+      JIRA_PROJECT: ${JIRA_PROJECT:-NGD}
+      JIRA_EMAIL: ${JIRA_EMAIL:-}
+      JIRA_API_TOKEN: ${JIRA_API_TOKEN:-}
+      N8N_MCP_URL: http://n8n:5678/mcp/nora-tools   # Nora's "do" tools (W14), on the private network only
+      N8N_MCP_TOKEN: ${N8N_MCP_TOKEN:-}             # empty means Nora calls the same database functions directly
     networks: [app]
     mem_limit: 512m
+
+  # Nora's voice (ADR 0015, 0016): joins the Stream calls the assistant lists, transcribes on this machine, asks the
+  # assistant over the private network and speaks through ElevenLabs. Outbound only; nothing listens.
+  voice:
+    <<: *defaults
+    build: ../services/voice
+    image: northgate-voice:local
+    profiles: [voice]                   # it polls the assistant and waits for it, so no start order is needed
+    environment:
+      ASSISTANT_URL: http://assistant:8100
+      ASSISTANT_INTERNAL_KEY: ${ASSISTANT_INTERNAL_KEY:-}
+      STREAM_API_KEY: ${STREAM_API_KEY:-}
+      STREAM_API_SECRET: ${STREAM_API_SECRET:-}
+      ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
+    volumes: [voice_models:/home/app/models]   # speech models for the other languages, downloaded once
+    networks: [app]
+    mem_limit: 2g
+
+  # Monitoring (ADR 0017): Alloy scrapes the assistant's /metrics on the private network and writes to Grafana Cloud.
+  # Started once the three GRAFANA_PROM_* values are in .env: docker compose --profile monitoring up -d alloy
+  alloy:
+    <<: *defaults
+    image: grafana/alloy:v1.22.0
+    profiles: [monitoring]
+    command: ["run", "/etc/alloy/config.alloy", "--storage.path=/var/lib/alloy/data"]
+    environment:
+      GRAFANA_PROM_URL: ${GRAFANA_PROM_URL:-}
+      GRAFANA_PROM_USER: ${GRAFANA_PROM_USER:-}
+      GRAFANA_PROM_TOKEN: ${GRAFANA_PROM_TOKEN:-}
+    volumes:
+      - ./alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - alloy_data:/var/lib/alloy/data
+    networks: [app]
+    mem_limit: 256m
 
   # n8n (blueprint section 41): automations triggered by time or events. Its editor is not on the internet: only
   # /webhook/ is routed by the WAF; the editor is reached through a Bastion SSH tunnel to 127.0.0.1:5678.
@@ -193,14 +235,28 @@ services:
     networks: [app, data]
     mem_limit: 1g
 
+  # The public status page (Uptime Kuma, AGENTS.md section 14.4). It checks the live journey from inside the VM and
+  # from the outside URLs; only the status page itself is public (see the Nginx status server block).
+  status:
+    <<: *defaults
+    image: louislam/uptime-kuma:2.5.9-slim-rootless   # runs as a non-root user
+    profiles: [status]
+    ports: ["127.0.0.1:3001:3001"]   # the dashboard through an SSH tunnel only
+    volumes: [status_data:/app/data]
+    networks: [app]
+    mem_limit: 256m
+
 networks:
   edge: {}
   app: {}
   data: { internal: true } # no route in or out of the VM; only services on this network can reach Presidio
 
 volumes:
+  alloy_data: {}
+  voice_models: {}
   ollama_models: {}
   n8n_db: {}
   n8n_data: {}
+  status_data: {}
   letsencrypt: {}
   certbot_www: {}

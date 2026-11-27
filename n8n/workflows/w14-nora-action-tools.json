@@ -1,0 +1,250 @@
+[
+  {
+    "id": "SalaEk911wwNF7ke",
+    "name": "W14 Nora action tools (MCP)",
+    "description": "Nora's action tools over MCP: send_payment_link, reschedule_link, ask_receptionist. Each acts as the signed-in patient through Supabase.",
+    "active": true,
+    "isArchived": false,
+    "nodes": [
+      {
+        "id": "4e2f42dc-f812-43a7-8b12-11743f0c74ec",
+        "name": "Nora action tools",
+        "type": "@n8n/n8n-nodes-langchain.mcpTrigger",
+        "typeVersion": 2.1,
+        "position": [
+          240,
+          0
+        ],
+        "parameters": {
+          "path": "nora-tools",
+          "authentication": "bearerAuth",
+          "instructions": "Action tools for the Northgate Dental assistant. Every call acts as the signed-in patient whose session token is passed; nothing here works without one."
+        },
+        "webhookId": "55970a45-90d7-4f56-95b3-9034d799d621",
+        "credentials": {
+          "httpBearerAuth": {
+            "id": "ngNoraMcpToken01",
+            "name": "Nora MCP token"
+          }
+        }
+      },
+      {
+        "id": "cee11d80-94a3-4db8-bb58-a826fb10114e",
+        "name": "send_payment_link",
+        "type": "n8n-nodes-base.httpRequestTool",
+        "typeVersion": 4.5,
+        "position": [
+          0,
+          240
+        ],
+        "parameters": {
+          "toolDescription": "Email the patient a secure payment link for one of their visits and return a single-use pay token for the chat. The amount comes from the price list.",
+          "method": "POST",
+          "url": "https://dxkfsslymzqbgtoijuut.supabase.co/rest/v1/rpc/send_my_payment_link",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Authorization",
+                "value": "={{ 'Bearer ' + $fromAI('session_token', 'Set by the caller from the verified session', 'string') }}"
+              }
+            ]
+          },
+          "sendBody": true,
+          "contentType": "json",
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({ appointment: $fromAI('visit_ref', 'The id of one of the patient visits', 'string') }) }}",
+          "options": {
+            "timeout": 10000,
+            "response": {
+              "response": {
+                "neverError": true,
+                "fullResponse": true
+              }
+            }
+          }
+        },
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "ngSupabasePubKey",
+            "name": "Northgate Supabase publishable key"
+          }
+        }
+      },
+      {
+        "id": "2ce6dfd1-9991-4392-a13e-fb4539b7d558",
+        "name": "reschedule_link",
+        "type": "n8n-nodes-base.httpRequestTool",
+        "typeVersion": 4.5,
+        "position": [
+          240,
+          240
+        ],
+        "parameters": {
+          "toolDescription": "Email the patient a single-use link to choose a new time for one of their booked visits. The visit stays booked until they choose.",
+          "method": "POST",
+          "url": "https://dxkfsslymzqbgtoijuut.supabase.co/rest/v1/rpc/send_my_reschedule_link",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Authorization",
+                "value": "={{ 'Bearer ' + $fromAI('session_token', 'Set by the caller from the verified session', 'string') }}"
+              }
+            ]
+          },
+          "sendBody": true,
+          "contentType": "json",
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({ appointment: $fromAI('visit_ref', 'The id of one of the patient visits', 'string') }) }}",
+          "options": {
+            "timeout": 10000,
+            "response": {
+              "response": {
+                "neverError": true,
+                "fullResponse": true
+              }
+            }
+          }
+        },
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "ngSupabasePubKey",
+            "name": "Northgate Supabase publishable key"
+          }
+        }
+      },
+      {
+        "id": "ed8da991-286c-4c78-a5ac-d545cc095e41",
+        "name": "ask_receptionist",
+        "type": "n8n-nodes-base.httpRequestTool",
+        "typeVersion": 4.5,
+        "position": [
+          480,
+          240
+        ],
+        "parameters": {
+          "toolDescription": "Put a request in the receptionist inbox for the clinic team to reply to the patient.",
+          "method": "POST",
+          "url": "https://dxkfsslymzqbgtoijuut.supabase.co/rest/v1/rpc/request_handover",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Authorization",
+                "value": "={{ 'Bearer ' + $fromAI('session_token', 'Set by the caller from the verified session', 'string') }}"
+              }
+            ]
+          },
+          "sendBody": true,
+          "contentType": "json",
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({ category: $fromAI('category', 'booking, billing, clinical_question, shop or other', 'string'), language: $fromAI('language', 'The patient language code', 'string'), summary: $fromAI('summary', 'What the patient needs, in English, without diagnosing', 'string').slice(0, 600) }) }}",
+          "options": {
+            "timeout": 10000,
+            "response": {
+              "response": {
+                "neverError": true,
+                "fullResponse": true
+              }
+            }
+          }
+        },
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "ngSupabasePubKey",
+            "name": "Northgate Supabase publishable key"
+          }
+        }
+      },
+      {
+        "id": "33f2bf2e-3581-53db-a224-f6892667c279",
+        "name": "Note 1",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          -40,
+          -400
+        ],
+        "parameters": {
+          "content": "## W14 Nora action tools (MCP)\n**Trigger:** n8n's MCP Server Trigger at `/mcp/nora-tools`, called only by Nora over the server's private network (Nginx does not route `/mcp/`).\n\nThree tools: `send_payment_link`, `reschedule_link`, `ask_receptionist`. Each is one call to a Supabase function as the signed-in patient; the function holds the rule (own visit only, verified session, price list, cancellation window, one email a day).",
+          "width": 460,
+          "height": 300,
+          "color": 4
+        }
+      },
+      {
+        "id": "61cf2838-8760-5c75-9e2a-1621633f23bd",
+        "name": "Note 2",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          460,
+          -400
+        ],
+        "parameters": {
+          "content": "## Security and data\n- Bearer token `Nora MCP token` (n8n credential; the same value is in Nora's `.env`).\n- `session_token` is set by Nora's code from the verified session, never by the model.\n- The `apikey` header is the publishable key, which grants nothing on its own.\n- No run data is saved, failed or successful: a run holds a session token.",
+          "width": 460,
+          "height": 300,
+          "color": 3
+        }
+      }
+    ],
+    "connections": {
+      "send_payment_link": {
+        "ai_tool": [
+          [
+            {
+              "node": "Nora action tools",
+              "type": "ai_tool",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "reschedule_link": {
+        "ai_tool": [
+          [
+            {
+              "node": "Nora action tools",
+              "type": "ai_tool",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "ask_receptionist": {
+        "ai_tool": [
+          [
+            {
+              "node": "Nora action tools",
+              "type": "ai_tool",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "settings": {
+      "executionOrder": "v1",
+      "availableInMCP": true,
+      "saveManualExecutions": false,
+      "saveDataErrorExecution": "none",
+      "saveDataSuccessExecution": "none"
+    },
+    "staticData": null,
+    "nodeGroups": [],
+    "sourceWorkflowId": null,
+    "tags": [],
+    "versionMetadata": {
+      "name": "Credentials and no stored run data",
+      "description": "Updated nodes: Nora action tools, send_payment_link, reschedule_link, ask_receptionist"
+    }
+  }
+]

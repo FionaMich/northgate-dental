@@ -4,7 +4,7 @@ from the verified session in the run configuration (blueprint section 31). Booki
 the patient's own confirmation button (LangGraph interrupt)."""
 
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import httpx
@@ -22,6 +22,7 @@ class Session:
     patient_id: str
     language: str = "en"
     link_base: str = ""
+    user_id: str = ""   # the Supabase user: names the patient's team conversation
 
 
 def _session(config: RunnableConfig) -> Session:
@@ -91,10 +92,32 @@ def _ids(s: Session, clinic_code: str, service_code: str) -> tuple[str, str, str
 
 def _named(s: Session, clinic_code: str, service_code: str) -> tuple[str, str, str, str, str]:
     loc = _get(s, "/locations", select="id,time_zone,name", code=f"eq.{clinic_code}")
-    svc = _get(s, "/services", select="id,name", code=f"eq.{service_code}")
+    svc = _get(s, "/services", select="id,name,code", code=f"eq.{service_code}")
+    word = "".join(c for c in service_code if c.isalnum() or c == " ").strip()
+    if not svc and word:  # the model gave a word ("cleaning") instead of a code: one step fewer for a small model
+        svc = _get(s, "/services", select="id,name,code", name=f"ilike.*{word}*", order="code", limit="1")
     if not loc or not svc:
         raise ToolRefused("unknown clinic or service code")
     return loc[0]["id"], svc[0]["id"], loc[0]["time_zone"], loc[0].get("name", clinic_code), svc[0].get("name", service_code)
+
+
+def _slot_ref(ts: str, tz: str) -> str:
+    """A slot as the model sees it: the clinic's own date and clock time, the same digits it reads to the patient."""
+    return datetime.fromisoformat(ts).astimezone(ZoneInfo(tz)).strftime("%Y-%m-%dT%H:%M")
+
+
+def _free_slot(s: Session, loc: str, svc: str, tz: str, slot: str) -> tuple[str, str]:
+    """The free slot the model means. Whatever it passes, only a time the clinic really has free can be booked: the
+    reference is matched against the free times for that day, never trusted as written."""
+    try:
+        wanted = datetime.fromisoformat(slot.split("|")[0].strip()[:16])
+    except ValueError:
+        raise ToolRefused("that is not a time from find_slots; call find_slots and use one of its slots") from None
+    day = (wanted.date() - timedelta(days=1)).isoformat()   # a day either side covers the clinic's time zone
+    for x in _rpc(s, "available_slots", loc=loc, service=svc, from_day=day, days=3) or []:
+        if _slot_ref(x["starts_at"], tz) == wanted.strftime("%Y-%m-%dT%H:%M"):
+            return x["starts_at"], x["practitioner_id"]
+    raise ToolRefused("that time is not free; call find_slots again and offer one of its times")
 
 
 def _card(s: Session, action: str, detail: str) -> dict:
@@ -106,14 +129,18 @@ def _card(s: Session, action: str, detail: str) -> dict:
 
 @tool
 def find_slots(clinic_code: str, service_code: str, day: str, config: RunnableConfig) -> str:
-    """Free times for a service at a clinic, for one day (YYYY-MM-DD) and the two days after it. Each line gives a time
-    and a slot reference to pass to book_visit."""
+    """Free times for a service at a clinic, for one day (YYYY-MM-DD) and the two days after it. service_code is a code
+    from services, or one English word for the kind of visit (cleaning, exam, filling, whitening). Each line gives a
+    time and a slot reference to pass to book_visit, earliest first."""
     s = _session(config)
-    loc, svc, tz = _ids(s, clinic_code, service_code)
+    loc, svc, tz, _, service = _named(s, clinic_code, service_code)
     date.fromisoformat(day)
     slots = _rpc(s, "available_slots", loc=loc, service=svc, from_day=day, days=3) or []
-    lines = [f"{_local(x['starts_at'], tz)} (slot {x['starts_at']}|{x['practitioner_id']})" for x in slots[:12]]
-    return "\n".join(lines) or "No free times on those days."
+    lines = [f"{_local(x['starts_at'], tz)} (slot {_slot_ref(x['starts_at'], tz)})" for x in slots[:12]]
+    # the price with the times, so a reply that mentions it is grounded in a tool result, not refused
+    price = _get(s, "/location_services", select="price_cents", location_id=f"eq.{loc}", service_id=f"eq.{svc}")
+    cost = f", {_money(price[0]['price_cents'])}" if price else ""
+    return f"{service}{cost}, free times:\n" + "\n".join(lines) if lines else "No free times on those days."
 
 
 @tool
@@ -121,18 +148,19 @@ def book_visit(clinic_code: str, service_code: str, slot: str, config: RunnableC
     """Book a visit in a slot from find_slots. The patient is asked to confirm with a button before anything is booked."""
     s = _session(config)
     loc, svc, tz, clinic, service = _named(s, clinic_code, service_code)
-    starts, practitioner = slot.split("|")
+    starts, practitioner = _free_slot(s, loc, svc, tz, slot)
     answer = interrupt(_card(s, "book", f"{service} · {_local(starts, tz)} · Northgate Dental, {clinic}"))
     if not answer:
         return "The patient chose not to book."
     held = _rpc(s, "hold_slot", loc=loc, service=svc, practitioner=practitioner, starts=starts, patient=s.patient_id)
     _rpc(s, "confirm_booking", appointment=held)
-    return f"Booked for {_local(starts, tz)}. A confirmation email is on its way."
+    # a note to the model, not a sentence to copy: the patient must hear this in their own language
+    return f"BOOKED: {service}, {_local(starts, tz)}. Tell the patient, in their language, that it is booked and that a confirmation email is on its way."
 
 
 @tool
 def my_visits(config: RunnableConfig) -> str:
-    """The patient's own upcoming visits, with a reference for cancel_visit or pay_link."""
+    """The patient's own upcoming visits, with a reference for cancel_visit, reschedule_link or pay_link."""
     s = _session(config)
     rows = _get(s, "/appointments", select="id,starts_at,location_services(services(name),locations(name,time_zone))",
                 status="eq.booked", starts_at=f"gte.{datetime.now().astimezone().isoformat()}", order="starts_at")
@@ -158,13 +186,61 @@ def cancel_visit(visit_ref: str, config: RunnableConfig) -> str:
     return "Cancelled. A confirmation email is on its way."
 
 
+def _act(s: Session, n8n_tool: str, n8n_args: dict, rpc: str, **params):
+    """An action that reaches outside the conversation: through n8n's MCP tools (W14) as the patient, or, if n8n is
+    not configured or cannot be reached, the same Supabase function directly. The rule lives in the function either way."""
+    from . import actions
+    if actions.configured():
+        try:
+            return actions.call(n8n_tool, s.jwt, **n8n_args)
+        except actions.Refused as no:
+            raise ToolRefused(str(no)) from None
+        except actions.Unavailable:
+            pass
+    return _rpc(s, rpc, **params)
+
+
+def _pay(s: Session, visit: str) -> str:
+    return f"{s.link_base}/pay?t={_act(s, 'send_payment_link', {'visit_ref': visit}, 'send_my_payment_link', appointment=visit)}"
+
+
 @tool
-def pay_link(visit_ref: str, config: RunnableConfig) -> str:
-    """A secure link to pay for one of the patient's visits by card on Stripe's page. The price comes from the clinic's
-    price list on the server."""
+def pay_link(config: RunnableConfig, visit_ref: str = "") -> str:
+    """A secure link to pay for one of the patient's visits by card on Stripe's page, also emailed to the patient. Leave
+    visit_ref empty for the patient's next visit. The patient confirms with a button first. The price comes from the
+    clinic's price list on the server."""
     s = _session(config)
-    token = _rpc(s, "start_my_payment", appointment=visit_ref)
-    return f"{s.link_base}/pay?t={token}"
+    if not interrupt(_card(s, "paylink", "")):
+        return "The patient chose not to get a payment link."
+    if visit_ref:
+        return _pay(s, visit_ref)
+    # "pay my bill": the next visit that still has something to pay, found here so the model needs one step
+    rows = _get(s, "/appointments", select="id", status="eq.booked", order="starts_at", limit="5",
+                starts_at=f"gte.{datetime.now().astimezone().isoformat()}")
+    for row in rows:
+        try:
+            return _pay(s, row["id"])
+        except ToolRefused:   # already paid, or not payable: try the visit after it
+            continue
+    return "Nothing to pay: the patient's upcoming visits are already paid."
+
+
+@tool
+def reschedule_link(visit_ref: str, config: RunnableConfig) -> str:
+    """Email the patient a link to choose a new time for one of their upcoming visits (ref from my_visits). Use when the
+    patient wants to move or change a visit. The patient confirms with a button first; the visit stays booked until
+    they pick a new time."""
+    s = _session(config)
+    visit = _get(s, "/appointments", select="starts_at,location_services(services(name),locations(name,time_zone))", id=f"eq.{visit_ref}")
+    if not visit:
+        raise ToolRefused("that visit is not one of yours")
+    ls = visit[0]["location_services"]
+    detail = f"{ls['services']['name']} · {_local(visit[0]['starts_at'], ls['locations']['time_zone'])} · Northgate Dental, {ls['locations']['name']}"
+    if not interrupt(_card(s, "movelink", detail)):
+        return "The patient chose not to get a link."
+    _act(s, "reschedule_link", {"visit_ref": visit_ref}, "send_my_reschedule_link", appointment=visit_ref)
+    return ("SENT: tell the patient, in their language, that a link to choose a new time is on its way to their email "
+            "and that their visit stays booked until they pick one.")
 
 
 @tool
@@ -179,13 +255,80 @@ def shop_search(query: str, config: RunnableConfig) -> str:
 
 
 @tool
+def search_clinic_knowledge(question_in_english: str, config: RunnableConfig) -> str:
+    """Approved Northgate documents on how things work: cancellations and missed-visit fees, preparing for a visit,
+    paying and payment plans, insurance and estimates, video consultations, children and guardians, records and
+    privacy, getting here and parking, shop orders and returns, urgent help, feedback and complaints. Pass the
+    patient's question in English."""
+    from . import knowledge
+    s = _session(config)
+    try:
+        vector = knowledge.as_vector(knowledge.embed_query(question_in_english))
+    except Exception:   # the embedder is down: keywords alone still find exact terms
+        vector = None
+    try:
+        rows = _rpc(s, "search_knowledge", query=question_in_english[:300], query_embedding=vector, match_count=5) or []
+    except Exception:   # an expired session or an outage: say nothing was found, so Nora offers the team, never guesses
+        rows = []
+    kept = knowledge.relevant(rows)[:3]
+    if not kept:
+        return knowledge.NOTHING_FOUND
+    return "\n\n".join(f'From "{r["document_title"]}" ({r["heading"]}): {r["content"]}' for r in kept)
+
+
+@tool
 def handoff_to_staff(category: str, summary_in_english: str, config: RunnableConfig) -> str:
     """Pass the conversation to the clinic team. category is one of booking, billing, clinical_question, shop, other.
     Always use clinical_question for anything about symptoms, medicines or treatment advice. Write a short summary in
-    English of what the patient needs, without diagnosing."""
+    English of what the patient needs, without diagnosing. The app asks the patient how the team should reply."""
     s = _session(config)
-    _rpc(s, "request_handover", category=category, language=s.language, summary=summary_in_english[:600])
-    return "handed_over"
+    if category == "clinical_question":   # a clinical question goes straight to the team, who reply in the app
+        return hand_over(s, category, summary_in_english)
+    from .safety import fixed
+    choice = interrupt({**_card(s, "team", ""), "call": fixed("call_team", s.language),
+                        "phone": fixed("phone_team", s.language)})
+    if not choice:
+        return "The patient chose not to contact the team now."
+    choice = choice if isinstance(choice, dict) else {"reply_by": "app"}   # a plain yes (the call screen): in the app
+    return hand_over(s, category, summary_in_english, choice.get("reply_by", "app"), choice.get("phone") or "")
 
 
-ALL = [clinic_info, services, find_slots, book_visit, my_visits, cancel_visit, pay_link, shop_search, handoff_to_staff]
+def hand_over(s: Session, category: str, summary_in_english: str, reply_by: str = "app", phone: str = "") -> str:
+    """The handover itself, once the patient has chosen how the team replies: the staff inbox, the team's board, and
+    for a reply in the app, the patient's conversation with the team."""
+    reply_by = "call" if reply_by == "call" else "app"
+    if reply_by == "call":
+        phone = _phone_number(phone)
+    _act(s, "ask_receptionist", {"category": category, "language": s.language, "summary": summary_in_english[:600]},
+         "request_handover", category=category, language=s.language, summary=summary_in_english[:600])
+    key = None
+    try:  # the team's board; the staff inbox above already has the request if Jira is down
+        from . import jira
+        key = jira.ticket(category, s.language, summary_in_english[:600], reply_by, phone if reply_by == "call" else "",
+                          s.patient_id)
+    except Exception:
+        pass
+    if reply_by == "app" and s.user_id:
+        try:  # open (or reopen) the patient's conversation with a system line they can read in their language
+            from . import stream
+            from .safety import fixed
+            conf = stream.settings()
+            if conf:
+                channel = stream.team_channel(s.user_id, *conf)
+                note = fixed("team_request", s.language).replace("{ticket}", f" ({key})" if key else "")
+                stream.team_notice(channel, note, *conf)
+        except Exception:
+            pass
+    return "handed_over" if reply_by == "app" else "handed_over_call"   # only an in-app reply has a chat to open
+
+
+def _phone_number(raw: str) -> str:
+    """A callback number as the patient gave it, checked: digits with an optional leading +, 7 to 15 digits."""
+    digits = "".join(c for c in raw if c.isdigit())
+    if not 7 <= len(digits) <= 15:
+        raise ToolRefused("that phone number does not look complete; ask the patient for it again")
+    return ("+" if raw.strip().startswith("+") else "") + digits
+
+
+ALL = [clinic_info, services, find_slots, book_visit, my_visits, cancel_visit, reschedule_link, pay_link, shop_search,
+       search_clinic_knowledge, handoff_to_staff]

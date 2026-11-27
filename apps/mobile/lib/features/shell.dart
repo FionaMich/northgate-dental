@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:material_ui/material_ui.dart';
+import 'package:dental/ui.dart';
 
 import '../design/tokens.dart';
 import '../state.dart';
@@ -88,7 +88,7 @@ class AppShell extends ConsumerWidget {
                     child: Semantics(
                       selected: t == tab,
                       button: true,
-                      label: label,
+                      label: tr(label),
                       child: InkWell(
                         key: Key('tab-${t.name}'),
                         borderRadius: BorderRadius.circular(22),

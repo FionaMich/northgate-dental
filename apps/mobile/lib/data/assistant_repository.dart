@@ -17,8 +17,11 @@ const assistantLanguages = {
 
 /// What the assistant said, or a booking or cancellation waiting for the patient's button.
 class AssistantTurn {
-  const AssistantTurn({this.reply, this.confirm});
+  const AssistantTurn({this.reply, this.confirm, this.team = false});
   final String? reply;
+
+  /// Nora passed this to the clinic team: the app offers the team chat.
+  final bool team;
   final Map<String, dynamic>? confirm;
 }
 
@@ -35,10 +38,31 @@ const assistantBase = String.fromEnvironment(
   defaultValue: 'https://84-12-126-31.sslip.io',
 );
 
+/// A reply can take up to 4 minutes on the CPU server, and the server uses the patient's token for the whole turn.
+/// Refresh first when less than 5 minutes are left, so the token cannot expire half way through a reply.
+bool needsRefresh(int? expiresAtSeconds, DateTime now) =>
+    expiresAtSeconds != null &&
+    DateTime.fromMillisecondsSinceEpoch(expiresAtSeconds * 1000).difference(now) < const Duration(minutes: 5);
+
 abstract class AssistantRepository {
   Future<String> hello(String language);
-  Future<AssistantTurn> send(String thread, String message, String language);
-  Future<AssistantTurn> confirm(String thread, bool accept, String language);
+
+  /// [team]: the "Talk to a member of our team" chip, answered with the team card without waiting for the model.
+  Future<AssistantTurn> send(
+    String thread,
+    String message,
+    String language, {
+    bool team = false,
+  });
+
+  /// [replyBy] ("app" or "call", with [phone]) answers the team card.
+  Future<AssistantTurn> confirm(
+    String thread,
+    bool accept,
+    String language, {
+    String? replyBy,
+    String? phone,
+  });
 }
 
 /// Talks to the assistant service with the patient's own Supabase token; the service checks it with Supabase.
@@ -57,6 +81,13 @@ class HttpAssistantRepository implements AssistantRepository {
       method,
       Uri.parse('$assistantBase$path'),
     );
+    if (needsRefresh(_auth.currentSession?.expiresAt, DateTime.now())) {
+      try {
+        await _auth.refreshSession();
+      } on Exception {
+        // offline or revoked: the request below fails with 401 and the patient is asked to sign in again
+      }
+    }
     final token = _auth.currentSession?.accessToken;
     if (token != null) {
       request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $token');
@@ -68,7 +99,7 @@ class HttpAssistantRepository implements AssistantRepository {
     }
     // The model runs on a CPU server: allow a long reply rather than give up on a patient mid-sentence.
     final response = await request.close().timeout(
-      const Duration(seconds: 150),
+      const Duration(seconds: 240),
     );
     final text = await response.transform(utf8.decoder).join();
     if (response.statusCode != 200) {
@@ -82,6 +113,7 @@ class HttpAssistantRepository implements AssistantRepository {
   AssistantTurn _turn(Map<String, dynamic> j) => AssistantTurn(
     reply: j['reply'] as String?,
     confirm: j['confirm'] as Map<String, dynamic>?,
+    team: j['team'] == true,
   );
 
   @override
@@ -97,11 +129,13 @@ class HttpAssistantRepository implements AssistantRepository {
   Future<AssistantTurn> send(
     String thread,
     String message,
-    String language,
-  ) async => _turn(
+    String language, {
+    bool team = false,
+  }) async => _turn(
     await _call('POST', '/assistant/chat', language, {
       'thread': thread,
       'message': message,
+      if (team) 'team': true,
     }),
   );
 
@@ -109,11 +143,15 @@ class HttpAssistantRepository implements AssistantRepository {
   Future<AssistantTurn> confirm(
     String thread,
     bool accept,
-    String language,
-  ) async => _turn(
+    String language, {
+    String? replyBy,
+    String? phone,
+  }) async => _turn(
     await _call('POST', '/assistant/confirm', language, {
       'thread': thread,
       'accept': accept,
+      'reply_by': ?replyBy,
+      'phone': ?phone,
     }),
   );
 }

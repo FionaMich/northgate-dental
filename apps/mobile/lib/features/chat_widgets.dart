@@ -1,0 +1,408 @@
+import 'package:dental/ui.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+import '../design/tokens.dart';
+
+/// The pieces of a messenger-style conversation, shared by every chat in the app: Nora's and the team's.
+/// Bubbles carry their own time and delivery ticks, the day sits in a chip, and whoever is writing shows as
+/// three moving dots.
+
+enum Delivery { sent, delivered, read }
+
+const chatWallpaper = Color(0xFFE7EFEC);
+const _mineBubble = Color(0xFFD5F3E9);
+const _readBlue = Color(0xFF2D9CDB);
+
+String chatTime(DateTime t) =>
+    '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+
+class ChatBubble extends StatelessWidget {
+  const ChatBubble({
+    super.key,
+    required this.text,
+    required this.at,
+    this.mine = false,
+    this.delivery,
+    this.first = true,
+    this.name,
+  });
+
+  final String text;
+
+  /// The writer, for the team's messages ("Sam · front desk"); none for the patient or Nora.
+  final String? name;
+  final DateTime at;
+  final bool mine;
+
+  /// Ticks for the patient's own messages; null for the other side.
+  final Delivery? delivery;
+
+  /// The first bubble of a run from one side has the pointed corner.
+  final bool first;
+
+  @override
+  Widget build(BuildContext context) {
+    const round = Radius.circular(16);
+    final point = first ? const Radius.circular(3) : round;
+    return Align(
+      alignment: mine
+          ? AlignmentDirectional.centerEnd
+          : AlignmentDirectional.centerStart,
+      child: Container(
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.sizeOf(context).width * 0.8,
+        ),
+        margin: EdgeInsets.only(top: first ? 8 : 2),
+        padding: const EdgeInsets.fromLTRB(12, 8, 10, 6),
+        decoration: BoxDecoration(
+          color: mine ? _mineBubble : Colors.white,
+          borderRadius: BorderRadiusDirectional.only(
+            topStart: mine ? round : point,
+            topEnd: mine ? point : round,
+            bottomStart: round,
+            bottomEnd: round,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Palette.deepSea.withValues(alpha: 0.08),
+              blurRadius: 1.5,
+              offset: const Offset(0, 1),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (name != null && first)
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                widthFactor: 1,
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 2),
+                  child: Text(
+                    name!,
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                      color: Palette.teal,
+                    ),
+                  ),
+                ),
+              ),
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              widthFactor: 1,
+              child: SelectableText.rich(
+                TextSpan(children: _withLinks(text)),
+                style: const TextStyle(
+                  fontSize: 15.5,
+                  height: 1.35,
+                  color: Palette.deepSea,
+                ),
+              ),
+            ),
+            for (final link in mine ? const <Uri>[] : chatLinks(text))
+              Padding(
+                padding: const EdgeInsets.only(top: 8, bottom: 2),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    key: Key('chat-link-${link.path.split('/').last}'),
+                    onPressed: () =>
+                        launchUrl(link, mode: LaunchMode.externalApplication),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Palette.teal,
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size.fromHeight(44),
+                    ),
+                    icon: Icon(
+                      link.path.endsWith('/pay')
+                          ? Icons.lock_rounded
+                          : Icons.open_in_new_rounded,
+                      size: 18,
+                    ),
+                    label: Text(linkLabel(link)),
+                  ),
+                ),
+              ),
+            const SizedBox(height: 2),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  chatTime(at),
+                  style: const TextStyle(fontSize: 11, color: Palette.muted),
+                ),
+                if (delivery != null) ...[
+                  const SizedBox(width: 3),
+                  Icon(
+                    delivery == Delivery.sent
+                        ? Icons.done_rounded
+                        : Icons.done_all_rounded,
+                    key: Key('ticks-${delivery!.name}'),
+                    size: 16,
+                    color: delivery == Delivery.read
+                        ? _readBlue
+                        : Palette.muted,
+                    semanticLabel: tr(switch (delivery!) {
+                      Delivery.sent => 'Sent',
+                      Delivery.delivered => 'Delivered',
+                      Delivery.read => 'Read',
+                    }),
+                  ),
+                ],
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+final _url = RegExp(r'https://[^\s)>\]]+');
+
+/// The https links in a message, without the full stop or comma of the sentence they end.
+List<Uri> chatLinks(String text) => [
+  for (final m in _url.allMatches(text))
+    ?Uri.tryParse(_trimmed(m.group(0)!)),
+];
+
+String _trimmed(String link) => link.replaceAll(RegExp(r'[.,;:!?]+$'), '');
+
+/// What the button under a link says: a payment link pays, a reschedule link chooses a time.
+String linkLabel(Uri link) => tr(
+  link.path.endsWith('/pay')
+      ? 'Pay securely'
+      : link.path.endsWith('/move')
+      ? 'Choose a new time'
+      : 'Open the link',
+);
+
+/// The message with every link highlighted, so a payment link can never be missed in the text.
+List<InlineSpan> _withLinks(String text) {
+  final spans = <InlineSpan>[];
+  var at = 0;
+  for (final m in _url.allMatches(text)) {
+    final link = _trimmed(m.group(0)!);
+    spans
+      ..add(TextSpan(text: text.substring(at, m.start)))
+      ..add(
+        TextSpan(
+          text: link,
+          style: const TextStyle(
+            color: Palette.teal,
+            fontWeight: FontWeight.w700,
+            decoration: TextDecoration.underline,
+            decorationColor: Palette.teal,
+            backgroundColor: Color(0xFFDDF4EE),
+          ),
+        ),
+      );
+    at = m.start + link.length;
+  }
+  return spans..add(TextSpan(text: text.substring(at)));
+}
+
+/// A line written by the system, not a person ("Request NGD-12 sent to the team"): centred, muted, no bubble.
+class ChatSystemLine extends StatelessWidget {
+  const ChatSystemLine(this.text, {super.key});
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 28),
+    child: Row(
+      children: [
+        const Expanded(child: Divider(color: Color(0xFFC9D8D5))),
+        Flexible(
+          flex: 6,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            child: Text(
+              text,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 12.5,
+                height: 1.4,
+                color: Palette.muted,
+              ),
+            ),
+          ),
+        ),
+        const Expanded(child: Divider(color: Color(0xFFC9D8D5))),
+      ],
+    ),
+  );
+}
+
+class ChatDayChip extends StatelessWidget {
+  const ChatDayChip(this.label, {super.key});
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Center(
+    child: Container(
+      margin: const EdgeInsets.only(bottom: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.9),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: Palette.muted,
+        ),
+      ),
+    ),
+  );
+}
+
+/// Three dots that rise in turn while the other side writes.
+class ChatTyping extends StatefulWidget {
+  const ChatTyping({super.key, required this.who});
+  final String who;
+
+  @override
+  State<ChatTyping> createState() => _ChatTypingState();
+}
+
+class _ChatTypingState extends State<ChatTyping>
+    with SingleTickerProviderStateMixin {
+  late final _beat = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1100),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _beat.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    label: tr('${widget.who} is typing'),
+    liveRegion: true,
+    child: Align(
+      alignment: AlignmentDirectional.centerStart,
+      child: Container(
+        key: const Key('chat-typing'),
+        margin: const EdgeInsets.only(top: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadiusDirectional.only(
+            topStart: Radius.circular(3),
+            topEnd: Radius.circular(16),
+            bottomStart: Radius.circular(16),
+            bottomEnd: Radius.circular(16),
+          ),
+        ),
+        child: AnimatedBuilder(
+          animation: _beat,
+          builder: (_, _) => Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (var i = 0; i < 3; i++)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 2.5),
+                  child: Transform.translate(
+                    // each dot lifts for a third of the beat, one after the other
+                    offset: Offset(0, -4 * _lift((_beat.value - i * 0.18) % 1)),
+                    child: const CircleAvatar(
+                      radius: 3.6,
+                      backgroundColor: Palette.muted,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+
+  static double _lift(double t) =>
+      t < 0.36 ? Curves.easeInOut.transform(1 - (t / 0.18 - 1).abs()) : 0;
+}
+
+/// The message field and its round send button.
+class ChatComposer extends StatelessWidget {
+  const ChatComposer({
+    super.key,
+    required this.controller,
+    required this.onSend,
+    required this.hint,
+    required this.label,
+    this.enabled = true,
+    this.canSend = true,
+    this.fieldKey = const Key('assistant-input'),
+    this.sendKey = const Key('assistant-send'),
+  });
+
+  final TextEditingController controller;
+  final VoidCallback onSend;
+  final String hint, label;
+  final bool enabled, canSend;
+  final Key fieldKey, sendKey;
+
+  @override
+  Widget build(BuildContext context) => SafeArea(
+    top: false,
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(8, 6, 8, 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: Semantics(
+                label: tr(label), // the hint alone is not read as the field's name by every screen reader
+                child: TextField(
+                  key: fieldKey,
+                  controller: controller,
+                  enabled: enabled,
+                  minLines: 1,
+                  maxLines: 4,
+                  maxLength: 2000,
+                  textInputAction: TextInputAction.send,
+                  onSubmitted: (_) => onSend(),
+                  decoration: InputDecoration(
+                    hintText: tr(hint),
+                    counterText: '',
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    disabledBorder: InputBorder.none,
+                    filled: false,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+          SizedBox.square(
+            dimension: 48,
+            child: IconButton.filled(
+              key: sendKey,
+              onPressed: canSend ? onSend : null,
+              style: IconButton.styleFrom(backgroundColor: Palette.teal),
+              icon: const Icon(Icons.send_rounded, size: 21),
+              tooltip: tr('Send'),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}

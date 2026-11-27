@@ -19,6 +19,8 @@ dependencies:
   material_ui: ^1.1.0
   pdfx: ^2.11.0
   speech_to_text: ^7.5.0
+  stream_chat: ^10.7.0
+  stream_video_flutter: ^1.8.0
   supabase_flutter: ^2.18.3
   timezone: ^0.11.2
   url_launcher: ^6.3.3

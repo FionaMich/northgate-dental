@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:material_ui/material_ui.dart';
+import 'package:dental/ui.dart';
 
 import '../design/art.dart';
 import '../design/motion.dart';
@@ -52,7 +52,7 @@ class _IntroScreenState extends ConsumerState<IntroScreen>
 
   @override
   Widget build(BuildContext context) => Semantics(
-    label: 'Northgate Dental. Tap to continue.',
+    label: tr('Northgate Dental. Tap to continue.'),
     button: true,
     child: GestureDetector(
       onTap: _finish,

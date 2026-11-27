@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:material_ui/material_ui.dart';
+import 'package:dental/ui.dart';
 
 import '../data/account_repository.dart';
 import '../design/tokens.dart';
@@ -103,7 +103,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> with _Busy {
           autofillHints: const [AutofillHints.name],
           textInputAction: TextInputAction.next,
           onChanged: (_) => setState(() {}),
-          decoration: const InputDecoration(labelText: 'Full name'),
+          decoration: InputDecoration(labelText: tr('Full name')),
         ),
         const SizedBox(height: 14),
         TextField(
@@ -113,7 +113,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> with _Busy {
           autofillHints: const [AutofillHints.email],
           textInputAction: TextInputAction.next,
           onChanged: (_) => setState(() {}),
-          decoration: const InputDecoration(labelText: 'Email'),
+          decoration: InputDecoration(labelText: tr('Email')),
         ),
         const SizedBox(height: 14),
         TextField(
@@ -124,7 +124,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> with _Busy {
           onChanged: (_) => setState(() {}),
           onSubmitted: (_) => _create(),
           decoration: InputDecoration(
-            labelText: 'Password',
+            labelText: tr('Password'),
             suffixIcon: IconButton(
               tooltip: _show ? 'Hide password' : 'Show password',
               icon: Icon(
@@ -345,7 +345,7 @@ class _ResetRequestScreenState extends ConsumerState<ResetRequestScreen>
           keyboardType: TextInputType.emailAddress,
           autofillHints: const [AutofillHints.email],
           onSubmitted: (_) => _send(),
-          decoration: const InputDecoration(labelText: 'Email'),
+          decoration: InputDecoration(labelText: tr('Email')),
         ),
         if (error != null) ...[const SizedBox(height: 14), ErrorNote(error!)],
         const SizedBox(height: 22),
@@ -410,7 +410,7 @@ class _NewPasswordScreenState extends ConsumerState<NewPasswordScreen>
           onChanged: (_) => setState(() {}),
           onSubmitted: (_) => _save(),
           decoration: InputDecoration(
-            labelText: 'New password',
+            labelText: tr('New password'),
             suffixIcon: IconButton(
               tooltip: _show ? 'Hide password' : 'Show password',
               icon: Icon(

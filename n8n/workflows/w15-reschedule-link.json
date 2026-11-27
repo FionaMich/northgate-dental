@@ -1,0 +1,329 @@
+[
+  {
+    "id": "ngW15RescheduleL",
+    "name": "W15 Reschedule link",
+    "description": null,
+    "active": false,
+    "isArchived": false,
+    "nodes": [
+      {
+        "id": "e62ec92a-c58c-4ceb-b7ec-502c4494677c",
+        "name": "Open link",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2.1,
+        "position": [
+          0,
+          0
+        ],
+        "parameters": {
+          "httpMethod": "GET",
+          "path": "move",
+          "responseMode": "responseNode",
+          "options": {}
+        },
+        "webhookId": "8eba4faa-62cb-41a1-8bc8-aabf1e255267"
+      },
+      {
+        "id": "22c87736-4d37-4533-8a85-16ba2c8d7c72",
+        "name": "Free times for link",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.6,
+        "position": [
+          220,
+          0
+        ],
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "select * from private.reschedule_options($1)",
+          "options": {
+            "queryReplacement": "={{ [ /^[A-Za-z0-9_-]{32}$/.test($json.query.t || '') ? $json.query.t : 'invalid' ] }}"
+          }
+        },
+        "credentials": {
+          "postgres": {
+            "id": "ngActionsDb00001",
+            "name": "Northgate patient actions database"
+          }
+        },
+        "alwaysOutputData": true
+      },
+      {
+        "id": "7009490d-2c7b-4fd7-a8a6-75f1732a9e42",
+        "name": "Choose page",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          440,
+          0
+        ],
+        "parameters": {
+          "mode": "runOnceForAllItems",
+          "jsCode": "// Shared page shell for the patient-action pages (copied into each Code node; n8n has no includes).\nconst esc = s => String(s ?? '').replace(/[&<>\"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', \"'\": '&#39;' }[c]));\nconst tel = p => p ? `<a href=\"tel:${esc(p.replace(/[^+0-9]/g, ''))}\">${esc(p)}</a>` : 'your clinic';\nconst page = (title, body) => `<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><meta name=\"robots\" content=\"noindex\"><title>${esc(title)} \u00b7 Northgate Dental</title><style>body{margin:0;font-family:system-ui,-apple-system,\"Segoe UI\",Roboto,sans-serif;background:#f3f7f6;color:#0b2b2a}main{max-width:440px;margin:0 auto;padding:40px 20px}.brand{font-weight:700;font-size:18px}.brand span{color:#137c6c}.sub{font-size:11px;letter-spacing:.15em;color:#4c6361;margin-top:2px}.card{background:#fff;border-radius:20px;padding:28px 24px;margin-top:24px;box-shadow:0 1px 2px rgba(11,43,42,.06),0 12px 32px rgba(11,43,42,.08)}h1{font-size:22px;line-height:1.25;margin:0 0 10px}p{line-height:1.55;color:#29403e;margin:0 0 12px}.visit{background:#eef5f3;border-radius:14px;padding:14px 16px;margin:16px 0;font-weight:600}.visit small{display:block;font-weight:400;color:#4c6361;margin-top:4px}button{width:100%;padding:15px;border:0;border-radius:14px;font-size:16px;font-weight:600;background:#137c6c;color:#fff;margin-top:12px;cursor:pointer}button.danger{background:#b3261e}label.choice{display:flex;gap:12px;align-items:center;border:1.5px solid #cddbd8;border-radius:14px;padding:14px 16px;margin-top:10px;font-weight:600;cursor:pointer}label.choice:has(input:checked){border-color:#137c6c;background:#eef5f3}textarea{width:100%;box-sizing:border-box;border:1.5px solid #cddbd8;border-radius:14px;padding:12px 14px;font:inherit;min-height:100px;margin-top:14px}.alert{background:#fdeeed;border:1px solid #f1c2be;border-radius:14px;padding:16px;color:#7a1d16;margin-bottom:12px}.ok{color:#137c6c;font-size:40px;line-height:1}.muted{color:#4c6361;font-size:14px}a{color:#137c6c}</style></head><body><main><div class=\"brand\">Northgate <span>Dental</span></div><div class=\"sub\">BACK BAY \u00b7 CAMBRIDGE \u00b7 QUINCY</div><div class=\"card\">${body}</div></main></body></html>`;\nconst okToken = t => /^[A-Za-z0-9_-]{32}$/.test(String(t || ''));\nconst d = $input.first().json, t = $('Open link').first().json.query.t;\nconst visit = `<div class=\"visit\">${esc(d.service_name)}<small>Now: ${esc(d.starts_local)} \u00b7 ${esc(d.clinic_name)}</small></div>`;\nconst times = Array.isArray(d.options) ? d.options : [];\nlet html;\nif (d.state === 'ok' && times.length) html = page('Choose a new time', `<h1>Choose a new time</h1>${visit}<form method=\"post\"><input type=\"hidden\" name=\"t\" value=\"${esc(t)}\">${times.map((o, i) => `<label class=\"choice\"><input type=\"radio\" name=\"at\" value=\"${esc(o.at)}\"${i === 0 ? ' checked' : ''}>${esc(o.label)}</label>`).join('')}<button type=\"submit\">Move my visit</button></form><p class=\"muted\" style=\"margin-top:16px\">Your current visit stays booked until you press the button.</p>`);\nelse if (d.state === 'ok') html = page('Please call us', `<h1>No free times online right now</h1>${visit}<p>Please call us on ${tel(d.clinic_phone)} and we will find a time with you.</p>`);\nelse if (d.state === 'too_late') html = page('Please call us', `<h1>It is too close to your visit to move it online</h1>${visit}<p>Please call us on ${tel(d.clinic_phone)} and we will help.</p>`);\nelse if (d.state === 'used' || d.state === 'closed') html = page('Already changed', `<h1>This visit has already been moved or cancelled</h1><p>Open the Northgate Dental app to see your visits.</p>`);\nelse html = page('Link expired', `<h1>This link has expired</h1><p>Ask Nora in the app for a new one, or call your clinic.</p>`);\nreturn [{ json: { html } }];\n"
+        }
+      },
+      {
+        "id": "68a7448a-a9b5-418f-b639-5c4d6dade436",
+        "name": "Send choose page",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.5,
+        "position": [
+          660,
+          0
+        ],
+        "parameters": {
+          "respondWith": "text",
+          "responseBody": "={{ $json.html }}",
+          "options": {
+            "responseHeaders": {
+              "entries": [
+                {
+                  "name": "Content-Type",
+                  "value": "text/html; charset=utf-8"
+                },
+                {
+                  "name": "Cache-Control",
+                  "value": "no-store"
+                },
+                {
+                  "name": "Referrer-Policy",
+                  "value": "no-referrer"
+                },
+                {
+                  "name": "Content-Security-Policy",
+                  "value": "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": "f991f9d8-eaaa-4289-8439-6383da5c5cbc",
+        "name": "Move pressed",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2.1,
+        "position": [
+          0,
+          240
+        ],
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "move",
+          "responseMode": "responseNode",
+          "options": {}
+        },
+        "webhookId": "9fb2f4cb-5712-4854-904f-b2e586596235"
+      },
+      {
+        "id": "92e2eca4-6072-4fdc-b2c6-31502fc18d3c",
+        "name": "Move by link",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.6,
+        "position": [
+          220,
+          240
+        ],
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "select private.move_by_token($1, $2::timestamptz) as result, d.clinic_phone from private.describe_action($1, 'reschedule') d",
+          "options": {
+            "queryReplacement": "={{ [ /^[A-Za-z0-9_-]{32}$/.test($('Move pressed').item.json.body.t || '') ? $('Move pressed').item.json.body.t : 'invalid', /^\\d{4}-\\d{2}-\\d{2}T[0-9:.+-]+Z?$/.test($('Move pressed').item.json.body.at || '') ? $('Move pressed').item.json.body.at : '1970-01-01T00:00:00Z' ] }}"
+          }
+        },
+        "credentials": {
+          "postgres": {
+            "id": "ngActionsDb00001",
+            "name": "Northgate patient actions database"
+          }
+        },
+        "alwaysOutputData": true
+      },
+      {
+        "id": "ec79c8a0-d79d-4438-9c4b-6f5e96ed1d1a",
+        "name": "Result page",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          440,
+          240
+        ],
+        "parameters": {
+          "mode": "runOnceForAllItems",
+          "jsCode": "// Shared page shell for the patient-action pages (copied into each Code node; n8n has no includes).\nconst esc = s => String(s ?? '').replace(/[&<>\"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', \"'\": '&#39;' }[c]));\nconst tel = p => p ? `<a href=\"tel:${esc(p.replace(/[^+0-9]/g, ''))}\">${esc(p)}</a>` : 'your clinic';\nconst page = (title, body) => `<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><meta name=\"robots\" content=\"noindex\"><title>${esc(title)} \u00b7 Northgate Dental</title><style>body{margin:0;font-family:system-ui,-apple-system,\"Segoe UI\",Roboto,sans-serif;background:#f3f7f6;color:#0b2b2a}main{max-width:440px;margin:0 auto;padding:40px 20px}.brand{font-weight:700;font-size:18px}.brand span{color:#137c6c}.sub{font-size:11px;letter-spacing:.15em;color:#4c6361;margin-top:2px}.card{background:#fff;border-radius:20px;padding:28px 24px;margin-top:24px;box-shadow:0 1px 2px rgba(11,43,42,.06),0 12px 32px rgba(11,43,42,.08)}h1{font-size:22px;line-height:1.25;margin:0 0 10px}p{line-height:1.55;color:#29403e;margin:0 0 12px}.visit{background:#eef5f3;border-radius:14px;padding:14px 16px;margin:16px 0;font-weight:600}.visit small{display:block;font-weight:400;color:#4c6361;margin-top:4px}button{width:100%;padding:15px;border:0;border-radius:14px;font-size:16px;font-weight:600;background:#137c6c;color:#fff;margin-top:12px;cursor:pointer}button.danger{background:#b3261e}label.choice{display:flex;gap:12px;align-items:center;border:1.5px solid #cddbd8;border-radius:14px;padding:14px 16px;margin-top:10px;font-weight:600;cursor:pointer}label.choice:has(input:checked){border-color:#137c6c;background:#eef5f3}textarea{width:100%;box-sizing:border-box;border:1.5px solid #cddbd8;border-radius:14px;padding:12px 14px;font:inherit;min-height:100px;margin-top:14px}.alert{background:#fdeeed;border:1px solid #f1c2be;border-radius:14px;padding:16px;color:#7a1d16;margin-bottom:12px}.ok{color:#137c6c;font-size:40px;line-height:1}.muted{color:#4c6361;font-size:14px}a{color:#137c6c}</style></head><body><main><div class=\"brand\">Northgate <span>Dental</span></div><div class=\"sub\">BACK BAY \u00b7 CAMBRIDGE \u00b7 QUINCY</div><div class=\"card\">${body}</div></main></body></html>`;\nconst okToken = t => /^[A-Za-z0-9_-]{32}$/.test(String(t || ''));\nconst d = $input.first().json;\nlet html;\nif (d.result === 'moved') html = page('Visit moved', `<div class=\"ok\">&#10003;</div><h1>Your visit has moved</h1><p>We have emailed you the new time. You can also see it in the Northgate Dental app.</p>`);\nelse if (d.result === 'taken') html = page('Time taken', `<h1>That time has just been taken</h1><p>Your visit has not changed. Go back and choose another time, or call us on ${tel(d.clinic_phone)}.</p>`);\nelse if (d.result === 'too_late') html = page('Please call us', `<h1>It is too close to your visit to move it online</h1><p>Please call us on ${tel(d.clinic_phone)}.</p>`);\nelse if (d.result === 'used' || d.result === 'closed') html = page('Already changed', `<h1>This visit has already been moved or cancelled</h1>`);\nelse html = page('Link expired', `<h1>This link has expired</h1><p>Ask Nora in the app for a new one, or call your clinic.</p>`);\nreturn [{ json: { html } }];\n"
+        }
+      },
+      {
+        "id": "69361d21-1b44-478b-bdb6-f7aa037c3bac",
+        "name": "Send result page",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.5,
+        "position": [
+          660,
+          240
+        ],
+        "parameters": {
+          "respondWith": "text",
+          "responseBody": "={{ $json.html }}",
+          "options": {
+            "responseHeaders": {
+              "entries": [
+                {
+                  "name": "Content-Type",
+                  "value": "text/html; charset=utf-8"
+                },
+                {
+                  "name": "Cache-Control",
+                  "value": "no-store"
+                },
+                {
+                  "name": "Referrer-Policy",
+                  "value": "no-referrer"
+                },
+                {
+                  "name": "Content-Security-Policy",
+                  "value": "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": "e90cb038-da76-5244-8b9b-6d0685e3d6b8",
+        "name": "Note 1",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          -40,
+          -400
+        ],
+        "parameters": {
+          "content": "## W15 Reschedule link\n**Trigger:** a patient opens the link Nora's `reschedule_link` emailed.\n\n**Top row (GET):** shows the visit and up to 8 free times. Mail scanners open links, so opening one changes nothing.\n\n**Bottom row (POST):** the button. `move_by_token()` books the new time and cancels the old one in one transaction, once, outside the cancellation window. The worker then sends one \"your visit has moved\" email.",
+          "width": 460,
+          "height": 300,
+          "color": 4
+        }
+      },
+      {
+        "id": "6c34c03f-da24-5669-8b99-cb17acc8ec8b",
+        "name": "Note 2",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          460,
+          -400
+        ],
+        "parameters": {
+          "content": "## Security and data\n- The link is a random token; the database stores only its SHA-256 hash.\n- The page shows service, times and clinic: never the patient's name.\n- Database login: `northgate_actions_app`, now allowed `reschedule_options` and `move_by_token` too.\n- No run data is saved.",
+          "width": 460,
+          "height": 300,
+          "color": 3
+        }
+      }
+    ],
+    "connections": {
+      "Open link": {
+        "main": [
+          [
+            {
+              "node": "Free times for link",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Free times for link": {
+        "main": [
+          [
+            {
+              "node": "Choose page",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Choose page": {
+        "main": [
+          [
+            {
+              "node": "Send choose page",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Move pressed": {
+        "main": [
+          [
+            {
+              "node": "Move by link",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Move by link": {
+        "main": [
+          [
+            {
+              "node": "Result page",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Result page": {
+        "main": [
+          [
+            {
+              "node": "Send result page",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "settings": {
+      "executionOrder": "v1",
+      "availableInMCP": true,
+      "saveDataErrorExecution": "none",
+      "saveDataSuccessExecution": "none",
+      "saveManualExecutions": false
+    },
+    "staticData": null,
+    "nodeGroups": [
+      {
+        "id": "746bf3ae-c334-4933-901c-18dca3847b11",
+        "name": "Show the visit",
+        "nodeIds": [
+          "26d76484-c704-4549-a70c-3b3d0d1ee316",
+          "b25df900-c94e-4bb5-8fda-6fa8e38a12a7",
+          "d87a27c0-b1f7-4da2-9213-8d0e7e92b235"
+        ],
+        "description": "GET only describes the link: mail scanners open links, so opening one must never cancel."
+      },
+      {
+        "id": "8dcfdd08-8bfd-4122-a827-a2fe9b9951d9",
+        "name": "Cancel it",
+        "nodeIds": [
+          "2513540d-4776-4cb8-bda9-15c6ccbbf950",
+          "0701a0b2-1326-4535-b255-028679f10a95",
+          "4972d712-a594-4d23-b8d7-9ace0066f888"
+        ],
+        "description": "POST from the button: cancel_by_token applies the location policy and works once."
+      }
+    ],
+    "versionCounter": 1,
+    "sourceWorkflowId": null,
+    "versionMetadata": {
+      "name": "Initial version",
+      "description": "Created with 8 nodes: Open link, Describe link, Confirm page, Send confirm page, Cancel pressed and 3 more"
+    }
+  }
+]

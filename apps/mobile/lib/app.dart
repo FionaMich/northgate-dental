@@ -1,7 +1,7 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:material_ui/material_ui.dart';
+import 'package:dental/ui.dart';
 
 import 'design/tokens.dart';
 import 'features/shell.dart';
@@ -27,16 +27,44 @@ class _NorthgateAppState extends State<NorthgateApp> {
   );
 
   @override
-  Widget build(BuildContext context) => MaterialApp.router(
-    debugShowCheckedModeBanner: false,
-    title: 'Northgate Dental',
-    theme: northgateTheme(),
-    routerConfig: _router,
-    // The intro shows once per cold start, then hands over to the sign-in or home gate.
-    builder: (context, child) => LightStatusBar(
-      child: _introDone
-          ? child!
-          : IntroScreen(onDone: () => setState(() => _introDone = true)),
+  void initState() {
+    super.initState();
+    appLanguage.addListener(_showInNewLanguage);
+  }
+
+  @override
+  void dispose() {
+    appLanguage.removeListener(_showInNewLanguage);
+    super.dispose();
+  }
+
+  /// Every screen builds again, where it is, so the words change without losing the patient's place.
+  void _showInNewLanguage() {
+    void again(Element e) {
+      e.markNeedsBuild();
+      e.visitChildren(again);
+    }
+
+    if (mounted) context.visitChildElements(again);
+  }
+
+  @override
+  Widget build(BuildContext context) => ValueListenableBuilder(
+    valueListenable: appLanguage,
+    builder: (context, language, _) => MaterialApp.router(
+      debugShowCheckedModeBanner: false,
+      title: 'Northgate Dental',
+      theme: northgateTheme(),
+      routerConfig: _router,
+      locale: Locale(language),
+      supportedLocales: [for (final code in appLanguages.keys) Locale(code)],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      // The intro shows once per cold start, then hands over to the sign-in or home gate.
+      builder: (context, child) => LightStatusBar(
+        child: _introDone
+            ? child!
+            : IntroScreen(onDone: () => setState(() => _introDone = true)),
+      ),
     ),
   );
 }

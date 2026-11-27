@@ -4,6 +4,14 @@ A dental practice system and patient app for a fictional US dental group with th
 
 **Every patient, staff member, visit and document here is fictional, generated test data.** X-rays and images are licensed or generated and credited. No real patient data is used anywhere.
 
+| Try it live | Link |
+| --- | --- |
+| The website | [northgate-dental.vercel.app](https://northgate-dental.vercel.app) |
+| The staff portal, with sample data and no sign-in | [northgate-dental.vercel.app/portal/demo](https://northgate-dental.vercel.app/portal/demo/) |
+| The staff portal (staff accounts, two-factor) | [northgate-dental.vercel.app/portal](https://northgate-dental.vercel.app/portal/) |
+| Live status of every service | [status.84-12-126-31.sslip.io](https://status.84-12-126-31.sslip.io/status/northgate) |
+| The Android app, version 0.3.0 (a demo on fictional data) | [Download the APK](https://github.com/FionaMich/northgate-dental/releases/tag/app-v0.3.0) |
+
 | Home | Booking | Visit record |
 | --- | --- | --- |
 | ![Home screen](.github/readme/home.jpg) | ![Booking](.github/readme/booking.jpg) | ![Visit record](.github/readme/visit.jpg) |
@@ -11,6 +19,24 @@ A dental practice system and patient app for a fictional US dental group with th
 | Records | Aligner timer | Profile |
 | --- | --- | --- |
 | ![Records](.github/readme/records.jpg) | ![Aligner timer](.github/readme/aligner.jpg) | ![Profile](.github/readme/profile.jpg) |
+
+**The website:** [northgate-dental.vercel.app](https://northgate-dental.vercel.app): services and prices for every clinic, a page per service, the team, a voice call sample with Nora, an enquiry form and the staff portal.
+
+| Website | A service page | Talk to Nora (sample) |
+| --- | --- | --- |
+| ![Website home](.github/readme/web-home.jpg) | ![Clear aligners service page](.github/readme/web-service.jpg) | ![Voice call sample](.github/readme/web-voice.jpg) |
+
+## At a glance
+
+| Concern | Decision | Evidence |
+| --- | --- | --- |
+| Where patient data lives | One Postgres database (Supabase, us-east-1), row level security on every table; the phone keeps only an encrypted session and an aligner log | 542 pgTAP checks, each rule with an allowed and a refused case |
+| Who decides what is allowed | The database: writes go through functions that check the caller; the app, n8n and Nora only ask | Payment, booking and link functions tested as each role, including n8n's |
+| The AI receptionist | One LangGraph agent, Gemma 4 on our own server, eight languages; safety text is fixed, never generated; every write waits for the patient's button | 102 agent tests with a scripted model; a retrieval evaluation gate in CI |
+| How AI reaches the rest of the system | Model Context Protocol: "know" tools from our MCP server, "do" tools published by n8n; identity always from the verified session | Live MCP probes; forged-identity and n8n-down tests |
+| Delivery | Transactional outbox on Supabase Queues; idempotent consumers; one email per kind, however often a message is delivered | Worker tests against a real database |
+| Operations | Prometheus metrics, a Grafana dashboard, four alerts to the on-call phone, a public status page, a scripted journey check every 15 minutes | Alert rules with runbooks; status page with six live checks |
+| Security at the edge | Private VM behind a load balancer, ModSecurity with the OWASP Core Rule Set, only webhooks and the status page public | 25 WAF checks in CI against a running stack |
 
 ## Architecture
 
@@ -36,8 +62,9 @@ flowchart LR
     presidio[Presidio<br/>internal network only]
     backup[Nightly backup<br/>pg_dump + age]
     worker[Notification worker<br/>Python]
-    n8n[n8n automations<br/>only /webhook/ public]
+    n8n[n8n automations<br/>only /webhook/ public<br/>MCP tools on the private network]
     agent[Receptionist assistant<br/>LangGraph, Gemma on Ollama]
+    kuma[Uptime Kuma<br/>public status page only]
   end
   census[US Census geocoder]
   resend[Resend email]
@@ -62,6 +89,8 @@ flowchart LR
   worker -->|receipts, confirmations| resend
   app -->|chat, user token| agent
   agent -->|as the patient, RLS applies| db
+  agent -->|do tools over MCP, bearer token| n8n
+  waf -->|/status/ page only| kuma
   agent -.->|steps and timings only| langsmith
 ```
 
@@ -74,6 +103,8 @@ flowchart LR
 4. **Writes go through functions:** booking, cancelling, linking a record and updating details are Postgres functions that check the caller themselves. The patient's identity comes from the signed-in session, never from a parameter the app sends.
 5. **Files:** X-rays and visit summaries sit in a private bucket. The app receives a signed link valid for 5 minutes and opens the PDF inside the app.
 6. **On the server:** every public request passes through ModSecurity with the OWASP Core Rule Set, which refuses cross-site scripting, SQL injection, path traversal and command injection with a 403, before any service sees the request.
+
+**Principles:** defence in depth and least privilege: the WAF, the network rules and row level security are each sufficient on their own, and every service has its own database role with only the functions it needs.
 
 </details>
 
@@ -106,6 +137,8 @@ A dental group's data is relational: patients, appointments, clinicians, rooms, 
 - **pgTAP** tests every policy with real sign-ins, for both what each role may do and what it must be refused.
 - **Region:** us-east-1, so US patient data stays in the US.
 - **Trade-off accepted:** the free plan has no point-in-time recovery, which is why the nightly encrypted backup exists.
+
+**Principles:** a ubiquitous language: tables, functions and files use the clinic's own words (appointment, hold, proxy, recall), kept in a glossary; and the simplest thing that could possibly work: one database, with no separate broker, cache or vector store until a measured need says otherwise.
 
 </details>
 
@@ -162,14 +195,14 @@ sequenceDiagram
 - 24 database tests (`20_queues`, `21_worker_context`).
 - The worker's tests, including one against a real database. It books a visit for the canary patient, checks that exactly one email is sent and that a repeat sends nothing, and scans the logs for every canary value.
 
+**Principles:** the **transactional outbox**: the event is written in the booking's own transaction, so it can never be lost or describe a change that rolled back. **Idempotent consumers** give an exactly-once *effect* from at-least-once delivery. **Ordering by version**: the worker re-reads the current status, so a late "booked" never confirms a cancelled visit. **Stability patterns**: timeouts, a separate `urgent` queue as a bulkhead, fixed batches for a steady state, and a **dead-letter queue** after five tries.
+
 </details>
 
 <details>
 <summary><b>Payments with Stripe Checkout (test mode), relayed by n8n, decided in Postgres</b></summary>
 
-A receptionist (or, from section 09, the assistant) asks for a payment link for a visit; the patient pays on Stripe's hosted Checkout page; Stripe tells us it was paid; the patient gets a receipt. Stripe Checkout was chosen over building a card form because **card numbers never touch Northgate's systems at all**, which keeps the product out of PCI DSS scope beyond the simplest self-assessment (SAQ A).
-
-![Stripe Checkout for a Northgate visit, test card](.github/readme/stripe-checkout.png)
+A receptionist, the app's Pay button or Nora (`send_payment_link`, after the patient presses "Send it") asks for a payment link for a visit; the patient pays on Stripe's hosted Checkout page; Stripe tells us it was paid; the patient gets a receipt. Stripe Checkout was chosen over building a card form because **card numbers never touch Northgate's systems at all**, which keeps the product out of PCI DSS scope beyond the simplest self-assessment (SAQ A).
 
 ```mermaid
 sequenceDiagram
@@ -222,7 +255,25 @@ sequenceDiagram
 **Proof:**
 - `22_payments.test.sql`: tampered body, wrong secret, a replay older than five minutes, a wrong amount, a duplicate event, and writes by a signed-in user are all refused; a correct event is recorded once and queues one receipt carrying IDs only.
 - The worker test signs an event in Python, so it proves Python's HMAC and Postgres's agree byte for byte.
-- On staging, a real test-mode payment went from link to receipt email (see Deployments).
+- On staging, on 27 November 2026, twice: Nora emailed a payment link, the patient paid $110.00 with Stripe's test
+  card on the Checkout page, the database recorded it as paid, and the receipt email followed within seconds (the
+  recorded run: link at 08:05 UTC, paid at 08:13:06, receipt delivered at 08:13:09).
+
+**Watch it** (1 min 17 s, captioned): asking Nora in the app, the confirmation button, Nora's reply with the link,
+the "Pay securely" email, Stripe Checkout with the test card, and the receipt three seconds after payment. The moments
+while Nora works are cut out; her measured reply times are in "Evaluating Nora". Select the picture to play the video.
+
+[![Nora sends a payment link: chat, email, Stripe Checkout and the receipt](.github/readme/videos/nora-payment-demo.jpg)](https://github.com/FionaMich/northgate-dental/releases/download/demo-2026-11-27/nora-payment-demo.mp4)
+
+| In the chat | Nora's "Pay securely" email | Stripe Checkout, test card |
+| --- | --- | --- |
+| ![Nora's reply: the link highlighted, with a Pay securely button](.github/readme/nora-pay-link.jpg) | ![The payment link email](.github/readme/emails/paylink.png) | ![Stripe Checkout with the test card](.github/readme/stripe-checkout.png) |
+
+| Forged webhook refused | Payment tests |
+| --- | --- |
+| ![Forged event refused](.github/readme/forged-webhook.png) | ![Database tests](.github/readme/payments-tests.png) |
+
+**Principles:** **deep modules**: `record_stripe_event(raw_body, signature)` is one call that hides signature checks, replay protection, de-duplication, amount checks, state changes and the receipt. **Make illegal states unrepresentable**: a payment is `paid` if and only if `paid_at` is set, money is whole cents, and one live payment per visit is a unique index, not a hope.
 
 </details>
 
@@ -265,6 +316,25 @@ If the page does not load: the Bastion refuses sessions from an IP outside `clie
 - **Hardening:** `N8N_BLOCK_ENV_ACCESS_IN_NODE` stops Code nodes reading server secrets; successful runs save no data; failed runs are pruned after 7 days; telemetry is off.
 - **Credentials** are imported with `n8n import:credentials` from stdin inside the container, so passwords never sit on the VM's disk or in shell history. The Stripe key is read from the VM's own `.env` and never travels again.
 - **n8n never does AI.** The project rule is one assistant, built in LangGraph; n8n only runs triggered automations and, from section 09, publishes a few workflows as MCP tools for it.
+
+**The workflows** (each picture is the n8n editor; the green note says what triggers it and what it does, the red note
+what data it touches and which control protects it):
+
+| W03 Cancel link | W04 Payment link |
+| --- | --- |
+| ![W03 Cancel link](.github/readme/n8n/w03-cancel-link.jpg) | ![W04 Payment link](.github/readme/n8n/w04-payment-link.jpg) |
+
+| W05 Stripe payment received | W06 Pay link |
+| --- | --- |
+| ![W05 Stripe payment received](.github/readme/n8n/w05-stripe-payment-received.jpg) | ![W06 Pay link](.github/readme/n8n/w06-pay-link.jpg) |
+
+| W11 Post-visit check-in | W12 Shop checkout |
+| --- | --- |
+| ![W11 Post-visit check-in](.github/readme/n8n/w11-post-visit-checkin.jpg) | ![W12 Shop checkout](.github/readme/n8n/w12-shop-checkout.jpg) |
+
+| W14 Nora action tools (MCP) | W15 Reschedule link |
+| --- | --- |
+| ![W14 Nora action tools over MCP](.github/readme/n8n/w14-nora-action-tools.jpg) | ![W15 Reschedule link](.github/readme/n8n/w15-reschedule-link.jpg) |
 
 </details>
 
@@ -354,9 +424,9 @@ A small shop inside the patient app for the products our dentists and hygienists
 
 A virtual receptionist in the patient app, benchmarked on OralSync's "Lisa" (the leading AI receptionist for Dutch dental practices), without the phone line. It books, moves and cancels visits, answers questions about the clinics, payments and the shop, and hands anything else to the team with a written summary.
 
-| Chat | Confirm a booking |
-| --- | --- |
-| ![Assistant](.github/readme/assistant.png) | ![Confirm](.github/readme/assistant-confirm.png) |
+| Chat | Confirm a booking | Voice call | Confirm by button, never by voice |
+| --- | --- | --- | --- |
+| ![Assistant](.github/readme/assistant.png) | ![Confirm](.github/readme/assistant-confirm.png) | ![Voice call with Nora](.github/readme/nora-call.png) | ![A booking proposed in a call waits for the button](.github/readme/nora-call-confirm.png) |
 
 **How a message is handled** (`services/agent/src/agent/graph.py`):
 
@@ -395,12 +465,73 @@ flowchart TD
 | Identity is never a model argument | The patient comes from the verified token; tools call Supabase with that token, so the database decides what the assistant may see |
 | Nothing is booked or cancelled without the patient | LangGraph pauses (`interrupt`) until the patient presses Confirm; declining books nothing (tested) |
 | No invented prices or times | A grounding check replaces a reply whose price or time no tool returned, and really hands it over |
+| Only clinic-approved policy answers | Policy questions are answered only from approved documents (hybrid RAG). A weak match, or a failed search, makes Nora offer the team instead of guessing |
+| The team is reached by buttons, not by the model | When Nora hands over, the app shows "Reply in the app" or "Call me back", with a checked phone number, so the handover cannot be promised and then forgotten |
+| Nora can be switched off at once | A practice manager turns her off in the portal. Within 30 seconds every patient gets a fixed message with the clinic's number, and the model is not used |
+| Every turn is on record | `ai_events` logs each turn's outcome, tools, model, prompt version and timing, never the words. A failed write sets off an alert |
+| A long reply cannot outlive the sign-in | The app refreshes the session before talking to Nora when less than 5 minutes are left, since a reply can take minutes on the CPU server |
 
 **Languages:** English, French, Dutch, German, Spanish, Italian, Lithuanian and Swedish (Fiona's choice, 23 November 2026). Every non-English safety text is marked draft until a native speaker reviews it, as health messaging requires.
 
-**Model:** `model_for(role)` picks the model from one setting. The demo runs Gemma 4 on Ollama, so nothing leaves our own machines. On a CPU a reply takes 30 to 60 seconds, so the app says so while it waits; Amazon Bedrock is one setting away if speed matters more than keeping everything in-house.
+**Model:** `model_for(role)` picks the model from one setting. The demo runs Gemma 4 on Ollama, so nothing leaves our own machines. On a CPU a reply takes 7 to 40 seconds, shown as a typing indicator; Amazon Bedrock is one setting away if speed matters more than keeping everything in-house.
+
+**Voice calls with Nora:** the voice button in the chat starts a Stream Video call. Our server checks the patient's session and signs a one-hour call token for a random call ID, the phone joins with the Stream SDK under the fixed name "Patient", and Nora joins from our voice service, where she listens, thinks with the same LangGraph assistant as the chat, and speaks. The call screen shows her portrait, live captions of both sides and the same Confirm buttons as the chat: saying "yes" books nothing, only the button does. A payment link is never read aloud; it arrives as a "Pay securely" button. Nora takes strict turns: she keeps the caller's audio until a second of quiet, transcribes the whole question once, and does not listen while she thinks or speaks, so noise can never cut her answer short. We record nothing; the call type has recording and transcription switched off.
+
+Three calls, one per language, each solving four requests in one conversation: opening hours, paying a bill, booking a cleaning (confirmed with the button) and a handover to the team. Select a picture to play the video.
+
+| English (85 s) | French (98 s) | German (102 s) |
+| :-: | :-: | :-: |
+| [![Voice call with Nora in English](.github/readme/videos/nora-call-en.jpg)](https://github.com/FionaMich/northgate-dental/releases/download/demo-2026-11-24/nora-call-en.mp4) | [![Voice call with Nora in French](.github/readme/videos/nora-call-fr.jpg)](https://github.com/FionaMich/northgate-dental/releases/download/demo-2026-11-24/nora-call-fr.mp4) | [![Voice call with Nora in German](.github/readme/videos/nora-call-de.jpg)](https://github.com/FionaMich/northgate-dental/releases/download/demo-2026-11-24/nora-call-de.mp4) |
+
+**Chat with Nora in other languages** (6 min 36 s, one video): the same requests typed in the app, in Dutch, then Spanish, then Italian; each part opens with its language on screen ("Nora in Dutch", "Nora in Spanish", "Nora in Italian"). Opening hours, paying a bill, booking a cleaning confirmed with the button, then a member of the Northgate team chosen with the reply buttons and the team's answer in the app. Waits for Nora's replies are fast-forwarded and marked.
+
+[![Chat with Nora in Dutch, Spanish and Italian](.github/readme/videos/nora-chat-languages.jpg)](https://github.com/FionaMich/northgate-dental/releases/download/demo-2026-11-24/nora-chat-languages.mp4)
+
+After the booking is confirmed, each video shows the confirmation email the notification worker sends for that visit (the same template and details; the image is a render of it).
+
+How the videos were made, so nothing in them is taken for more than it is: each is one real call on a phone against the staging server, and every answer, tool call, booking and payment link is the assistant's own. The patient ("Michelle") is a generated voice played through a speaker beside the phone. For these recordings her words were given to the assistant as text from the script, so the videos show the conversation, the tools and the voice, not speech recognition; recognition was checked separately in English, where a live take transcribed her question word for word. The waiting between turns (7 to 40 seconds on a CPU-only server) is cut, Nora's voice is the audio our voice service sent to the phone, and both voices are levelled to the same loudness.
+
+**Chat with the clinic team:** when Nora passes something to the team, the app offers a second conversation, with real people. It runs on Stream Chat and looks like a messenger: each message shows its time, grey ticks when the team has it and blue ticks when they have read it, and "typing…" while they write. Our server checks the session, makes the patient's own channel and signs the token, so nobody can open another patient's conversation; writing as the team needs the server's internal key. Stream learns an opaque user ID and the fixed name "Patient"; it does store the conversation text, which is why this is for demo data until Stream's HIPAA plan and agreement are in place. The staff side arrives with the staff portal; until then the team's replies in the demo are sent through the server's team endpoint.
+
+<img src=".github/readme/team-chat.jpg" alt="The team chat in French: the patient's message with blue read ticks and two replies from the front desk" width="320">
 
 **Tracing:** LangSmith records each conversation's steps, tool calls, timings and outcomes, with inputs and outputs hidden: what the patient wrote never leaves the service.
+
+</details>
+
+<details>
+<summary><b>How Nora knows clinic policy: hybrid RAG in Postgres</b></summary>
+
+Patients ask how things work: "is there a fee if I miss a visit?", "can I pay in instalments?", "is there parking in Quincy?". Nora answers these from documents the clinic has approved (`knowledge/`), names the document, and hands over when no document answers.
+
+```mermaid
+flowchart LR
+  q[Patient question, any of 8 languages] --> tool[search_clinic_knowledge<br/>question in English]
+  tool --> emb[bge-m3 on our own Ollama<br/>1024-number vector]
+  tool --> sql
+  emb --> sql[search_knowledge in Postgres<br/>full-text ranking + pgvector ranking<br/>reciprocal rank fusion]
+  sql --> gate{Similarity at least 0.50?}
+  gate -->|yes| answer[Gemma answers from the passages<br/>and names the document]
+  gate -->|no| team[Offer to pass it to the team]
+  answer --> grounded{Every price, time and link<br/>is in a passage?}
+  grounded -->|yes| reply[Reply]
+  grounded -->|no| team
+```
+
+**Which RAG, and why:**
+
+| Choice | Why |
+| --- | --- |
+| **Hybrid** retrieval: keywords (Postgres full-text search) plus meaning (pgvector), fused by reciprocal rank fusion in one SQL function | Keywords catch exact terms ("no-show fee", "HSA"); meaning catches the same question in other words or another language. Fusing by rank needs no tuning between two score scales. Postgres only: no extra database to run or secure |
+| Retrieval as a **tool** Nora calls, not text added to every prompt | Most turns (booking, paying) need no documents; on a CPU every prompt token costs time |
+| **Corrective** step as a calibrated similarity gate, not a model grader | A grader would add 20 to 60 seconds per question on a CPU. The floor (0.50) sits between the weakest answerable question (0.563) and the closest out-of-scope one (0.448) in the golden set |
+| **No web search** fallback | Health information from the open web is not approved by the clinic |
+| The existing **grounding check** covers the answer | A fee or time in the reply must appear in a passage, so the model cannot invent one |
+| **Not GraphRAG** | The questions are single-hop and the corpus is a few pages; the relationships Nora needs (patient, visit, clinic) are foreign keys her tools already follow |
+
+**Evaluation** (`services/agent/evals/`): 27 questions in all eight languages and 6 that no document answers. recall@1 1.00, recall@3 1.00, mean reciprocal rank 1.00, every out-of-scope question refused. The thresholds in `thresholds.yaml` fail the run if a score drops.
+
+**Governance:** the embedding model runs on our own server, so questions never leave it; only the question is embedded, with no patient identifier; passages are checked at ingestion for instructions aimed at a model; `ai_events` records that the tool ran, never the question. Clinical aftercare stays with the team until a clinician signs a document off.
 
 </details>
 
@@ -423,6 +554,7 @@ One codebase for Android now and iOS later, with full control over every pixel. 
 - **pdfx** renders documents with Android's own PDF renderer, so patients read their files without downloading them.
 - **flutter_local_notifications** schedules visit reminders and aligner alerts on the device. The reminder text is generic ("Dental visit tomorrow at 09:30"), because a lock screen is not private.
 - **Fonts are bundled**, never fetched from a font service at runtime, so the app makes no third-party requests that could reveal who is using it.
+- **Eight languages, the whole app:** English, French, Dutch, German, Spanish, Italian, Lithuanian and Swedish. The screens stay written in English; the app's own `Text` widget looks each string up on the way to the screen, so no screen carries translation code and a missing translation falls back to English, never to a blank. 571 strings per language, with tests that every language has the same strings and placeholders. The language follows the phone, can be changed in Profile, and Nora starts in it. Clinic data (service and product names) stays as the clinic wrote it.
 - **Online-first:** Boston patients have reliable connectivity. Only the session and the aligner log live on the phone, and both are encrypted and wiped on sign-out.
 
 </details>
@@ -460,6 +592,42 @@ The always-on services run on one Oracle Cloud VM with Docker Compose. Everythin
 - **Every container** has a pinned version, a memory limit, a health check and log rotation, and every image has amd64 and arm64 builds.
 - **Hardening** (`infra/scripts/bootstrap-vm.sh`, run automatically on first boot): keys-only SSH, no root sign-in, fail2ban, automatic security updates, a host firewall for 80 and 443, and a non-root `deploy` user.
 
+**Principles:** **infrastructure as code and immutable servers**: Terraform for both clouds; the VM is replaced, not patched by hand (`create_before_destroy`), and cloud-init hardens it on first boot.
+
+</details>
+
+<details>
+<summary><b>Hosting on the VM: one Docker Compose stack, three networks, a memory budget</b></summary>
+
+Everything server-side that is not Supabase or Vercel runs on one Oracle VM (`VM.Standard.E3.Flex`, 2 cores, 16 GB,
+Johannesburg, no public IP) as a single Docker Compose project in `/opt/northgate/infra`. Each service is pinned to an
+exact image version and has a memory limit, so one runaway container cannot starve the others.
+
+| Service | Job | Memory limit | Networks | Reachable from the internet |
+| --- | --- | --- | --- | --- |
+| `waf` | Nginx with ModSecurity and the OWASP Core Rule Set; TLS from Let's Encrypt | 300 MB | edge, app | Yes: ports 80 and 443 through the load balancer |
+| `assistant` | Nora (FastAPI and LangGraph) | 512 MB | app | `/assistant/` only |
+| `ollama` | Gemma 4 and the bge-m3 embedder, one conversation at a time | 9 GB | app | No |
+| `voice` | Nora's voice on Stream calls | 2 GB | app | No (outbound only) |
+| `n8n` and `n8n-db` | Automations, payment and visit link pages, Nora's MCP action tools | 1 GB and 256 MB | app, data | `/webhook/` only; the editor and `/mcp/` answer 404 |
+| `worker` and `pdf` | Queue consumer, emails, receipt PDFs | 128 MB and 768 MB | app, data | No |
+| `presidio-analyzer`, `presidio-anonymizer` | Redaction | 1 GB and 256 MB | data | No: the `data` network has no route out |
+| `alloy` | Sends metrics to Grafana Cloud | 256 MB | app | No |
+| `status` | Uptime Kuma | 256 MB | app | The public status page only |
+
+- **Three networks as bulkheads:** `edge` (the WAF and certificates), `app` (services that talk to each other) and
+  `data` (internal only, no route in or out). Presidio sits only on `data`.
+- **Profiles** (`assistant`, `worker`, `n8n`, `voice`, `monitoring`, `status`) start each part on its own, so a
+  smaller VM can run a subset.
+- **Secrets** live in `infra/.env` on the VM (git-ignored, mode 600) and in n8n's encrypted credential store; nothing
+  secret is in Git or in an image.
+- **Access:** SSH only through Oracle Bastion from one admin address (`infra/scripts/ssh-vm.sh`); the dashboards of
+  n8n and Kuma are reached through the same tunnel.
+- **Deploying:** `git pull --ff-only origin develop`, then `docker compose --profile <part> up -d --build <service>`.
+  Database changes never deploy from the VM; they go through the GitHub Actions workflow on merge.
+- **Backups:** a nightly `pg_dump`, encrypted with `age`, uploaded with a key that can add files but not read or
+  delete them.
+
 </details>
 
 <details>
@@ -471,7 +639,7 @@ The AWS account holds backups only, so it is locked down to match. `infra/terraf
 - **Account-wide S3 Block Public Access:** no bucket can be made public, whatever its own settings say.
 - **Password policy:** at least 14 characters with every character class, and the last 24 passwords blocked. There is no forced expiry, following NIST SP 800-63B; MFA protects instead.
 - **Cost alerts:** Cost Anomaly Detection sends a daily email if unusual spend reaches US$1, alongside a US$1 budget.
-- **Storage Lens dashboard** for storage use by region and bucket.
+- **Storage Lens dashboard** (`northgate-storage`, home region Stockholm) for what the account stores, where, and how it changes day by day. It answers the governance question "where does our data sit?" with numbers: total bytes and objects, by bucket, region and storage class, with 14 days of daily history. Today it covers the two buckets in eu-north-1: the nightly encrypted database backups and the CloudTrail audit log. A bucket that appears in another region, or a backup bucket that stops growing, shows here first. It is the free tier, so the numbers live in the console only.
 
 IAM Access Analyzer would normally be part of this baseline. AWS blocks it on free plan accounts with a service control policy, so it waits until the account is upgraded.
 
@@ -547,6 +715,221 @@ About 3,000 dental patients with visits, tooth charts, findings and treatment pl
 </details>
 
 <details>
+<summary><b>Continuous care between visits: recovery check-ins, aligner wear and recall (W24 to W28)</b></summary>
+
+A clinician invites a patient to a care programme. The patient joins in the app, which records their consent, and can leave at any time:
+- **Recovery:** after an extraction, implant or root canal.
+- **Aligner wear**
+- **Recall:** the six-monthly check-up.
+
+| Workflow | When | What happens |
+| --- | --- | --- |
+| W24 daily check-in | 10:00 clinic time | Today's check-in opens, and an email says it is ready in the app. The patient gives a pain score (0 to 10), says whether they feel better, the same or worse, ticks any symptoms (bleeding, swelling, fever, numbness, a bad taste) and can add a note |
+| W25 rules and alerts | On each answer | Fixed rules and clinician-set thresholds, with no model, decide the level. **Emergency:** red-flag words in the note, or swelling with fever; an urgent task and the urgent queue, and the app shows 911 guidance. **Task:** pain at the threshold, or worse after day 3. Otherwise a nudge, or fine |
+| W26 weekly summary | Mondays | A summary for the clinician built only from the data points, so nothing in it can be invented |
+| W27 nudges | Hourly, 09:00 to 20:00 only | Approved reminders for a check-in still unanswered at 18:00, or aligner wear short of the target for two days |
+| W28 check-up flags | After each answer or wear report | A serious side effect, a worsening pain trend, a week of short wear, or missed check-ins becomes a care task and a booking offer to the patient. It stays open until a clinician records the outcome in the portal's Care page |
+
+**Privacy:** aligner wear stays on the phone unless the patient shares yesterday's total, and only the hours are sent. Queue messages carry IDs only. Patients read their own data; staff read their clinics' patients behind two-factor. Medicines are left out on purpose: missed-dose advice needs approved label sources first.
+
+</details>
+
+<details>
+<summary><b>MCP: why Northgate has an MCP server, and what n8n's MCP tools do</b></summary>
+
+**The problem it solves.** An AI assistant is only useful if it can reach real systems: the clinic list, the price
+list, the booking rules, the payment flow. Without a standard, every assistant needs its own integration with every
+system (N assistants times M systems). The Model Context Protocol (MCP) is that standard: a system publishes its
+capabilities once, as typed tools with a description and a JSON schema, and any MCP client can discover and call them.
+Nora is one client; Claude Desktop on a receptionist's laptop, an IDE assistant or a future voice agent are others,
+with no new integration code.
+
+**Why not just a REST API?** A REST API needs documentation and client code written by a person for every consumer.
+An MCP server describes itself at run time (`tools/list`), in a form a model can read, so the same server serves
+people's tools and AI agents. The business rules still live in Postgres; MCP is only the door.
+
+**Two servers, two jobs** (the blueprint's split):
+
+```mermaid
+flowchart LR
+  nora[Nora, LangGraph] -->|know| know[dental-tools MCP server<br/>services/mcp, Python SDK]
+  desk[Claude Desktop, other agents] -->|know| know
+  nora -->|do, as the signed-in patient| do[n8n MCP Server Trigger<br/>W14, private network]
+  know -->|publishable key: public catalogue and policies| db[(Postgres)]
+  do -->|patient's own session: RLS and function checks| db
+  db -->|outbox| worker[Worker] --> email[Patient email]
+```
+
+| Server | Tools | Data it can touch |
+| --- | --- | --- |
+| **dental-tools** (`services/mcp`): "know" | `clinics`, `services_and_prices`, `clinic_policies` (hybrid search), `how_to_book` | Public only: two database functions callable with the publishable key. No patient data by design, so it is safe for any client |
+| **n8n W14** (`n8n/workflows/w14-nora-action-tools.json`): "do" | `send_payment_link`, `reschedule_link`, `ask_receptionist` | Only what the signed-in patient may do: each tool is one call to a Supabase function with the patient's own session token |
+
+**Why the "do" tools live in n8n.** n8n owns everything that reaches outside a conversation (emails, links, the
+receptionist inbox). Publishing those workflows as MCP tools lets the clinic change how a link is delivered, for
+example adding SMS, without a new release of Nora, while the rule itself (own visit only, price from the price list,
+cancellation window, one email a day) stays in one database function.
+
+**Security model of the action tools:**
+- **Identity never comes from the model.** Nora's code adds the session token from the verified session; a tool
+  argument the model invents is ignored (tested with a forged `session_token`).
+- **Not on the internet.** Nginx routes only `/webhook/`; `/mcp/` answers 404 (a WAF test). Nora reaches n8n on the
+  Docker network with a bearer token; a wrong token is refused.
+- **Every action waits for the patient.** "Email me a payment link?" and "Email me a link to choose a new time?" are
+  confirmation cards in the patient's language; declining sends nothing.
+- **Degrades safely.** If n8n is down, Nora calls the same function directly, so a handover still reaches the inbox.
+  A refusal from the database is shown to the patient, never retried around n8n.
+- **Nothing kept.** W14 and W15 save no run data, because a run holds a session token.
+
+**The reschedule link** opens W15, a page with up to eight free times. Opening it changes nothing (mail scanners open
+links); the button moves the visit in one transaction (`move_by_token`): the new time is booked, the old one cancelled,
+and the patient gets one "your visit has moved" email. Inside the cancellation window, or if the time was just taken,
+the visit stays as it was.
+
+Run the know server for a desktop client:
+
+```bash
+cd services/mcp && uv run dental-mcp                                     # stdio
+MCP_TRANSPORT=streamable-http MCP_PORT=8300 uv run dental-mcp            # HTTP
+```
+
+```json
+{ "mcpServers": { "northgate-dental": { "command": "uv", "args": ["--directory", "services/mcp", "run", "dental-mcp"],
+  "env": { "SUPABASE_PUBLISHABLE_KEY": "<the project's publishable key>" } } } }
+```
+
+</details>
+
+<details>
+<summary><b>The website and the staff portal: Next.js on Vercel, Supabase from the browser</b></summary>
+
+Live at [northgate-dental.vercel.app](https://northgate-dental.vercel.app). The code is in `apps/web`: Next.js with the App Router and Tailwind, exported as static files, and served by Vercel's free Hobby plan. No server code runs at Vercel, so nothing there can read patient data.
+
+| Services and prices | On a phone | Staff sign-in |
+| --- | --- | --- |
+| ![Services and prices](.github/readme/web-services.jpg) | ![The site on a phone](.github/readme/web-phone.jpg) | ![Staff sign-in](.github/readme/portal-signin.jpg) |
+
+- **Pages built from the database.** Services, summaries, prices at each clinic, opening hours and phone numbers come from one database function, `public_catalogue()`, at build time. A bundled snapshot is the fallback, so a build never depends on the API. Each service has its own page: what happens at the visit, who you will usually see, and the price at each clinic.
+- **Motion with GSAP and 3D.** Headings flip up word by word in 3D (SplitText), sections and cards rise into view as
+  you scroll (ScrollTrigger), cards tilt towards the pointer with a soft light following it, the app's feature tiles
+  flip up in 3D, the app panel settles from a tilt as it scrolls in, and Nora's portrait floats in depth. All of it is
+  in one component (`src/components/Motion.tsx`) driven by data attributes; nothing moves for visitors whose device
+  asks for reduced motion, the tilt is mouse-only so touch scrolling is untouched, and content is never left hidden if
+  a script fails (it is visible until its animation starts).
+- **The same brand as the app.** Same colours, the same bundled fonts (nothing loaded from a font service), the same photographs and the same team bios.
+- **A voice call sample.** It shows how a call with Nora looks in the app: her portrait, captions of both sides, and the Confirm card. It is scripted, because website visitors are not signed in.
+- **An enquiry form that keeps visitors out of the database.** Signed-out visitors get two functions and nothing else. `submit_lead()` asks for consent, limits each address to three enquiries a day, and turns each enquiry into a task for the chosen clinic. Only that clinic's staff can read it; it is kept 12 months.
+- **The staff portal** (`/portal`), built as a clinical workspace like a hospital's: dense tables, square corners, one accent colour, Boston time throughout. **Try it without an account:** [northgate-dental.vercel.app/portal/demo](https://northgate-dental.vercel.app/portal/demo/) shows every page with sample data made in the browser (60 patients, a day of visits for six clinicians, tasks, insurance cards, payments and Nora activity). Nothing there touches a database, and changes are forgotten on reload.
+
+| Overview | Schedule | Patients |
+| --- | --- | --- |
+| ![Portal overview](.github/readme/portal-overview.jpg) | ![Schedule by dentist](.github/readme/portal-schedule.jpg) | ![Patient register](.github/readme/portal-patients.jpg) |
+
+  - **Overview:** today's figures, the next patients, what needs attention, chair time booked per clinic, and Nora today.
+  - **Schedule:** a time grid, one column per clinician from 07:00 to 20:00, with visits coloured by status and a line at the current time.
+  - **Patients:** a register with record number, age, language, home clinic, next visit, insurance and balance.
+  - **Dentist desk:** a clinician's own day. A manager picks whose day to view.
+  - **Inbox:** Nora's handovers and website questions, with Mark done.
+  - **Coverage:** verify or reject insurance cards.
+  - **Roster:** the week's shifts per clinician, on-call marked.
+  - **Payments**
+  - **Nora activity:** from `ai_events`: what Nora did, never what anyone said.
+  - **Settings:** the Nora on/off switch (practice manager only) and the clinic settings.
+
+  A clinic switcher and patient search sit in the top bar. Row level security in the database decides what each person sees.
+
+**Staff sign-in: password plus an authenticator app (TOTP).**
+
+| Password | Then the authenticator, enrolled once with a QR code |
+| --- | --- |
+| ![Staff sign-in](.github/readme/portal-signin.jpg) | ![Set up two-factor sign-in: scan the QR code, then enter the 6-digit code](.github/readme/portal-mfa-enrol.png) |
+
+*The QR code in the picture is pixelated on purpose: it carries the account's secret key, and anyone who scanned it
+could generate that person's codes.*
+
+**How it is built** (`apps/web/src/app/portal/page.tsx`, about 30 lines, all Supabase Auth's own MFA API):
+
+```mermaid
+stateDiagram-v2
+  [*] --> signin: no session
+  signin --> decide: signInWithPassword
+  decide --> ready: assurance level aal2
+  decide --> mfa: a verified TOTP factor exists
+  decide --> enrol: no factor yet
+  enrol --> decide: challengeAndVerify(first code)
+  mfa --> decide: challengeAndVerify(current code)
+  ready --> [*]
+```
+
+1. **One decision function.** After every step the page asks Supabase for the session's assurance level
+   (`getAuthenticatorAssuranceLevel`). `aal2` opens the workspace; otherwise it lists the user's factors: a verified
+   TOTP factor means "ask for the code", none means "enrol".
+2. **Enrolment.** `mfa.enroll({ factorType: "totp" })` makes Supabase generate a fresh secret and return it as an
+   `otpauth://` URI rendered as an SVG QR code. The secret is never stored by the page, never logged and never sent
+   anywhere else; it lives in Supabase Auth and in the person's authenticator app (Google Authenticator, Microsoft
+   Authenticator, 1Password). An abandoned enrolment stays unverified and can never be used.
+3. **Verification.** `mfa.challengeAndVerify({ factorId, code })` checks the 6-digit code (RFC 6238: HMAC-SHA1 over
+   30-second steps, a small clock-drift window). Spaces are stripped first, because apps display "123 456". On success
+   Supabase issues a new token with `aal: "aal2"`.
+4. **The database enforces it, not the page.** Every staff table carries a restrictive row level security policy,
+   `staff_need_mfa`, built on `private.passes_staff_gate()`: a staff session that is not `aal2` reads and writes
+   nothing, even if someone calls the API directly and skips the page. pgTAP tests prove a password-only staff session
+   sees no patient data.
+
+**Why TOTP rather than SMS codes:** no phone number to store or SIM to hijack, it works offline, and it costs nothing.
+Passkeys (WebAuthn) are the natural next step.
+
+**Setting it up as a new staff member:** sign in with the work email and password; scan the code with an authenticator
+app; type the 6 digits it shows; from then on, enter the current code at each sign-in.
+
+</details>
+
+<details>
+<summary><b>Monitoring: Prometheus metrics, Grafana Alloy and a Grafana Cloud dashboard</b></summary>
+
+The assistant counts what it does and Grafana shows it, so "is Nora working, how fast, and what does a conversation cost?" has a measured answer.
+
+| Metric | What it answers |
+| --- | --- |
+| `nora_turns_total` by channel, language and outcome | How many turns, and how they ended: answered, a confirm card, a handover, an emergency |
+| `nora_turn_seconds` | How long a patient waits (p50 and p95, chat and call) |
+| `nora_tool_calls_total` by tool | Which jobs patients bring: hours, booking, paying, the shop |
+| `nora_model_tokens_total` by direction | Token use, the basis for cost per 100 conversations |
+| `nora_grounding_blocks_total` | How often the safety check refused a price, time or link no tool returned |
+| `nora_second_looks_total` | How often a reply that used no tool needed a second look, and whether it then called one |
+| `nora_calls_started_total` | Voice calls by language |
+
+- **Nothing about a patient can leave in a metric.** Every label is one of a few fixed words. A test puts a canary name in a message and proves it never reaches the metrics page.
+- **The page is private.** `/metrics` is outside the `/assistant/` prefix, so Nginx never publishes it; Grafana Alloy reads it on the Docker network and writes to Grafana Cloud's hosted Prometheus.
+- **Objectives are written down** in `ops/slos.yaml`: 95 per cent of turns answered within 30 seconds on the demo's CPU-only server, and 99.5 per cent availability.
+- **One dashboard** ("Northgate Dental: Nora, the receptionist assistant"): turns by outcome, time to answer, handover rate, safety refusals, tool calls, tokens per turn, languages and calls.
+
+![The Nora dashboard in Grafana Cloud](.github/readme/grafana-nora.jpg)
+
+What the dashboard is for: one screen that answers "is Nora up, how long are patients waiting, how often does she pass them to the team, does the safety check refuse her, which jobs do patients bring, in which languages, and what does it cost in tokens?". The picture shows sample values, so that every panel is filled. The live dashboard shows the staging server's real, much smaller traffic.
+
+**Alerts** (Grafana folder "Northgate alerts"), each with a runbook, all sent to the on-call contact point (email to
+the on-call phone, grouped per alert, repeated every 4 hours while it fires):
+- **Nora is down:** no scrape for 5 minutes.
+- **Replies are slow:** p95 over 90 seconds for 15 minutes.
+- **The safety check is refusing many replies:** more than 5 in an hour.
+- **Turns are missing from `ai_events`:** any failure, because the AI audit trail must have no gaps.
+
+**Public status page** (Uptime Kuma, `infra/status/setup.py`): six live checks grouped by what patients notice (the
+website, the services page, Nora, payment and visit links) and the platform behind them (the WAF, the database API).
+Only the page is public; Kuma's dashboard is reached through the Bastion tunnel, and the WAF tests prove it answers 404
+from the internet.
+
+![The Northgate status page](.github/readme/status-page.png)
+
+**Scripted journey check:** a GitHub Actions job checks the website, the database catalogue and Nora's health every 15
+minutes, so a broken path is noticed even when nobody is using it.
+
+**Principles:** **service level objectives and error budgets**: targets are written down in `ops/slos.yaml` and alerts fire on user-visible symptoms (down, slow, refusing), each with a runbook.
+
+</details>
+
+<details>
 <summary><b>GitHub Actions</b></summary>
 
 Every pull request runs:
@@ -562,35 +945,125 @@ Every pull request runs:
 
 Merges into `develop` apply database migrations to staging automatically.
 
+**Principles:** **don't live with broken windows; automate everything**: pre-commit hooks, gitleaks, shellcheck and a commit-message guard, and CI blocks a merge on any failure. **Small batches and deployment automation**: one small pull request per ticket into `develop`, every merge deploys migrations to staging, and production waits for a required reviewer.
+
 </details>
 
-## Engineering principles, and where they show in the code
+## Testing: every edge case has a test, and the refusals are tested too
 
-Each principle below comes from a well-known software engineering book, and each is tied to something in this repository you can open and check.
+Tests are written before the code, and every rule is tested from both
+sides: the allowed case and the case that must be refused. All of them run in CI on every pull request; nothing merges
+red. Changes are made in small, safe steps with tests around them, never as rewrites.
 
-<details>
-<summary><b>From the books to this repository</b></summary>
+| Suite | Count | What it proves | Runs against |
+| --- | --- | --- | --- |
+| Database (pgTAP) | 542 checks in 38 files | Row level security per role, booking rules, money, links, queues, care programmes, Nora's action functions | A fresh Postgres with generated patients |
+| Agent (pytest) | 102 | The safety gate in 12 languages, confirmation buttons, grounding, handovers, forged identity, n8n down | A scripted model (no Ollama in CI) |
+| Worker (pytest) | 29 | Each email once, however often a message is delivered; no canary name in any log | A real local database |
+| App (Flutter) | 113 | Sign-in and linking, booking, payments, the shop, care check-ins, translations | Widget tests with fakes |
+| Infra (WAF, Presidio) | 25 checks plus a redaction test | Attacks refused with 403, private paths 404, TLS 1.2+, rate limits, a canary record fully redacted | A running Nginx and ModSecurity stack |
+| MCP, voice, generator | 4, 6, 27 | Public tools only; voice turn-taking; generated data is reproducible and marked | Unit tests |
+| Retrieval evaluation | 27 questions + 6 out of scope | Recall and refusal thresholds (below) | The real embedding model |
 
-| Principle | Book | Where it is applied here |
+**Edge cases, from `docs/edge-cases.md`, each with its test** (a selection):
+
+| Edge case | Handling | Result |
 | --- | --- | --- |
-| **The transactional outbox**: publish events in the same transaction as the change | *Designing Data-Intensive Applications*, Martin Kleppmann; *Microservices Patterns*, Chris Richardson | `private.publish_appointment_event()` writes to the queue inside the booking's own transaction, so an event can never be lost or describe a change that rolled back |
-| **Idempotent consumers**: at-least-once delivery plus de-duplication gives an exactly-once *effect* | *Designing Data-Intensive Applications* | `private.mark_processed()` for appointment events and Stripe events; `notification_log` claimed before every email; Stripe and Resend idempotency keys |
-| **Ordering with version numbers** | *Designing Data-Intensive Applications* | Every appointment event carries a version; the worker re-reads the current status before sending, so a late "booked" never confirms a cancelled visit |
-| **Stability patterns: timeouts, bulkheads, steady state, fail fast** | *Release It!*, Michael Nygard | HTTP timeouts in the worker; a separate `urgent` queue and separate Docker networks (bulkheads); fixed batches of 10 and pruned n8n executions (steady state); bad signatures refused before any work is done (fail fast) |
-| **Dead-letter queue for poison messages** | *Enterprise Integration Patterns*, Gregor Hohpe and Bobby Woolf | After five failed tries a message moves to `dead_letter` instead of blocking the queue |
-| **Deep modules: a narrow interface over a lot of behaviour** | *A Philosophy of Software Design*, John Ousterhout | `record_stripe_event(raw_body, signature)` is one call that hides signature checks, replay protection, de-duplication, amount checks, state changes and the receipt; `notification_context()` hides every join the worker would otherwise need |
-| **Make illegal states unrepresentable** | *Domain Modeling Made Functional*, Scott Wlaschin | Check constraints: a payment is `paid` if and only if `paid_at` is set; money is whole cents; one live payment per visit is a unique index, not a hope |
-| **Ubiquitous language** | *Domain-Driven Design*, Eric Evans | Tables, functions and files use the clinic's own words (appointment, hold, proxy, recall), kept in a glossary |
-| **Test first, and test the thing that must be refused** | *Test-Driven Development: By Example*, Kent Beck | 382 database tests, each security rule with an allowed and a denied case; every edge case has a test before the code |
-| **Don't live with broken windows; automate everything** | *The Pragmatic Programmer*, Andrew Hunt and David Thomas | Pre-commit hooks, gitleaks, shellcheck and a commit-message guard; CI blocks merges on any failure; deployments run from GitHub Actions, not by hand |
-| **Small batches, trunk-based flow, deployment automation** | *Accelerate*, Nicole Forsgren, Jez Humble and Gene Kim | One small pull request per ticket into `develop`; every merge deploys migrations to staging; production waits for a required reviewer |
-| **Infrastructure as code, immutable servers** | *Infrastructure as Code*, Kief Morris | Terraform for both clouds; the VM is replaced, not patched by hand (`create_before_destroy`); cloud-init hardens it on first boot |
-| **Service level objectives and error budgets** | *Site Reliability Engineering*, Google | Reminders within 5 minutes of their due time and queue age under 60 seconds are written targets, alerted on in section 12 |
-| **Least privilege and defence in depth** | *Security Engineering*, Ross Anderson | Separate database roles for the app, the worker and payments; WAF, network rules and row level security, each sufficient alone |
-| **Refactor in small, safe steps** | *Refactoring*, Martin Fowler | Changes such as the receipt type were added behind the existing worker loop with tests around them, not as a rewrite |
-| **The simplest thing that could possibly work** | *Extreme Programming Explained*, Kent Beck | One database (no separate broker, cache or vector store) until a measured need says otherwise |
+| Two people book the last slot at once | Exclusion constraints on practitioner and room time ranges; the loser gets "no longer available" | Pass |
+| A hold is abandoned | Holds expire after 10 minutes and are released before every new hold | Pass |
+| Stripe delivers the same event twice, or a forged one | Idempotent event record; HMAC over the raw body; 5-minute replay window | Pass |
+| A message is delivered three times | `notification_log` claimed before sending; exactly one email | Pass |
+| A patient asks Nora for a link twice | One email per visit, kind and day | Pass |
+| A reschedule link is clicked twice at once | One move wins; the other rolls back and says "already changed" | Pass |
+| A link is opened by a mail scanner | GET never writes; only the button (POST) acts | Pass |
+| Inside the cancellation window | Cancelling or moving online is refused; the page gives the clinic's number | Pass |
+| The model invents a price, time or link | Grounding check replaces the reply with a handover | Pass |
+| The model passes someone else's identity | Identity comes from the session; the argument is ignored | Pass |
+| A red flag in any of 8 languages | Fixed emergency text, model never called, urgent handover | Pass |
+| A password-only staff session | Reads no patient data (`aal2` gate in the database) | Pass |
+| A session token expires mid-reply | The app refreshes it when under 5 minutes remain | Pass |
 
-</details>
+**A test that passed for the wrong reason.** The reschedule page first passed its tests because a patient's session
+was still set from an earlier step. Re-running the page as n8n's own database role, with nobody signed in, made it fail:
+the slot query only answered signed-in callers, so on the server the page would have offered no times. The fix
+(`private.free_slots`) came with the corrected test. Tests now run each function as the role that calls it in production.
+
+## Evaluating Nora: quality, speed, tokens and cost
+
+Retrieval and answers are measured separately (AGENTS.md section 14.1), and the measured numbers sit next to their
+thresholds in `services/agent/evals/thresholds.yaml`, so CI fails if a change makes them worse.
+
+| What | Measure | Threshold | Measured |
+| --- | --- | --- | --- |
+| Finding the right document | recall@1 / recall@3 | 0.90 / 0.95 | 1.00 / 1.00 (27 questions, 8 languages) |
+| Ranking it first | Mean reciprocal rank | 0.90 | 1.00 |
+| Refusing what no document answers | Out-of-scope refusal | 1.00 | 1.00 (6 questions) |
+| Behaviour | Tool choice, confirmation, refusal and handover | Every test passes | 102 of 102 |
+| Speed (live, staging) | Time per turn, p50 / p95 | 30 s at p95 (SLO, CPU-only server) | 11.7 s / 64.8 s |
+
+**Live traffic on staging** (Prometheus counters since the assistant's last restart; demo traffic, not patients):
+82 turns, of which 65 answered, 11 ended in a confirmation card and 6 in a handover. The model read 201,607 tokens and
+wrote 3,519, about **2,460 tokens in and 43 out per turn**.
+
+**What the token numbers say:**
+- **Input dominates, 57 to 1.** Most of it is the system prompt and the tool definitions sent with every turn; the
+  answers themselves are short. The levers are, in order: fewer tool definitions per turn (route by intent first),
+  prompt caching on a hosted model, and retrieving documents only when asked (already done: RAG is a tool, not
+  context on every turn).
+- **Cost per 100 conversations.** At about four turns each, 100 conversations use roughly 984,000 input and 17,000
+  output tokens. On our own server that is no per-token charge; the cost is the VM, which is fixed. On a hosted model
+  the same numbers multiply by its per-token price, which is why the token counter exists before any move to Bedrock.
+- **Speed is the weak point.** p95 of 64.8 seconds misses the 30-second objective on a CPU-only server. The plan is a
+  GPU or Amazon Bedrock behind the same `model_for(role)` switch, promoted only after the same evaluations pass.
+
+**How Nora is made fast.** Every choice below takes work away from the model, because on a CPU each prompt token and
+each extra model call costs seconds:
+
+| Choice | What it saves |
+| --- | --- |
+| A small, quantised model: Gemma 4 e4b in its 4-bit quantisation-aware build | A reply fits a 2-core CPU at all; a larger model would take minutes |
+| Retrieval is a tool Nora calls, not documents added to every prompt | Booking and paying turns carry no policy text at all |
+| A calibrated similarity gate instead of a second model grading the documents | 20 to 60 seconds on every policy question |
+| Emergencies, refusals, handover replies and confirmation cards are fixed text | No model call at all: they appear at once |
+| Buttons for the common next steps ("Book a cleaning", "Pay my bill", the team) | The patient skips a typed turn and the model reads a short, clear request |
+| Tools that finish the job in one call (`pay_link` finds the next unpaid visit; `find_slots` accepts "cleaning") | Fewer model round trips per request |
+| Prices returned with the free times | No extra turn to look a price up, and no handover from the grounding check |
+| One conversation at a time on the model (`OLLAMA_NUM_PARALLEL=1`) | Each reply gets all 4 threads instead of sharing them |
+
+The result today: a typical reply in 11.7 seconds (p50) and a slow one in 64.8 seconds (p95), measured over 82 live
+turns. The next step is speed by design, not by tuning: the same `model_for(role)` switch moves Nora to Amazon Bedrock
+or a GPU server, where a reply takes a few seconds, after the same evaluations pass; trimming the tool definitions sent
+with each turn and caching the fixed part of the prompt then cut the 2,460 input tokens per turn that dominate the time.
+
+**Not yet done, and stated plainly:** answer faithfulness scored by a separate judge model (RAGAS or DeepEval), checked
+against 50 human-labelled answers before its scores are trusted, and a weekly review of sampled conversations. The
+golden sets and thresholds are in place for both.
+
+## What happens when the number of users grows
+
+The demo runs on one small VM and Supabase's smallest plan. That is deliberate: every part was chosen so that the next
+step up is a configuration change or one well-understood component, not a rewrite. Here is where each part breaks
+first, how we would know, and what we would do.
+
+| Part | Today | Breaks first when | We would see it in | The next step |
+| --- | --- | --- | --- | --- |
+| Website | Static files on Vercel's CDN | Practically never: no server code runs | Vercel analytics | Nothing; it already scales with the CDN |
+| App reads and bookings | Supabase Postgres, row level security, PostgREST | Connections and slow policies under hundreds of concurrent users | Supabase query performance, p95 of `available_slots` | Supavisor connection pooling (transaction mode), indexes on every policy predicate (`patient_id`, `location_id`), a bigger compute tier, then a read replica for reads |
+| Double booking at peak | Exclusion constraints in the database | Never: the database refuses the second booking whatever the load | The "no longer available" rate | Nothing; correctness does not depend on load |
+| Nora (the model) | Gemma on 2 CPU cores, one conversation at a time (`OLLAMA_NUM_PARALLEL=1`) | Immediately: a second patient waits for the first; p95 is already 64.8 s | `nora_turn_seconds` p95 alert | Move the model behind `model_for(role)` to Amazon Bedrock or a GPU server, promoted only after the evaluations pass; replies drop to a few seconds and scale with the provider |
+| Nora (the service) | One FastAPI process; paused conversations kept in memory (`MemorySaver`) | A restart loses a conversation waiting for its Confirm button; a second replica would not know the first one's conversations | Confirm-card errors after deploys | LangGraph's Postgres checkpointer, then several stateless replicas behind Nginx |
+| Emails and reminders | One worker reading Supabase Queues in batches of 10 | Thousands of reminders at 9:00 | Queue depth and oldest message age | More worker replicas: messages are claimed atomically and every send is idempotent, so replicas need no coordination. Urgent clinical messages already have their own queue and cannot wait behind a campaign |
+| n8n | One instance, regular mode | Many webhooks or long workflows at once | Execution time, failed executions | n8n queue mode (main plus workers on Redis); n8n holds no business rules, so this changes nothing else |
+| Payments | Stripe Checkout and a signed webhook | Stripe retries during our outage | Webhook failures in Stripe | Nothing new: events are de-duplicated by ID and replayed safely |
+| Audit trail | `ai_events` and the audit log in Postgres | Tens of millions of rows | Table size, slow portal pages | Monthly partitions, older ones archived to S3 |
+| The VM itself | One VM in one region | Hardware or region failure | The status page and the scripted journey check | The planned three-cloud design: a warm standby on AWS, an automation lease with fencing tokens so only one copy sends messages, and a rehearsed failover |
+
+**Overload behaves predictably.** Nginx rate-limits per address and answers 429 before any service is touched (a WAF
+test floods it to prove this), and the worker takes fixed batches. Under pressure the system slows down in a known
+order; it does not lose bookings or send a message twice.
+
+**What does not change with scale:** where the data lives, who can see it, and what each model call receives. Adding
+replicas or moving the model to Bedrock changes capacity, not the governance answers.
 
 ## Patient emails
 
@@ -606,25 +1079,6 @@ Every email the practice sends is built by the worker from one shared frame: tab
   <img src=".github/readme/emails/receipt.png" width="24%" alt="Payment receipt with the PDF attached">
   <img src=".github/readme/emails/checkin-1d.png" width="24%" alt="Day-after check-in with the emergency path">
 </p>
-
-<details>
-<summary><b>What an expert email marketer would check, and how each email passes</b></summary>
-
-| Check | How it is done here |
-| --- | --- |
-| Subject and preview text do the selling | Subjects carry the day and time (never the treatment, because subjects show on lock screens); a hidden preheader sets the inbox preview |
-| One job per email | Exactly one main button: change or cancel, pay, tell us how you are, or book the offer |
-| Pictures that help, text that survives without them | Campaign hero photos are hosted in a public Supabase Storage bucket at a fixed address with alt text; service emails have no images, so they render in full even when images are blocked |
-| No tracking pixels | The picture address is the same for every recipient; a test refuses a per-recipient query string |
-| Mobile first | 600 px card that goes full width under 620 px; the three reasons stack on a phone |
-| Dark mode | `prefers-color-scheme` swaps the card and ink colours |
-| Deliverability | Plain-text part on every email; one-click unsubscribe (`List-Unsubscribe` headers) on campaigns; Resend idempotency keys so retries never double-send |
-| Consent | Campaigns go only to patients who opted in; the footer says why they got it |
-| Privacy | First name, service, time, clinic and phone only; no surname, record number or clinical detail; campaigns never mention anyone's treatment (tested) |
-
-The pictures were generated for the fictional practice (no stock licence to track, no real people) and cropped to 3:2 at 1200 by 800 pixels.
-
-</details>
 
 ## What the patient app does
 
@@ -651,356 +1105,29 @@ The pictures were generated for the fictional practice (no stock licence to trac
 - **Payments:** each booked visit shows its price with Pay now or Paid; Payments, under Profile, lists what is due and the receipts; card details go only to Stripe.
 - **Shop:** clinician-recommended products by category, refills every few months, collection at a chosen clinic or delivery, prescription items unlocked by the dentist, and orders under Profile.
 
-</details>
 
-## Deployments
+Each row shows Profile (with the language setting), Home, Visits, Records and Shop on the same account. The language
+is chosen once in Profile and applies to the whole app and to Nora.
 
-<details>
-<summary><b>24 November 2026: campaign emails with pictures, Stream call tokens, the LangSmith and Stream decisions</b></summary>
+**English**
 
-**What was built:**
-- the campaign email redesign: hero picture, offer card, three reasons, gold accent for December; two campaigns (spring whitening, December treat) sent to the staging inbox through Resend;
-- `POST /assistant/stream-token` is the address (the earlier `/stream/token` name was not proxied by Nginx);
-- a public `marketing` bucket in Supabase Storage for campaign pictures (migration `20261124000100_marketing_assets.sql`), created on staging and holding both pictures;
-- `POST /assistant/stream-token` in the assistant service: a one-hour Stream Video token for the signed-in patient, signed on the server with the standard library (no SDK), refused without a valid session or when Stream is not configured;
-- two decisions recorded: LangSmith tracing with inputs and outputs hidden (ADR 0014) and Stream as the call transport with Nora's brain unchanged (ADR 0015).
+![The app in English: Profile, Home, Visits, Records and Shop](.github/readme/app-in-english.jpg)
 
-**How it was proved:**
-- worker: 24 tests, including that a campaign button never points at the bare site root and that a picture address cannot carry a per-recipient tracker;
-- assistant: 37 tests, including a token that names only the user ID and dies after an hour, and no token without a session;
-- both campaign emails delivered and read back from the inbox, pictures loading from the public bucket.
+**French**
 
-**Commands:**
+![The app in French: Profile, Home, Visits, Records and Shop](.github/readme/app-in-french.jpg)
 
-```bash
-cd services/worker && uv run pytest -q
-cd services/agent && uv run pytest -q
-supabase projects api-keys --project-ref <staging ref> -o json        # the service key, never printed
-curl -X POST "$SUPABASE_URL/storage/v1/bucket" -H "Authorization: Bearer <service key>" -d '{"id":"marketing","name":"marketing","public":true}'
-curl -X POST "$SUPABASE_URL/storage/v1/object/marketing/emails/promo-spring.jpg" -H "Authorization: Bearer <service key>" -H "Content-Type: image/jpeg" --data-binary @.github/readme/emails/promo-spring.jpg
-scripts/shot.sh file://.../spring.html docs/media/emails/promotion-spring-phone.png phone
-```
+**German**
 
-**Screenshots still to take:**
-- [ ] Gmail on the phone: the December email with the picture loaded, light and dark mode
-- [ ] Supabase staging, Storage: the `marketing` bucket with the two pictures
-- [ ] Stream dashboard: the app's region and the three call types once created
+![The app in German: Profile, Home, Visits, Records and Shop](.github/readme/app-in-german.jpg)
 
-</details>
+**Spanish**
 
-<details>
-<summary><b>22 November 2026: the receptionist assistant, the sculpted tooth chart, LangSmith</b></summary>
+![The app in Spanish: Profile, Home, Visits, Records and Shop](.github/readme/app-in-spanish.jpg)
 
-**What was built and merged (PRs #93 and #94):**
-- the sculpted tooth chart, installed on the test phone;
-- the receptionist assistant service (`services/agent`), its chat screen in the app, and `request_handover` on staging;
-- LangSmith connected (a test trace and the `northgate-assistant` project);
-- a CI job for the assistant's tests.
+**Italian**
 
-**Not yet live:** the assistant on the VM. Gemma needs about 6 GB of memory and the VM has about 4 GB free; it goes live on the free Ampere A1 (24 GB) as soon as Oracle has capacity, or sooner with more memory on the current VM.
-
-**How it was proved:**
-- 28 assistant tests: emergencies caught in all eight languages, ordinary questions left alone, the model never called on a red flag, clinical questions handed over, bookings waiting for the button, invented prices refused;
-- 457 database tests, 72 app tests;
-- Gemma 4 on the laptop called the booking tool correctly from Spanish (and, before the language change, Haitian Creole).
-
-**Problems found and fixed on the way:**
-- The confirmation card showed a clinic code and English buttons in a Spanish chat: it now shows the clinic and service names, and its wording comes from the reviewed texts in the patient's language.
-- The chat header overflowed on a 360-wide phone with a long language name: the title and language button now shrink.
-- LangSmith refused the first keys with 403: the account is on LangSmith's AWS deployment, and the free plan needs a Personal Access Token.
-
-**Commands:**
-
-```bash
-cd services/agent && uv init --package && uv add fastapi uvicorn langgraph langchain-core langchain-ollama langsmith httpx pydantic pyyaml
-uv run pytest -q
-uv run python evals/smoke_live_model.py
-gh pr create --base develop --title "feat(assistant): multilingual receptionist with a safety gate, confirmations and team handover"
-flutter build apk --release --dart-define-from-file=staging.env && adb install -r build/app/outputs/flutter-apk/app-release.apk
-```
-
-**Screenshots still to take:**
-- [ ] LangSmith: the `northgate-assistant` project with a conversation's steps (and the hidden inputs)
-- [ ] The app on the phone: a visit's tooth chart, and a tooth's sheet after tapping it
-- [ ] Supabase staging, Table editor: `assistant_handovers` and the matching `staff_tasks` row after a handover
-
-</details>
-
-<details>
-<summary><b>21 November 2026 (late): section 07 finished, paying in the app, and the dental shop</b></summary>
-
-**What went live (PRs #87 to #91):**
-- W22 conflict scanner and the staff task inbox;
-- cancel (W03), check-in (W11) and pay (W06) links with their n8n pages;
-- PDF receipts (Gotenberg on the internal network);
-- paying for visits in the app;
-- the dental shop: catalogue, rules, W12 checkout with Stripe Billing refills and Stripe Tax, order emails, and the Shop tab;
-- sticky notes on every n8n workflow, placed above the nodes.
-
-**Proved on staging, end to end:** a toothbrush plus brush heads on a 3-month refill, collected at Quincy. Stripe charged $98.81 ($93.00 plus $5.81 Massachusetts tax) and created the subscription; the order became paid, Quincy's stock fell from 12 to 11, the clinic got a set-aside task and the confirmation email was sent. A forged webhook was refused (400); a cancel link opened without cancelling, cancelled on the button and refused a second press.
-
-**Problems found and fixed on the way:**
-- Refill checkouts showed Kenyan shillings (Adaptive Pricing): now off for every checkout.
-- Collection orders asked for a full billing address: now only what Stripe Tax needs.
-- A snackbar after "Add to bag" covered the next product's button: removed, the bag button confirms instead.
-- Product cards overflowed by 5 pixels on a 360-wide phone: taller cards.
-
-**Commands (secrets replaced with placeholders):**
-
-```bash
-# Stripe Tax: Massachusetts registration (test mode), then a check
-curl -s -u "$STRIPE_SECRET_KEY:" https://api.stripe.com/v1/tax/registrations -d country=US -d "country_options[us][state]=MA" -d "country_options[us][type]=state_sales_tax" -d active_from=now  # gitleaks:allow
-# webhook: refills too
-curl -s -u "$STRIPE_SECRET_KEY:" https://api.stripe.com/v1/webhook_endpoints/<endpoint id> -d "enabled_events[]=invoice.paid" ...  # gitleaks:allow
-
-# workflows: built through the n8n MCP server, exported, notes added, imported on the VM
-python3 n8n/add_notes.py
-docker exec -i <n8n container> n8n import:workflow --input=/tmp/w12-shop-checkout.json
-docker exec <n8n container> n8n update:workflow --id=<id> --active=true
-
-# VM: worker with links, order emails and PDF receipts, plus the renderer
-docker compose --profile worker up -d --build worker pdf
-
-# app: build for the test phone and install
-flutter build apk --release --dart-define-from-file=staging.env
-adb install -r build/app/outputs/flutter-apk/app-release.apk
-```
-
-**Screenshots still to take:**
-- [ ] Stripe Dashboard, Subscriptions: the brush-head refill (https://dashboard.stripe.com/test/subscriptions)
-- [ ] Stripe Dashboard, Tax: the Massachusetts registration (https://dashboard.stripe.com/test/tax/registrations)
-- [ ] The order confirmation email and a receipt email with its PDF attachment
-- [ ] The app on the phone: Shop tab, a product, the bag, Payments and Orders under Profile
-- [ ] Supabase staging, Table editor: `shop_orders` (the paid order) and `staff_tasks`
-- [ ] The n8n editor through the tunnel: the workflow list, and W12 with its notes
-
-</details>
-
-<details>
-<summary><b>21 November 2026 (night): payments live in Stripe test mode, and n8n on the VM</b></summary>
-
-**What went live:**
-- the payments table and functions on staging (#83);
-- n8n workflows W04 (payment link) and W05 (payment received) on the VM's n8n;
-- the worker's receipt email;
-- n8n verifying Supabase's certificate (#84).
-
-**How it was proved, on staging, end to end:**
-1. W04 created a real Checkout Session for a booked visit: $110.00, the price list's amount for that service at Quincy.
-2. A headless browser paid it with Stripe's test card 4242 4242 4242 4242.
-3. Stripe sent a signed webhook to `https://n8n.84-12-126-31.sslip.io/webhook/stripe`, through the Network Load Balancer and the WAF.
-4. Postgres checked the signature, recorded the payment as paid and queued a receipt; the worker sent it.
-5. A forged event signed with a guessed secret was refused with HTTP 400, and the n8n editor still answers 404 from the internet.
-
-| Stripe Checkout | Forged webhook refused | Tests |
-| --- | --- | --- |
-| ![Checkout](.github/readme/stripe-checkout.png) | ![Forged event refused](.github/readme/forged-webhook.png) | ![Database tests](.github/readme/payments-tests.png) |
-
-**Two problems caught along the way:**
-- Stripe's Adaptive Pricing showed the price in Kenyan shillings, because the test browser was in Kenya. W04 now turns it off, so a US clinic always charges USD.
-- n8n's Postgres connection rejected Supabase's certificate, because Supabase signs with its own root CA. Rather than switch verification off, the root CA was checked against Supabase's published copy and added to n8n's trust store.
-
-**Commands (secrets replaced with placeholders):**
-
-```bash
-# n8n workflows built through the n8n MCP server: validate, then create, then export to Git
-#   validate_workflow(code) -> create_workflow_from_code(code) -> publish_workflow(id)
-docker exec n8n-n8n-1 n8n export:workflow --id=<id> --output=/tmp/w04-payment-link.json
-
-# Stripe webhook endpoint created by API; the signing secret goes straight into GitHub, never printed
-curl -s -u "$STRIPE_SECRET_KEY:" https://api.stripe.com/v1/webhook_endpoints -d url=https://n8n.84-12-126-31.sslip.io/webhook/stripe -d "enabled_events[]=checkout.session.completed" -d "enabled_events[]=checkout.session.expired" | jq -r .secret | gh secret set STRIPE_WEBHOOK_SECRET --env staging  # gitleaks:allow (the key comes from infra/.env)
-
-# merge to develop: GitHub Actions applies the migration to staging and loads the secret into Vault
-gh pr merge 83 --squash
-
-# payments login on staging: only a SCRAM hash of the password reaches the database
-create role northgate_payments_app login password '<SCRAM-SHA-256 hash>' in role northgate_payments;
-
-# on the VM: pull, rebuild the worker, import credentials from stdin and the workflows
-git pull --ff-only origin develop
-docker compose --profile worker up -d --build worker
-<credentials json> | docker exec -i <n8n container> sh -c 'cat > /tmp/c.json; n8n import:credentials --input=/tmp/c.json; rm /tmp/c.json'
-docker exec -i <n8n container> n8n import:workflow --input=/tmp/w05-stripe-payment-received.json
-docker exec <n8n container> n8n update:workflow --id=<id> --active=true
-docker compose --profile n8n up -d n8n
-```
-
-**Screenshots still to take:**
-- [ ] Stripe Dashboard → Payments, showing the $110.00 test payment: https://dashboard.stripe.com/test/payments
-- [ ] Stripe Dashboard → Workbench → Webhooks, the endpoint and its successful delivery: https://dashboard.stripe.com/test/workbench/webhooks
-- [ ] The receipt email in your inbox (subject "Payment received")
-- [ ] Supabase staging → Table editor → `payments`, the paid row: https://supabase.com/dashboard/project/dxkfsslymzqbgtoijuut/editor
-- [ ] Supabase staging → Integrations → Vault, showing `stripe_webhook_secret` exists (value hidden)
-- [ ] The n8n editor through the tunnel, with W04 and W05 active (see below). The first visit asks you to create the owner account; it can only be reached through the tunnel, so nobody else can claim it first.
-- [ ] GitHub → Settings → Environments → staging, showing `STRIPE_WEBHOOK_SECRET`
-
-**Opening the n8n editor on the VM:** it has no public address on purpose. Open a tunnel through Oracle Bastion, then browse to `http://localhost:15678` (15678, because the laptop's own n8n uses 5678):
-
-```bash
-TUNNEL=15678 infra/scripts/ssh-vm.sh deploy   # leave it running, then open http://localhost:15678
-```
-
-</details>
-
-<details>
-<summary><b>21 November 2026 (evening): notification worker live, sending booking confirmations</b></summary>
-
-**What went live:**
-- the queues and outbox (#79);
-- the notification worker (#80), running on the private VM. For the demo it serves the staging project, which is the one the app on the test phone uses.
-
-**How it was proved:**
-- **Least privilege:** the worker's own database login can read the queues, but reading `patients` is denied.
-- **End to end:** a booking made in the database became an event, then a confirmation request, then an email. The worker log shows each step with IDs only.
-- **A failure caught along the way:** the first send failed with HTTP 401, because the email key had been copied one character short. The message stayed on the queue, and it was sent once the key was corrected: nothing was lost and nothing was sent twice.
-
-```bash
-# worker login: only a SCRAM hash of the password reaches the database
-create role northgate_worker_app login inherit password '<SCRAM-SHA-256 hash>' in role northgate_worker;
-
-# settings onto the VM through the Bastion, never printed
-printf 'WORKER_DB_URL=<url>\nRESEND_API_KEY=<send-only key>\n' | infra/scripts/ssh-vm.sh deploy 'cat >> /opt/northgate/infra/.env'
-
-# build and start (VM)
-docker compose --profile worker build worker
-docker compose --profile worker up -d worker
-docker compose --profile worker logs -f worker
-```
-
-**Screenshots still to take:**
-
-- [ ] The confirmation email in your inbox (subject "Your visit is booked")
-- [ ] Resend's email log, showing the sends: https://resend.com/emails
-- [ ] The worker log on the VM (`docker compose --profile worker logs worker`)
-
-</details>
-
-<details>
-<summary><b>21 November 2026 (later): private VM behind a Network Load Balancer, live at <code>https://84-12-126-31.sslip.io</code></b></summary>
-
-**What changed:**
-- Terraform built a compartment, a network with public and private subnets, NAT and service gateways, a Network Load Balancer, a Bastion and a new VM with no public IP.
-- The services moved to the new VM, and the first VM was deleted.
-
-**Terraform plan:** 20 resources to add, nothing to change or destroy.
-
-![Terraform plan](.github/readme/deploy-06b/09-terraform-plan.jpg)
-
-**All WAF checks pass on the new VM, behind the balancer:**
-
-![WAF checks behind the load balancer](.github/readme/deploy-06b/10-waf-checks-behind-nlb.jpg)
-
-**The VM has no public IP, and the balancer answers only on 80 and 443:**
-
-![Private VM proof](.github/readme/deploy-06b/13-private-vm-proof.jpg)
-
-**The backup leaves the private VM through the NAT gateway:**
-
-![Backup from the new VM](.github/readme/deploy-06b/12-backup-new-vm.jpg)
-
-**Commands, in order:**
-
-```bash
-# Oracle API key in ~/.oci/config (console: My profile → API keys), then:
-cd infra/terraform/oci
-terraform init
-terraform plan -out=northgate.tfplan          # 20 to add
-terraform apply northgate.tfplan              # A1 had no capacity, so the shape setting switched to E3.Flex
-
-# the VM hardens itself on first boot; sign in through the bastion
-infra/scripts/ssh-vm.sh deploy
-cd /opt/northgate/infra
-nano .env                                     # settings copied from the first VM, DOMAIN=84-12-126-31.sslip.io
-scripts/issue-certs.sh --letsencrypt          # the certificate check arrives through the load balancer
-docker compose up -d --wait
-tests/test_waf.sh && tests/test_presidio.sh && scripts/backup.sh
-
-# first VM deleted together with its boot volume
-oci compute instance terminate --instance-id <first VM> --preserve-boot-volume false
-
-# move to the free Ampere A1 when Oracle has capacity
-nohup infra/terraform/oci/retry-a1.sh 900 > ~/retry-a1.log 2>&1 &
-```
-
-**Console screenshots still to take:**
-
-- [ ] Network Load Balancer, showing its listeners, backend sets and health: https://cloud.oracle.com/networking/network-load-balancers?region=af-johannesburg-1
-- [ ] The VM's page, showing the private IP only and the shape: https://cloud.oracle.com/compute/instances?region=af-johannesburg-1
-- [ ] The VCN with its two subnets and gateways: https://cloud.oracle.com/networking/vcns?region=af-johannesburg-1
-- [ ] The Bastion and an active session: https://cloud.oracle.com/bastion/bastions?region=af-johannesburg-1
-- [ ] The `northgate` compartment's resources, with their tags
-
-</details>
-
-<details>
-<summary><b>21 November 2026: hardened server on Oracle Cloud (first VM, since replaced)</b></summary>
-
-**What went live:**
-- the WAF front door, with HTTPS from Let's Encrypt;
-- Presidio for redaction;
-- nightly encrypted backups of the production database to Amazon S3, with a restore test on a separate machine.
-
-| Gateway page | On a phone |
-| --- | --- |
-| ![Gateway page](.github/readme/deploy-06/04-gateway-desktop.jpg) | ![Gateway on a phone](.github/readme/deploy-06/04-gateway-phone.jpg) |
-
-**The firewall, tested on the live server:** every attack is refused, the headers are set, and floods get 429.
-
-![WAF checks on the live server](.github/readme/deploy-06/01-waf-checks-live.jpg)
-
-**From the internet:** attacks get 403, and the certificate is valid.
-
-![Attacks refused and TLS certificate](.github/readme/deploy-06/06-attacks-refused-and-tls.jpg)
-
-**Presidio removes every canary value:**
-
-![Presidio redaction on the VM](.github/readme/deploy-06/02-presidio-canary-live.jpg)
-
-**Backups:** encrypted on the VM, and the VM's key can only upload.
-
-![Backup run](.github/readme/deploy-06/03-backup-live.jpg)
-![Upload-only key proof](.github/readme/deploy-06/07-s3-upload-only-proof.jpg)
-
-**Restore test:** downloaded with a read-only key, decrypted on a laptop, and restored into Supabase's own Postgres image.
-
-![Restore test](.github/readme/deploy-06/08-restore-test.jpg)
-
-**Commands, in order** (placeholders stand in for secrets):
-
-```bash
-# one-time AWS set-up from a laptop: bucket, upload-only and read-only users, budget alert
-aws login --profile northgate
-infra/aws/backup-bucket.sh
-
-# harden the VM (Oracle Linux 9): updates, firewall, fail2ban, keys-only SSH, Docker, age, deploy user, cron
-ssh opc@<first VM IP> 'sudo bash -s' < infra/scripts/bootstrap-vm.sh
-
-# backup key pair: the private key never leaves the laptop
-age-keygen -o ~/.config/northgate/backup-age-key.txt
-
-# on the VM, as the deploy user
-ssh deploy@<first VM IP>
-cd /opt/northgate/infra
-nano .env                                   # DOMAIN, SUBDOMAINS, SUPABASE_DB_URL=<pooler URI>, backup keys
-scripts/issue-certs.sh --letsencrypt         # start the WAF, get the certificate
-docker compose up -d --wait                  # Presidio
-tests/test_waf.sh && tests/test_presidio.sh  # prove it
-scripts/backup.sh                            # first backup; cron runs it at 02:00 UTC
-
-# back on the laptop: prove the backup restores
-infra/scripts/restore-test.sh s3://<bucket>/nightly/<file>.dump.age ~/.config/northgate/backup-age-key.txt
-```
-
-**Console screenshots still to take** (they need a sign-in):
-
-- [ ] Oracle instance page, showing the shape, OS and public IP: https://cloud.oracle.com/compute/instances?region=af-johannesburg-1
-- [ ] Oracle security list with only 22, 80 and 443 open (VM page → Networking → Subnet → Security)
-- [ ] S3 bucket properties, showing versioning, encryption, Block Public Access and the lifecycle rule: https://eu-north-1.console.aws.amazon.com/s3/buckets?region=eu-north-1
-- [ ] The nightly backups in the bucket (`nightly/`)
-- [ ] IAM user `northgate-backup-upload` with its single inline policy: https://us-east-1.console.aws.amazon.com/iam/home#/users
-- [ ] Storage Lens dashboard `northgate-storage` (first data within 48 hours): https://eu-north-1.console.aws.amazon.com/s3/lens?region=eu-north-1
-- [ ] AWS Budgets, showing the US$1 alert: https://us-east-1.console.aws.amazon.com/costmanagement/home#/budgets
-- [ ] GitHub rulesets, showing 8 required checks on `develop` and `main`
+![The app in Italian: Profile, Home, Visits, Records and Shop](.github/readme/app-in-italian.jpg)
 
 </details>
 
@@ -1060,7 +1187,7 @@ flutter build apk --release --dart-define-from-file=staging.env
 cd infra
 sed -e 's/^DOMAIN=.*/DOMAIN=localhost/' -e 's/^HTTP_PORT=.*/HTTP_PORT=18080/' -e 's/^HTTPS_PORT=.*/HTTPS_PORT=18443/' .env.example > .env
 scripts/issue-certs.sh       # starts the WAF with a placeholder certificate
-tests/test_waf.sh            # 21 checks: attacks refused, headers, TLS, rate limits, logs, error pages
+tests/test_waf.sh            # 25 checks: attacks refused, private paths hidden, headers, TLS, rate limits, error pages
 tests/test_presidio.sh       # canary record fully redacted
 ```
 
@@ -1122,6 +1249,24 @@ On the VM, `scripts/bootstrap-vm.sh` hardens the machine once, and `scripts/issu
 5. Tracing switches on by itself when the key is set; the project appears in the dashboard with the first conversation. Hidden inputs and outputs mean the dashboard shows steps, tools and timings, never what a patient wrote.
 
 </details>
+
+## How this was built
+
+The project was built section by section, the way a small product team works:
+
+- **Plan, then build test first.** Each section starts with a written plan and its governance answers: where the data lives, which vendor and region, what goes into every model call. Then the tests are written first: pgTAP for the database, pytest for the services, Flutter widget tests for the app.
+- **One change per pull request.** Every pull request runs the whole CI suite before it can merge into `develop`: database, services, app, web, the WAF rules, secret scanning, house style, and a check that no private files are tracked. Changes to row level security, money, patient messages or Nora's safety gate get a line-by-line human review.
+- **Deployments are automated:**
+  - **Database:** migrations reach staging through a GitHub Actions workflow, which also loads the clinic documents for Nora with their embeddings.
+  - **Assistant and workers:** they run as Docker Compose services on the Oracle VM.
+  - **Website:** it is a static build on Vercel.
+- **Watched in production.** Grafana Cloud receives the assistant's metrics through Alloy. Four alert rules each point to a runbook.
+- **Real problems found by real runs.** Recording the demo videos on a phone against staging exposed real problems:
+  - **Handovers:** Nora sometimes promised a handover she never made.
+  - **Prices:** the safety check refused a correct price written as "$500,", and accepted an invented "$50" because a document said "$500".
+  - **Sign-in tokens:** a token expired in the middle of a long reply.
+
+  Each became a failing test first, then a fix.
 
 ## Branches and pull requests
 

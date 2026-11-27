@@ -152,3 +152,26 @@ def test_a_campaign_button_never_points_at_the_bare_site_root():
     with pytest.raises(ValueError):
         Promotion(subject="s", preheader="p", headline="H", body="b", offer="o", cta_label="c",
                   cta_link="https://84-12-126-31.sslip.io/?utm_source=mail", ends="e")
+
+
+
+def test_a_video_consultation_email_says_how_to_join_not_when_to_arrive():
+    from datetime import datetime, timezone
+    from worker.messages import Context, render
+    ctx = Context("Michelle", datetime(2026, 11, 26, 18, 30, tzinfo=timezone.utc), "America/New_York", "Quincy",
+                  "+16175550130", "Video consultation", link="https://example.test/visit")
+    msg = render("confirmation", ctx)
+    assert "Video call in the Northgate Dental app" in msg.html and "Join from Visits" in msg.text
+    assert "arrive 10 minutes early" not in msg.html
+    clean = render("confirmation", Context("Michelle", ctx.starts_at, ctx.time_zone, "Quincy", None, "Adult cleaning"))
+    assert "arrive 10 minutes early" in clean.html, "an ordinary visit keeps the arrival note"
+
+
+def test_nora_s_payment_link_email_shows_the_amount_and_one_pay_link():
+    message = render("paylink:2027-03-01", replace(CTX, amount_cents=11000, link="https://n8n.example/webhook/pay?t=abc"))
+    assert "$110.00" in message.subject and "pay?t=abc" in message.text and message.text.count("https://") == 1
+
+
+def test_nora_s_reschedule_email_keeps_the_visit_until_a_new_time_is_chosen():
+    message = render("movelink:2027-03-01", replace(CTX, link="https://n8n.example/webhook/move?t=abc"))
+    assert "move?t=abc" in message.text and "stays booked" in message.text and "Choose a new time" in message.html

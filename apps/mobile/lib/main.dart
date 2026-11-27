@@ -1,10 +1,14 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:material_ui/material_ui.dart';
+import 'package:dental/ui.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app.dart';
 import 'data/account_repository.dart';
 import 'data/assistant_repository.dart';
+import 'data/call_repository.dart';
+import 'data/consult_repository.dart';
+import 'data/programme_repository.dart';
+import 'data/team_chat_repository.dart';
 import 'data/care_repository.dart';
 import 'data/shop_repository.dart';
 import 'data/secure_session_storage.dart';
@@ -26,6 +30,7 @@ Future<void> main() async {
     publishableKey: _publishableKey,
     authOptions: FlutterAuthClientOptions(localStorage: SecureSessionStorage()),
   );
+  await loadAppLanguage();
   runApp(
     ProviderScope(
       overrides: [
@@ -40,6 +45,18 @@ Future<void> main() async {
         ),
         assistantRepositoryProvider.overrideWithValue(
           HttpAssistantRepository(Supabase.instance.client.auth),
+        ),
+        callRepositoryProvider.overrideWithValue(
+          StreamCallRepository(Supabase.instance.client.auth),
+        ),
+        consultRepositoryProvider.overrideWithValue(
+          HttpConsultRepository(Supabase.instance.client.auth),
+        ),
+        programmeRepositoryProvider.overrideWithValue(
+          SupabaseProgrammeRepository(Supabase.instance.client),
+        ),
+        teamChatRepositoryProvider.overrideWithValue(
+          StreamTeamChatRepository(Supabase.instance.client.auth),
         ),
       ],
       child: const NorthgateApp(),

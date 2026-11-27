@@ -1,14 +1,17 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:material_ui/material_ui.dart';
+import 'package:dental/ui.dart';
 
 import '../data/aftercare.dart';
 import '../data/care_repository.dart';
+import '../data/team_chat_repository.dart';
 import '../design/art.dart';
 import '../design/format.dart';
 import '../design/motion.dart';
 import '../design/tokens.dart';
 import '../design/widgets.dart';
 import '../state.dart';
+import '../data/programme_repository.dart';
+import 'checkin_screen.dart';
 import 'assistant_screen.dart';
 import 'aftercare_screen.dart';
 import 'booking_screen.dart';
@@ -16,6 +19,8 @@ import 'care_widgets.dart';
 import 'dentist_screen.dart';
 import 'plan_screen.dart';
 import 'shell.dart';
+import 'team_chat_screen.dart';
+import 'video_visit_screen.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -115,7 +120,9 @@ class _Header extends ConsumerWidget {
                     for (final p in people)
                       _PersonChip(
                         key: Key('person-${p.id}'),
-                        label: p.isSelf ? '${p.firstName} (you)' : p.firstName,
+                        label: p.isSelf
+                            ? '${p.firstName} ${tr('(you)')}'
+                            : p.firstName,
                         selected: p.id == current?.id,
                         onTap: () => ref
                             .read(selectedPatientProvider.notifier)
@@ -147,7 +154,14 @@ class _Body extends ConsumerWidget {
         Reveal(child: next != null ? _NextVisit(next) : const _BookPrompt()),
         const SizedBox(height: 22),
         const Reveal(child: _AskReceptionist()),
+        const _TeamConversation(),
         const SizedBox(height: 22),
+        for (final p
+            in ref.watch(programmesProvider).value ??
+                const <CareProgramme>[]) ...[
+          Reveal(child: CareProgrammeCard(programme: p)),
+          const SizedBox(height: 22),
+        ],
         if (_recentAftercare(care) case (final visit, final sheet)) ...[
           Reveal(
             child: _AftercareCard(visit: visit, sheet: sheet),
@@ -304,7 +318,12 @@ Future<void> confirmCancelVisit(
             ),
             const SizedBox(height: 8),
             Text(
-              '${a.service}, ${weekday(a.startsAt)} ${dayMonth(a.startsAt)} at ${clock(a.startsAt)}. The time goes back to other patients.',
+              trf('{}, {} {} at {}. The time goes back to other patients.', [
+                tr(a.service),
+                weekday(a.startsAt),
+                dayMonth(a.startsAt),
+                clock(a.startsAt),
+              ]),
               textAlign: TextAlign.center,
               style: const TextStyle(
                 fontSize: 15,
@@ -447,7 +466,11 @@ class _NextVisit extends ConsumerWidget {
                   ),
                   const SizedBox(height: 3),
                   Text(
-                    '${clock(appointment.startsAt)} to ${clock(appointment.endsAt)} · ${appointment.location}',
+                    trf('{} to {} · {}', [
+                      clock(appointment.startsAt),
+                      clock(appointment.endsAt),
+                      appointment.location,
+                    ]),
                     style: const TextStyle(fontSize: 14, color: Palette.muted),
                   ),
                   Text(
@@ -460,6 +483,7 @@ class _NextVisit extends ConsumerWidget {
           ],
         ),
         const SizedBox(height: 14),
+        JoinVideoButton(appointment: appointment),
         const Divider(height: 1, color: Color(0xFFE8EFEE)),
         const SizedBox(height: 10),
         // Side by side when both fit; on narrow phones or large text the button moves under the dentist, never "Cancel vi...".
@@ -861,7 +885,7 @@ class _OurServices extends ConsumerWidget {
 
               return Semantics(
                 button: true,
-                label: label,
+                label: tr(label),
                 excludeSemantics: true,
                 child: Pressable(
                   onTap: open,
@@ -913,6 +937,114 @@ class _OurServices extends ConsumerWidget {
         ),
       ],
     ),
+  );
+}
+
+/// The patient's conversation with the team, shown only while a request is waiting, open or has an unread reply.
+/// Nora stays the one way in; this card only brings the patient back to a conversation that already exists.
+class _TeamConversation extends ConsumerStatefulWidget {
+  const _TeamConversation();
+
+  @override
+  ConsumerState<_TeamConversation> createState() => _TeamConversationState();
+}
+
+class _TeamConversationState extends ConsumerState<_TeamConversation> {
+  late Future<TeamStatus> _status = ref
+      .read(teamChatRepositoryProvider)
+      .status();
+
+  Future<void> _open() async {
+    await openTeamChat(context, ref);
+    if (mounted) {
+      setState(() => _status = ref.read(teamChatRepositoryProvider).status());
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<TeamStatus>(
+    future: _status,
+    builder: (context, snap) {
+      final s = snap.data;
+      if (s == null || s.state == 'none') return const SizedBox.shrink();
+      final unread = s.state == 'unread';
+      final (title, detail) = switch (s.state) {
+        'unread' => (
+          s.unread == 1
+              ? '1 new message from the team'
+              : '${s.unread} new messages from the team',
+          'Tap to read and reply',
+        ),
+        'waiting' => ('Your request to the team', 'Waiting for a reply'),
+        _ => ('Your conversation with the team', 'Open'),
+      };
+      return Padding(
+        padding: const EdgeInsets.only(top: 10),
+        child: Semantics(
+          container: true,
+          button: true,
+          child: Material(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(22),
+            child: InkWell(
+              key: const Key('open-team-conversation'),
+              borderRadius: BorderRadius.circular(22),
+              onTap: _open,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 14,
+                ),
+                child: Row(
+                  children: [
+                    Badge(
+                      isLabelVisible: unread,
+                      backgroundColor: Palette.shine,
+                      smallSize: 10,
+                      child: const Icon(
+                        Icons.support_agent_rounded,
+                        color: Palette.teal,
+                        size: 28,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            style: TextStyle(
+                              fontSize: 15.5,
+                              fontWeight: unread
+                                  ? FontWeight.w800
+                                  : FontWeight.w700,
+                              color: Palette.deepSea,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            detail,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: Palette.muted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(
+                      Icons.chevron_right_rounded,
+                      color: Palette.muted,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    },
   );
 }
 

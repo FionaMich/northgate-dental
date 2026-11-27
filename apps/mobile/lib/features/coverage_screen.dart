@@ -3,7 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:material_ui/material_ui.dart';
+import 'package:dental/ui.dart';
 
 import '../data/account_repository.dart';
 import '../data/care_repository.dart';
@@ -188,7 +188,7 @@ class _CoverageScreenState extends ConsumerState<CoverageScreen> {
                   child: InputDecorator(
                     isEmpty: _plan == null && !_notListed,
                     decoration: InputDecoration(
-                      labelText: 'Insurance plan',
+                      labelText: tr('Insurance plan'),
                       errorText: field.errorText,
                       suffixIcon: const Icon(Icons.expand_more_rounded),
                     ),
@@ -211,8 +211,8 @@ class _CoverageScreenState extends ConsumerState<CoverageScreen> {
                   textInputAction: TextInputAction.next,
                   validator: (v) =>
                       _required(v, 'Enter the insurance company.'),
-                  decoration: const InputDecoration(
-                    labelText: 'Insurance company, as on the card',
+                  decoration: InputDecoration(
+                    labelText: tr('Insurance company, as on the card'),
                   ),
                 ),
               ],
@@ -225,7 +225,7 @@ class _CoverageScreenState extends ConsumerState<CoverageScreen> {
                 textInputAction: TextInputAction.next,
                 validator: (v) =>
                     _required(v, 'Enter the member ID from the card.'),
-                decoration: const InputDecoration(labelText: 'Member ID'),
+                decoration: InputDecoration(labelText: tr('Member ID')),
               ),
               const SizedBox(height: 14),
               TextFormField(
@@ -233,8 +233,8 @@ class _CoverageScreenState extends ConsumerState<CoverageScreen> {
                 controller: _group,
                 textCapitalization: TextCapitalization.characters,
                 autocorrect: false,
-                decoration: const InputDecoration(
-                  labelText: 'Group number (optional)',
+                decoration: InputDecoration(
+                  labelText: tr('Group number (optional)'),
                 ),
               ),
             ],
@@ -362,8 +362,8 @@ class _PlanSheetState extends ConsumerState<_PlanSheet> {
             child: TextField(
               key: const Key('plan-search'),
               onChanged: (v) => setState(() => _query = v),
-              decoration: const InputDecoration(
-                labelText: 'Search plans',
+              decoration: InputDecoration(
+                labelText: tr('Search plans'),
                 prefixIcon: Icon(Icons.search_rounded),
               ),
             ),
@@ -425,9 +425,9 @@ class _PhotoTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Semantics(
     button: true,
-    label: bytes == null
-        ? 'Add $label photo'
-        : '$label photo added. Tap to retake.',
+    label: tr(
+      bytes == null ? 'Add $label photo' : '$label photo added. Tap to retake.',
+    ),
     child: InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(20),

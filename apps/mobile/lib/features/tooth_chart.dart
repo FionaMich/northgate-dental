@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 
-import 'package:material_ui/material_ui.dart';
+import 'package:dental/ui.dart';
 
 import '../data/care_repository.dart';
 import '../design/tokens.dart';
@@ -254,8 +254,8 @@ class _ToothButton extends StatelessWidget {
     ];
     return Semantics(
       label: states.isEmpty
-          ? 'Tooth $number'
-          : 'Tooth $number: ${states.join(', ')}',
+          ? tr('Tooth $number')
+          : tr('Tooth $number: ${states.map(tr).join(', ')}'),
       button: true,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,

@@ -37,6 +37,14 @@ void main() {
       await tapKey(tester, 'assistant-send');
       expect(assistant.sent, ['es:¿A qué hora abre Quincy?']);
       expect(find.text('Quincy opens at 07:00 on Mondays.'), findsOneWidget);
+      // messenger manners: the patient's message shows as read once Nora has answered, and nobody is typing
+      expect(find.byKey(const Key('ticks-read')), findsOneWidget);
+      // the quick replies stay after the first message and send in the patient's language
+      await tapKey(tester, 'quick-Opening hours');
+      expect(assistant.sent.last, 'es:Horario de apertura');
+      expect(find.byKey(const Key('chat-typing')), findsNothing);
+      expect(find.text('AI assistant · online'), findsOneWidget);
+      expect(find.textContaining('up to a minute'), findsNothing);
     },
   );
 
@@ -161,13 +169,20 @@ void main() {
     },
   );
 
-  testWidgets('the Nora card on Home is a button of its own for screen readers', (tester) async {
-    await pumpApp(tester, FakeAccountRepository(patients: [elena]));
-    await signIn(tester);
-    final card = tester.getSemantics(find.byKey(const Key('open-assistant')));
-    expect(card.label, startsWith('Ask Nora'), reason: 'not merged into the visit card above it');
-    expect(card.getSemanticsData().flagsCollection.isButton, isTrue);
-  });
+  testWidgets(
+    'the Nora card on Home is a button of its own for screen readers',
+    (tester) async {
+      await pumpApp(tester, FakeAccountRepository(patients: [elena]));
+      await signIn(tester);
+      final card = tester.getSemantics(find.byKey(const Key('open-assistant')));
+      expect(
+        card.label,
+        startsWith('Ask Nora'),
+        reason: 'not merged into the visit card above it',
+      );
+      expect(card.getSemanticsData().flagsCollection.isButton, isTrue);
+    },
+  );
 
   testWidgets('the message field has a name a screen reader can read', (
     tester,

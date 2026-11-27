@@ -93,7 +93,8 @@ def dollars(cents: int) -> str:
 def render(kind: str, ctx: Context) -> Message:
     """Subjects carry the day and time, never the treatment (they show on lock screens); the body has the minimum."""
     e, name, at = escape, ctx.first_name, when(ctx)
-    where = f"Northgate Dental, {ctx.clinic_name}"
+    video = "video" in ctx.service_name.lower()   # D9995: the visit happens in the app, not at the clinic
+    where = "Video call in the Northgate Dental app" if video else f"Northgate Dental, {ctx.clinic_name}"
     details = [("When", at), ("Where", where), ("For", ctx.service_name)]
     manage = ("Change or cancel", ctx.link) if ctx.link else None
     no_link = "To change or cancel, open the Northgate Dental app."
@@ -101,7 +102,8 @@ def render(kind: str, ctx: Context) -> Message:
         subject, pre = f"You're booked: {at}", f"Your {ctx.service_name} at {ctx.clinic_name} is confirmed."
         eyebrow, headline = "Visit confirmed", f"You're booked, {name}"
         intro, cta, note = f"Your {ctx.service_name} is confirmed. We'll send a reminder before the day.", manage, \
-            "Please arrive 10 minutes early and bring your dental plan card if you have one."
+            ("Join from Visits in the app: the button appears the day before. Find a quiet spot with good light."
+             if video else "Please arrive 10 minutes early and bring your dental plan card if you have one.")
     elif kind.startswith("reminder:"):
         lead = {"72h": ("In 3 days", f"See you in 3 days, {name}"), "24h": ("Tomorrow", f"See you tomorrow, {name}"),
                 "6h": ("Today", f"See you today, {name}")}[kind.split(":")[1]]
@@ -139,6 +141,21 @@ def render(kind: str, ctx: Context) -> Message:
         intro, cta, note = f"Your balance for your {ctx.service_name} is still open. You can pay securely online.", \
             ("Pay securely", ctx.link) if ctx.link else None, None
         details = [("Balance", amount), ("Visit", at), ("Where", where)]
+    elif kind.startswith("paylink:"):   # Nora's send_payment_link: the patient asked for it in the conversation
+        amount = dollars(ctx.amount_cents)
+        subject, pre = f"Your payment link: {amount}", "As you asked Nora: pay securely in a minute."
+        eyebrow, headline = "Payment link", f"Here is your payment link, {name}"
+        intro, cta, note = f"As you asked, here is a secure link to pay {amount} for your {ctx.service_name}.", \
+            ("Pay securely", ctx.link) if ctx.link else None, \
+            "Card payments are processed by Stripe; Northgate Dental never sees your card number."
+        details = [("Amount", amount), ("Visit", at), ("Where", where)]
+    elif kind.startswith("movelink:"):  # Nora's reschedule_link
+        subject, pre = f"Choose a new time for your visit on {at}", "Pick a new time in a tap. Your visit stays until you do."
+        eyebrow, headline = "Choose a new time", f"Pick a new time, {name}"
+        intro, cta, note = f"As you asked, here is a link to move your {ctx.service_name}. It works once.", \
+            ("Choose a new time", ctx.link) if ctx.link else None, \
+            "Your current visit stays booked until you choose a new time."
+        details = [("Now", at), ("Where", where), ("For", ctx.service_name)]
     else:
         raise KeyError(kind)
 
@@ -151,7 +168,7 @@ def render(kind: str, ctx: Context) -> Message:
     lines += [x for x in (note, urgent) if x] + [f"Questions? {call}", "Northgate Dental"]
     text = "\n\n".join(lines) + "\n"
 
-    show_tile = kind != "receipt" and not kind.startswith("statement:")
+    show_tile = kind != "receipt" and not kind.startswith(("statement:", "paylink:"))
     rows = "".join(
         f'<tr><td style="padding:10px 0;border-top:1px solid #E3ECEA;width:84px;color:#5B706E;font-size:14px;vertical-align:top">'
         f'{e(k)}</td><td class="ink" style="padding:10px 0;border-top:1px solid #E3ECEA;color:#0B2B2A;font-size:16px;'
@@ -316,3 +333,38 @@ def render_alert(clinic_name: str, checkin_id: str) -> Message:
     body = (f"A patient's post-visit check-in at {clinic_name} needs a clinician today. Open the task list in the "
             f"Northgate portal (check-in {checkin_id}).")
     return Message("Check-in needs follow-up", body + "\n", f'<p style="font-family:system-ui,sans-serif">{escape(body)}</p>')
+
+
+# Continuous care (W24, W27, W28 and recall). Reviewed fixed text: every message sends the patient to the app, where the
+# answers are given under their own sign-in, and names the clinic and the emergency line. No clinical detail is ever in
+# the email: the queue message carries IDs only.
+CARE = {
+    "checkin": ("Your recovery check-in for today", "Today's check-in",
+                "Three quick questions about how you are healing: open the Northgate app and tap \"Today's check-in\"."),
+    "nudge:post_procedure": ("We haven't heard from you today", "A quick check-in",
+                             "Please answer today's recovery check-in in the Northgate app, so the team knows how you are healing."),
+    "nudge:aligners": ("A reminder about your aligners", "Your aligners",
+                       "Your aligners work best worn about {target} hours a day. The aligner timer in the Northgate app helps you keep track."),
+    "offer": ("We'd like to check on you", "From your dental team",
+              "The team would like to see how you are doing. Please book a visit in the Northgate app, or call us and we will find a time."),
+    "recall": ("Time for your check-up", "Your six-monthly check-up",
+               "It has been about six months since your last check-up. Book in the Northgate app, or ask Nora there to find a time."),
+}
+
+
+def render_care(kind: str, first_name: str, programme: str, clinic: str, phone: str | None, target_hours: float | None) -> Message:
+    key = f"{kind}:{programme}" if kind == "nudge" else kind
+    subject, eyebrow, line = CARE[key]
+    line = line.replace("{target}", f"{target_hours:g}" if target_hours else "22")
+    safety = "If you have trouble breathing or swallowing, or swelling spreading to your eye or neck, call 911."
+    text = f"Hi {first_name},\n\n{line}\n\n{safety}\n\nNorthgate Dental, {clinic}" + (f", {phone_label(phone)}" if phone else "") + "\n"
+    body = _p(f"Hi {first_name},") + _p(line, 12) + _p(safety, 12)
+    return Message(subject, text, _layout(subject, eyebrow, subject, body, clinic, phone,
+                                          footer="You get this email because you joined a care programme with us. Leave it any time in the app."))
+
+
+def render_care_alert(clinic_name: str, checkin_id: str) -> Message:
+    """To the clinic: a care check-in took the emergency path. IDs only; the answer is in the portal."""
+    body = (f"A patient's care check-in at {clinic_name} took the emergency path and needs a clinician now. Open the "
+            f"Northgate portal, Inbox (care check-in {checkin_id}).")
+    return Message("Care check-in needs a clinician", body + "\n", f'<p style="font-family:system-ui,sans-serif">{escape(body)}</p>')

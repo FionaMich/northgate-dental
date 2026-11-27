@@ -6,6 +6,11 @@ import os
 from langchain_core.language_models import BaseChatModel
 
 
+def model_name(role: str = "assistant") -> str:
+    """Provider and model, as recorded in ai_events."""
+    return f"{os.environ.get('MODEL_PROVIDER', 'ollama')}:{os.environ.get('OLLAMA_MODEL', 'gemma4:e4b-it-qat')}"
+
+
 def model_for(role: str = "assistant") -> BaseChatModel:
     provider = os.environ.get("MODEL_PROVIDER", "ollama")
     if provider == "ollama":
