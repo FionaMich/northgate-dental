@@ -729,6 +729,12 @@ Live at [northgate-dental.vercel.app](https://northgate-dental.vercel.app). The 
 | ![Services and prices](.github/readme/web-services.jpg) | ![The site on a phone](.github/readme/web-phone.jpg) | ![Staff sign-in](.github/readme/portal-signin.jpg) |
 
 - **Pages built from the database.** Services, summaries, prices at each clinic, opening hours and phone numbers come from one database function, `public_catalogue()`, at build time. A bundled snapshot is the fallback, so a build never depends on the API. Each service has its own page: what happens at the visit, who you will usually see, and the price at each clinic.
+- **Motion with GSAP and 3D.** Headings flip up word by word in 3D (SplitText), sections and cards rise into view as
+  you scroll (ScrollTrigger), cards tilt towards the pointer with a soft light following it, the app's feature tiles
+  flip up in 3D, the app panel settles from a tilt as it scrolls in, and Nora's portrait floats in depth. All of it is
+  in one component (`src/components/Motion.tsx`) driven by data attributes; nothing moves for visitors whose device
+  asks for reduced motion, the tilt is mouse-only so touch scrolling is untouched, and content is never left hidden if
+  a script fails (it is visible until its animation starts).
 - **The same brand as the app.** Same colours, the same bundled fonts (nothing loaded from a font service), the same photographs and the same team bios.
 - **A voice call sample.** It shows how a call with Nora looks in the app: her portrait, captions of both sides, and the Confirm card. It is scripted, because website visitors are not signed in.
 - **An enquiry form that keeps visitors out of the database.** Signed-out visitors get two functions and nothing else. `submit_lead()` asks for consent, limits each address to three enquiries a day, and turns each enquiry into a task for the chosen clinic. Only that clinic's staff can read it; it is kept 12 months.

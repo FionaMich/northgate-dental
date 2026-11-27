@@ -9,14 +9,14 @@ export default async function Services() {
   const { locations, services } = await catalogue();
   return (
     <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-      <h1 className="font-display text-4xl font-black tracking-tight sm:text-5xl">Services and prices</h1>
+      <h1 data-split className="font-display text-4xl font-black tracking-tight sm:text-5xl">Services and prices</h1>
       <p className="mt-4 max-w-2xl text-muted">
         Prices are the self-pay price at each clinic. With insurance we bill your plan directly and give you a written
         estimate before larger treatment.
       </p>
       <div className="mt-12 space-y-6">
         {services.map((s) => (
-          <article key={s.code} id={s.code} className="grid scroll-mt-24 gap-6 overflow-hidden rounded-3xl bg-white ring-1 ring-line md:grid-cols-[220px_1fr]">
+          <article key={s.code} id={s.code} data-reveal className="grid scroll-mt-24 gap-6 overflow-hidden rounded-3xl bg-white ring-1 ring-line md:grid-cols-[220px_1fr]">
             <div className="relative aspect-[16/9] md:aspect-auto">
               <Image src={servicePicture(s.code)} alt="" fill className="object-cover" sizes="(min-width: 768px) 220px, 100vw" />
             </div>

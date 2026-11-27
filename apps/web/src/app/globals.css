@@ -27,3 +27,9 @@ body { background: #fbfdfc; color: var(--color-sea); -webkit-font-smoothing: ant
   .rise-3 { animation-delay: 0.16s; }
   @keyframes rise { from { transform: translateY(14px); } }
 }
+
+/* The light that follows the pointer on tilting cards (components/Motion.tsx). */
+.tilt-glare {
+  position: absolute; inset: 0; z-index: 5; pointer-events: none; border-radius: inherit;
+  opacity: 0; transition: opacity 0.4s ease; mix-blend-mode: soft-light;
+}
