@@ -254,8 +254,15 @@ sequenceDiagram
 **Proof:**
 - `22_payments.test.sql`: tampered body, wrong secret, a replay older than five minutes, a wrong amount, a duplicate event, and writes by a signed-in user are all refused; a correct event is recorded once and queues one receipt carrying IDs only.
 - The worker test signs an event in Python, so it proves Python's HMAC and Postgres's agree byte for byte.
-- On staging, on 27 November 2026: Nora emailed a payment link (06:47 UTC), the patient paid $110.00 with Stripe's test
-  card on the Checkout page (06:56), the database recorded it as paid, and the receipt email arrived the same minute.
+- On staging, on 27 November 2026, twice: Nora emailed a payment link, the patient paid $110.00 with Stripe's test
+  card on the Checkout page, the database recorded it as paid, and the receipt email followed within seconds (the
+  recorded run: link at 08:05 UTC, paid at 08:13:06, receipt delivered at 08:13:09).
+
+**Watch it** (1 min 23 s, captioned): asking Nora in the app, the confirmation button, Nora's reply with the link,
+the "Pay securely" email, Stripe Checkout with the test card, and the receipt three seconds after payment. Waits for
+Nora on the CPU server are sped up and marked. Select the picture to play the video.
+
+[![Nora sends a payment link: chat, email, Stripe Checkout and the receipt](.github/readme/videos/nora-payment-demo.jpg)](https://github.com/FionaMich/northgate-dental/releases/download/demo-2026-11-27/nora-payment-demo.mp4)
 
 | Nora's "Pay securely" email | Stripe Checkout, test card |
 | --- | --- |
