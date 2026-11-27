@@ -171,6 +171,8 @@ const nl = <String, String>{
   'Paid': 'Betaald',
   'paid': 'betaald',
   'to pay': 'te betalen',
+  'Choose a new time': 'Kies een nieuwe tijd',
+  'Open the link': 'Open de link',
   'Pay now': 'Nu betalen',
   'Reschedule': 'Verzetten',
   'Cancel': 'Annuleren',

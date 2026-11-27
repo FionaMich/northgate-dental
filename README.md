@@ -264,9 +264,9 @@ while Nora works are cut out; her measured reply times are in "Evaluating Nora".
 
 [![Nora sends a payment link: chat, email, Stripe Checkout and the receipt](.github/readme/videos/nora-payment-demo.jpg)](https://github.com/FionaMich/northgate-dental/releases/download/demo-2026-11-27/nora-payment-demo.mp4)
 
-| Nora's "Pay securely" email | Stripe Checkout, test card |
-| --- | --- |
-| ![The payment link email](.github/readme/emails/paylink.png) | ![Stripe Checkout with the test card](.github/readme/stripe-checkout.png) |
+| In the chat | Nora's "Pay securely" email | Stripe Checkout, test card |
+| --- | --- | --- |
+| ![Nora's reply: the link highlighted, with a Pay securely button](.github/readme/nora-pay-link.jpg) | ![The payment link email](.github/readme/emails/paylink.png) | ![Stripe Checkout with the test card](.github/readme/stripe-checkout.png) |
 
 | Forged webhook refused | Payment tests |
 | --- | --- |

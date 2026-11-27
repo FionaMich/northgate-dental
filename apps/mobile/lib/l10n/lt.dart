@@ -171,6 +171,8 @@ const lt = <String, String>{
   'Paid': 'Apmokėta',
   'paid': 'apmokėta',
   'to pay': 'mokėti',
+  'Choose a new time': 'Pasirinkti naują laiką',
+  'Open the link': 'Atidaryti nuorodą',
   'Pay now': 'Mokėti dabar',
   'Reschedule': 'Perkelti',
   'Cancel': 'Atšaukti',
