@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Logo from "@/components/Logo";
+import { Motion } from "@/components/Motion";
 
 function Header() {
   return (
@@ -56,6 +57,7 @@ export default function SiteLayout({ children }: { children: React.ReactNode }) 
       <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded focus:bg-white focus:p-2">Skip to content</a>
       <Header />
       <main id="main">{children}</main>
+      <Motion />
       <Footer />
     </>
   );
