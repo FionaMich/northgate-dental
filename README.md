@@ -4,6 +4,13 @@ A dental practice system and patient app for a fictional US dental group with th
 
 **Every patient, staff member, visit and document here is fictional, generated test data.** X-rays and images are licensed or generated and credited. No real patient data is used anywhere.
 
+| Try it live | Link |
+| --- | --- |
+| The website | [northgate-dental.vercel.app](https://northgate-dental.vercel.app) |
+| The staff portal, with sample data and no sign-in | [northgate-dental.vercel.app/portal/demo](https://northgate-dental.vercel.app/portal/demo/) |
+| The staff portal (staff accounts, two-factor) | [northgate-dental.vercel.app/portal](https://northgate-dental.vercel.app/portal/) |
+| Live status of every service | [status.84-12-126-31.sslip.io](https://status.84-12-126-31.sslip.io/status/northgate) |
+
 | Home | Booking | Visit record |
 | --- | --- | --- |
 | ![Home screen](.github/readme/home.jpg) | ![Booking](.github/readme/booking.jpg) | ![Visit record](.github/readme/visit.jpg) |
@@ -96,6 +103,8 @@ flowchart LR
 5. **Files:** X-rays and visit summaries sit in a private bucket. The app receives a signed link valid for 5 minutes and opens the PDF inside the app.
 6. **On the server:** every public request passes through ModSecurity with the OWASP Core Rule Set, which refuses cross-site scripting, SQL injection, path traversal and command injection with a 403, before any service sees the request.
 
+**Principles:** defence in depth and least privilege (*Security Engineering*, Ross Anderson): the WAF, the network rules and row level security are each sufficient on their own, and every service has its own database role with only the functions it needs.
+
 </details>
 
 <details>
@@ -127,6 +136,8 @@ A dental group's data is relational: patients, appointments, clinicians, rooms, 
 - **pgTAP** tests every policy with real sign-ins, for both what each role may do and what it must be refused.
 - **Region:** us-east-1, so US patient data stays in the US.
 - **Trade-off accepted:** the free plan has no point-in-time recovery, which is why the nightly encrypted backup exists.
+
+**Principles:** a ubiquitous language (*Domain-Driven Design*, Eric Evans): tables, functions and files use the clinic's own words (appointment, hold, proxy, recall), kept in a glossary; and the simplest thing that could possibly work (*Extreme Programming Explained*, Kent Beck): one database, with no separate broker, cache or vector store until a measured need says otherwise.
 
 </details>
 
@@ -183,14 +194,14 @@ sequenceDiagram
 - 24 database tests (`20_queues`, `21_worker_context`).
 - The worker's tests, including one against a real database. It books a visit for the canary patient, checks that exactly one email is sent and that a repeat sends nothing, and scans the logs for every canary value.
 
+**Principles:** the **transactional outbox** (*Designing Data-Intensive Applications*, Martin Kleppmann; *Microservices Patterns*, Chris Richardson): the event is written in the booking's own transaction, so it can never be lost or describe a change that rolled back. **Idempotent consumers** give an exactly-once *effect* from at-least-once delivery. **Ordering by version**: the worker re-reads the current status, so a late "booked" never confirms a cancelled visit. **Stability patterns** (*Release It!*, Michael Nygard): timeouts, a separate `urgent` queue as a bulkhead, fixed batches for a steady state, and a **dead-letter queue** after five tries (*Enterprise Integration Patterns*, Hohpe and Woolf).
+
 </details>
 
 <details>
 <summary><b>Payments with Stripe Checkout (test mode), relayed by n8n, decided in Postgres</b></summary>
 
 A receptionist, the app's Pay button or Nora (`send_payment_link`, after the patient presses "Send it") asks for a payment link for a visit; the patient pays on Stripe's hosted Checkout page; Stripe tells us it was paid; the patient gets a receipt. Stripe Checkout was chosen over building a card form because **card numbers never touch Northgate's systems at all**, which keeps the product out of PCI DSS scope beyond the simplest self-assessment (SAQ A).
-
-![Stripe Checkout for a Northgate visit, test card](.github/readme/stripe-checkout.png)
 
 ```mermaid
 sequenceDiagram
@@ -243,11 +254,18 @@ sequenceDiagram
 **Proof:**
 - `22_payments.test.sql`: tampered body, wrong secret, a replay older than five minutes, a wrong amount, a duplicate event, and writes by a signed-in user are all refused; a correct event is recorded once and queues one receipt carrying IDs only.
 - The worker test signs an event in Python, so it proves Python's HMAC and Postgres's agree byte for byte.
-- On staging, a real test-mode payment went from link to receipt email.
+- On staging, on 27 November 2026: Nora emailed a payment link (06:47 UTC), the patient paid $110.00 with Stripe's test
+  card on the Checkout page (06:56), the database recorded it as paid, and the receipt email arrived the same minute.
+
+| Nora's "Pay securely" email | Stripe Checkout, test card |
+| --- | --- |
+| ![The payment link email](.github/readme/emails/paylink.png) | ![Stripe Checkout with the test card](.github/readme/stripe-checkout.png) |
 
 | Forged webhook refused | Payment tests |
 | --- | --- |
 | ![Forged event refused](.github/readme/forged-webhook.png) | ![Database tests](.github/readme/payments-tests.png) |
+
+**Principles:** **deep modules** (*A Philosophy of Software Design*, John Ousterhout): `record_stripe_event(raw_body, signature)` is one call that hides signature checks, replay protection, de-duplication, amount checks, state changes and the receipt. **Make illegal states unrepresentable** (*Domain Modeling Made Functional*, Scott Wlaschin): a payment is `paid` if and only if `paid_at` is set, money is whole cents, and one live payment per visit is a unique index, not a hope.
 
 </details>
 
@@ -290,6 +308,25 @@ If the page does not load: the Bastion refuses sessions from an IP outside `clie
 - **Hardening:** `N8N_BLOCK_ENV_ACCESS_IN_NODE` stops Code nodes reading server secrets; successful runs save no data; failed runs are pruned after 7 days; telemetry is off.
 - **Credentials** are imported with `n8n import:credentials` from stdin inside the container, so passwords never sit on the VM's disk or in shell history. The Stripe key is read from the VM's own `.env` and never travels again.
 - **n8n never does AI.** The project rule is one assistant, built in LangGraph; n8n only runs triggered automations and, from section 09, publishes a few workflows as MCP tools for it.
+
+**The workflows** (each picture is the n8n editor; the green note says what triggers it and what it does, the red note
+what data it touches and which control protects it):
+
+| W03 Cancel link | W04 Payment link |
+| --- | --- |
+| ![W03 Cancel link](.github/readme/n8n/w03-cancel-link.jpg) | ![W04 Payment link](.github/readme/n8n/w04-payment-link.jpg) |
+
+| W05 Stripe payment received | W06 Pay link |
+| --- | --- |
+| ![W05 Stripe payment received](.github/readme/n8n/w05-stripe-payment-received.jpg) | ![W06 Pay link](.github/readme/n8n/w06-pay-link.jpg) |
+
+| W11 Post-visit check-in | W12 Shop checkout |
+| --- | --- |
+| ![W11 Post-visit check-in](.github/readme/n8n/w11-post-visit-checkin.jpg) | ![W12 Shop checkout](.github/readme/n8n/w12-shop-checkout.jpg) |
+
+| W14 Nora action tools (MCP) | W15 Reschedule link |
+| --- | --- |
+| ![W14 Nora action tools over MCP](.github/readme/n8n/w14-nora-action-tools.jpg) | ![W15 Reschedule link](.github/readme/n8n/w15-reschedule-link.jpg) |
 
 </details>
 
@@ -546,6 +583,42 @@ The always-on services run on one Oracle Cloud VM with Docker Compose. Everythin
 - **Three networks:** `edge` faces the internet and only the WAF is on it; `app` is for services; `data` is internal-only, with no route in or out, and holds Presidio.
 - **Every container** has a pinned version, a memory limit, a health check and log rotation, and every image has amd64 and arm64 builds.
 - **Hardening** (`infra/scripts/bootstrap-vm.sh`, run automatically on first boot): keys-only SSH, no root sign-in, fail2ban, automatic security updates, a host firewall for 80 and 443, and a non-root `deploy` user.
+
+**Principles:** **infrastructure as code and immutable servers** (*Infrastructure as Code*, Kief Morris): Terraform for both clouds; the VM is replaced, not patched by hand (`create_before_destroy`), and cloud-init hardens it on first boot.
+
+</details>
+
+<details>
+<summary><b>Hosting on the VM: one Docker Compose stack, three networks, a memory budget</b></summary>
+
+Everything server-side that is not Supabase or Vercel runs on one Oracle VM (`VM.Standard.E3.Flex`, 2 cores, 16 GB,
+Johannesburg, no public IP) as a single Docker Compose project in `/opt/northgate/infra`. Each service is pinned to an
+exact image version and has a memory limit, so one runaway container cannot starve the others.
+
+| Service | Job | Memory limit | Networks | Reachable from the internet |
+| --- | --- | --- | --- | --- |
+| `waf` | Nginx with ModSecurity and the OWASP Core Rule Set; TLS from Let's Encrypt | 300 MB | edge, app | Yes: ports 80 and 443 through the load balancer |
+| `assistant` | Nora (FastAPI and LangGraph) | 512 MB | app | `/assistant/` only |
+| `ollama` | Gemma 4 and the bge-m3 embedder, one conversation at a time | 9 GB | app | No |
+| `voice` | Nora's voice on Stream calls | 2 GB | app | No (outbound only) |
+| `n8n` and `n8n-db` | Automations, payment and visit link pages, Nora's MCP action tools | 1 GB and 256 MB | app, data | `/webhook/` only; the editor and `/mcp/` answer 404 |
+| `worker` and `pdf` | Queue consumer, emails, receipt PDFs | 128 MB and 768 MB | app, data | No |
+| `presidio-analyzer`, `presidio-anonymizer` | Redaction | 1 GB and 256 MB | data | No: the `data` network has no route out |
+| `alloy` | Sends metrics to Grafana Cloud | 256 MB | app | No |
+| `status` | Uptime Kuma | 256 MB | app | The public status page only |
+
+- **Three networks as bulkheads:** `edge` (the WAF and certificates), `app` (services that talk to each other) and
+  `data` (internal only, no route in or out). Presidio sits only on `data`.
+- **Profiles** (`assistant`, `worker`, `n8n`, `voice`, `monitoring`, `status`) start each part on its own, so a
+  smaller VM can run a subset.
+- **Secrets** live in `infra/.env` on the VM (git-ignored, mode 600) and in n8n's encrypted credential store; nothing
+  secret is in Git or in an image.
+- **Access:** SSH only through Oracle Bastion from one admin address (`infra/scripts/ssh-vm.sh`); the dashboards of
+  n8n and Kuma are reached through the same tunnel.
+- **Deploying:** `git pull --ff-only origin develop`, then `docker compose --profile <part> up -d --build <service>`.
+  Database changes never deploy from the VM; they go through the GitHub Actions workflow on merge.
+- **Backups:** a nightly `pg_dump`, encrypted with `age`, uploaded with a key that can add files but not read or
+  delete them.
 
 </details>
 
@@ -838,6 +911,8 @@ from the internet.
 **Scripted journey check:** a GitHub Actions job checks the website, the database catalogue and Nora's health every 15
 minutes, so a broken path is noticed even when nobody is using it.
 
+**Principles:** **service level objectives and error budgets** (*Site Reliability Engineering*, Google): targets are written down in `ops/slos.yaml` and alerts fire on user-visible symptoms (down, slow, refusing), each with a runbook.
+
 </details>
 
 <details>
@@ -856,40 +931,15 @@ Every pull request runs:
 
 Merges into `develop` apply database migrations to staging automatically.
 
-</details>
-
-## Engineering principles, and where they show in the code
-
-Each principle below comes from a well-known software engineering book, and each is tied to something in this repository you can open and check.
-
-<details>
-<summary><b>From the books to this repository</b></summary>
-
-| Principle | Book | Where it is applied here |
-| --- | --- | --- |
-| **The transactional outbox**: publish events in the same transaction as the change | *Designing Data-Intensive Applications*, Martin Kleppmann; *Microservices Patterns*, Chris Richardson | `private.publish_appointment_event()` writes to the queue inside the booking's own transaction, so an event can never be lost or describe a change that rolled back |
-| **Idempotent consumers**: at-least-once delivery plus de-duplication gives an exactly-once *effect* | *Designing Data-Intensive Applications* | `private.mark_processed()` for appointment events and Stripe events; `notification_log` claimed before every email; Stripe and Resend idempotency keys |
-| **Ordering with version numbers** | *Designing Data-Intensive Applications* | Every appointment event carries a version; the worker re-reads the current status before sending, so a late "booked" never confirms a cancelled visit |
-| **Stability patterns: timeouts, bulkheads, steady state, fail fast** | *Release It!*, Michael Nygard | HTTP timeouts in the worker; a separate `urgent` queue and separate Docker networks (bulkheads); fixed batches of 10 and pruned n8n executions (steady state); bad signatures refused before any work is done (fail fast) |
-| **Dead-letter queue for poison messages** | *Enterprise Integration Patterns*, Gregor Hohpe and Bobby Woolf | After five failed tries a message moves to `dead_letter` instead of blocking the queue |
-| **Deep modules: a narrow interface over a lot of behaviour** | *A Philosophy of Software Design*, John Ousterhout | `record_stripe_event(raw_body, signature)` is one call that hides signature checks, replay protection, de-duplication, amount checks, state changes and the receipt; `notification_context()` hides every join the worker would otherwise need |
-| **Make illegal states unrepresentable** | *Domain Modeling Made Functional*, Scott Wlaschin | Check constraints: a payment is `paid` if and only if `paid_at` is set; money is whole cents; one live payment per visit is a unique index, not a hope |
-| **Ubiquitous language** | *Domain-Driven Design*, Eric Evans | Tables, functions and files use the clinic's own words (appointment, hold, proxy, recall), kept in a glossary |
-| **Test first, and test the thing that must be refused** | *Test-Driven Development: By Example*, Kent Beck | 542 database tests, each security rule with an allowed and a denied case; every edge case has a test before the code |
-| **Don't live with broken windows; automate everything** | *The Pragmatic Programmer*, Andrew Hunt and David Thomas | Pre-commit hooks, gitleaks, shellcheck and a commit-message guard; CI blocks merges on any failure; deployments run from GitHub Actions, not by hand |
-| **Small batches, trunk-based flow, deployment automation** | *Accelerate*, Nicole Forsgren, Jez Humble and Gene Kim | One small pull request per ticket into `develop`; every merge deploys migrations to staging; production waits for a required reviewer |
-| **Infrastructure as code, immutable servers** | *Infrastructure as Code*, Kief Morris | Terraform for both clouds; the VM is replaced, not patched by hand (`create_before_destroy`); cloud-init hardens it on first boot |
-| **Service level objectives and error budgets** | *Site Reliability Engineering*, Google | Reminders within 5 minutes of their due time and queue age under 60 seconds are written targets, alerted on in section 12 |
-| **Least privilege and defence in depth** | *Security Engineering*, Ross Anderson | Separate database roles for the app, the worker and payments; WAF, network rules and row level security, each sufficient alone |
-| **Refactor in small, safe steps** | *Refactoring*, Martin Fowler | Changes such as the receipt type were added behind the existing worker loop with tests around them, not as a rewrite |
-| **The simplest thing that could possibly work** | *Extreme Programming Explained*, Kent Beck | One database (no separate broker, cache or vector store) until a measured need says otherwise |
+**Principles:** **don't live with broken windows; automate everything** (*The Pragmatic Programmer*, Hunt and Thomas): pre-commit hooks, gitleaks, shellcheck and a commit-message guard, and CI blocks a merge on any failure. **Small batches and deployment automation** (*Accelerate*, Forsgren, Humble and Kim): one small pull request per ticket into `develop`, every merge deploys migrations to staging, and production waits for a required reviewer.
 
 </details>
 
 ## Testing: every edge case has a test, and the refusals are tested too
 
-Tests are written before the code, and every rule is tested from both sides: the allowed case and the case that must be
-refused. All of them run in CI on every pull request; nothing merges red.
+Tests are written before the code (*Test-Driven Development: By Example*, Kent Beck), and every rule is tested from both
+sides: the allowed case and the case that must be refused. All of them run in CI on every pull request; nothing merges
+red. Changes are made in small, safe steps with tests around them (*Refactoring*, Martin Fowler), never as rewrites.
 
 | Suite | Count | What it proves | Runs against |
 | --- | --- | --- | --- |
@@ -956,6 +1006,32 @@ wrote 3,519, about **2,460 tokens in and 43 out per turn**.
 against 50 human-labelled answers before its scores are trusted, and a weekly review of sampled conversations. The
 golden sets and thresholds are in place for both.
 
+## What happens when the number of users grows
+
+The demo runs on one small VM and Supabase's smallest plan. That is deliberate: every part was chosen so that the next
+step up is a configuration change or one well-understood component, not a rewrite. Here is where each part breaks
+first, how we would know, and what we would do.
+
+| Part | Today | Breaks first when | We would see it in | The next step |
+| --- | --- | --- | --- | --- |
+| Website | Static files on Vercel's CDN | Practically never: no server code runs | Vercel analytics | Nothing; it already scales with the CDN |
+| App reads and bookings | Supabase Postgres, row level security, PostgREST | Connections and slow policies under hundreds of concurrent users | Supabase query performance, p95 of `available_slots` | Supavisor connection pooling (transaction mode), indexes on every policy predicate (`patient_id`, `location_id`), a bigger compute tier, then a read replica for reads |
+| Double booking at peak | Exclusion constraints in the database | Never: the database refuses the second booking whatever the load | The "no longer available" rate | Nothing; correctness does not depend on load |
+| Nora (the model) | Gemma on 2 CPU cores, one conversation at a time (`OLLAMA_NUM_PARALLEL=1`) | Immediately: a second patient waits for the first; p95 is already 64.8 s | `nora_turn_seconds` p95 alert | Move the model behind `model_for(role)` to Amazon Bedrock or a GPU server, promoted only after the evaluations pass; replies drop to a few seconds and scale with the provider |
+| Nora (the service) | One FastAPI process; paused conversations kept in memory (`MemorySaver`) | A restart loses a conversation waiting for its Confirm button; a second replica would not know the first one's conversations | Confirm-card errors after deploys | LangGraph's Postgres checkpointer, then several stateless replicas behind Nginx |
+| Emails and reminders | One worker reading Supabase Queues in batches of 10 | Thousands of reminders at 9:00 | Queue depth and oldest message age | More worker replicas: messages are claimed atomically and every send is idempotent, so replicas need no coordination. Urgent clinical messages already have their own queue and cannot wait behind a campaign |
+| n8n | One instance, regular mode | Many webhooks or long workflows at once | Execution time, failed executions | n8n queue mode (main plus workers on Redis); n8n holds no business rules, so this changes nothing else |
+| Payments | Stripe Checkout and a signed webhook | Stripe retries during our outage | Webhook failures in Stripe | Nothing new: events are de-duplicated by ID and replayed safely |
+| Audit trail | `ai_events` and the audit log in Postgres | Tens of millions of rows | Table size, slow portal pages | Monthly partitions, older ones archived to S3 |
+| The VM itself | One VM in one region | Hardware or region failure | The status page and the scripted journey check | The planned three-cloud design: a warm standby on AWS, an automation lease with fencing tokens so only one copy sends messages, and a rehearsed failover |
+
+**Overload behaves predictably.** Nginx rate-limits per address and answers 429 before any service is touched (a WAF
+test floods it to prove this), and the worker takes fixed batches. Under pressure the system slows down in a known
+order; it does not lose bookings or send a message twice.
+
+**What does not change with scale:** where the data lives, who can see it, and what each model call receives. Adding
+replicas or moving the model to Bedrock changes capacity, not the governance answers.
+
 ## Patient emails
 
 Every email the practice sends is built by the worker from one shared frame: tables instead of modern CSS so Gmail, Apple Mail and Outlook render it the same, system fonts, dark mode, one main button, and the clinic's number as a tap-to-call link. Service emails carry no images at all, so nothing is fetched and nothing breaks when images are blocked. Campaign emails add one hero picture, an offer card and up to three reasons, in the style of a well-run Mailchimp account, and always carry one-click unsubscribe.
@@ -997,7 +1073,28 @@ Every email the practice sends is built by the worker from one shared frame: tab
 - **Shop:** clinician-recommended products by category, refills every few months, collection at a chosen clinic or delivery, prescription items unlocked by the dentist, and orders under Profile.
 
 
+Each row shows Profile (with the language setting), Home, Visits, Records and Shop on the same account. The language
+is chosen once in Profile and applies to the whole app and to Nora.
+
+**English**
+
+![The app in English: Profile, Home, Visits, Records and Shop](.github/readme/app-in-english.jpg)
+
+**French**
+
 ![The app in French: Profile, Home, Visits, Records and Shop](.github/readme/app-in-french.jpg)
+
+**German**
+
+![The app in German: Profile, Home, Visits, Records and Shop](.github/readme/app-in-german.jpg)
+
+**Spanish**
+
+![The app in Spanish: Profile, Home, Visits, Records and Shop](.github/readme/app-in-spanish.jpg)
+
+**Italian**
+
+![The app in Italian: Profile, Home, Visits, Records and Shop](.github/readme/app-in-italian.jpg)
 
 </details>
 
