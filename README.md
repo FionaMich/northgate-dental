@@ -104,7 +104,7 @@ flowchart LR
 5. **Files:** X-rays and visit summaries sit in a private bucket. The app receives a signed link valid for 5 minutes and opens the PDF inside the app.
 6. **On the server:** every public request passes through ModSecurity with the OWASP Core Rule Set, which refuses cross-site scripting, SQL injection, path traversal and command injection with a 403, before any service sees the request.
 
-**Principles:** defence in depth and least privilege (*Security Engineering*, Ross Anderson): the WAF, the network rules and row level security are each sufficient on their own, and every service has its own database role with only the functions it needs.
+**Principles:** defence in depth and least privilege: the WAF, the network rules and row level security are each sufficient on their own, and every service has its own database role with only the functions it needs.
 
 </details>
 
@@ -138,7 +138,7 @@ A dental group's data is relational: patients, appointments, clinicians, rooms, 
 - **Region:** us-east-1, so US patient data stays in the US.
 - **Trade-off accepted:** the free plan has no point-in-time recovery, which is why the nightly encrypted backup exists.
 
-**Principles:** a ubiquitous language (*Domain-Driven Design*, Eric Evans): tables, functions and files use the clinic's own words (appointment, hold, proxy, recall), kept in a glossary; and the simplest thing that could possibly work (*Extreme Programming Explained*, Kent Beck): one database, with no separate broker, cache or vector store until a measured need says otherwise.
+**Principles:** a ubiquitous language: tables, functions and files use the clinic's own words (appointment, hold, proxy, recall), kept in a glossary; and the simplest thing that could possibly work: one database, with no separate broker, cache or vector store until a measured need says otherwise.
 
 </details>
 
@@ -195,7 +195,7 @@ sequenceDiagram
 - 24 database tests (`20_queues`, `21_worker_context`).
 - The worker's tests, including one against a real database. It books a visit for the canary patient, checks that exactly one email is sent and that a repeat sends nothing, and scans the logs for every canary value.
 
-**Principles:** the **transactional outbox** (*Designing Data-Intensive Applications*, Martin Kleppmann; *Microservices Patterns*, Chris Richardson): the event is written in the booking's own transaction, so it can never be lost or describe a change that rolled back. **Idempotent consumers** give an exactly-once *effect* from at-least-once delivery. **Ordering by version**: the worker re-reads the current status, so a late "booked" never confirms a cancelled visit. **Stability patterns** (*Release It!*, Michael Nygard): timeouts, a separate `urgent` queue as a bulkhead, fixed batches for a steady state, and a **dead-letter queue** after five tries (*Enterprise Integration Patterns*, Hohpe and Woolf).
+**Principles:** the **transactional outbox**: the event is written in the booking's own transaction, so it can never be lost or describe a change that rolled back. **Idempotent consumers** give an exactly-once *effect* from at-least-once delivery. **Ordering by version**: the worker re-reads the current status, so a late "booked" never confirms a cancelled visit. **Stability patterns**: timeouts, a separate `urgent` queue as a bulkhead, fixed batches for a steady state, and a **dead-letter queue** after five tries.
 
 </details>
 
@@ -273,7 +273,7 @@ while Nora works are cut out; her measured reply times are in "Evaluating Nora".
 | --- | --- |
 | ![Forged event refused](.github/readme/forged-webhook.png) | ![Database tests](.github/readme/payments-tests.png) |
 
-**Principles:** **deep modules** (*A Philosophy of Software Design*, John Ousterhout): `record_stripe_event(raw_body, signature)` is one call that hides signature checks, replay protection, de-duplication, amount checks, state changes and the receipt. **Make illegal states unrepresentable** (*Domain Modeling Made Functional*, Scott Wlaschin): a payment is `paid` if and only if `paid_at` is set, money is whole cents, and one live payment per visit is a unique index, not a hope.
+**Principles:** **deep modules**: `record_stripe_event(raw_body, signature)` is one call that hides signature checks, replay protection, de-duplication, amount checks, state changes and the receipt. **Make illegal states unrepresentable**: a payment is `paid` if and only if `paid_at` is set, money is whole cents, and one live payment per visit is a unique index, not a hope.
 
 </details>
 
@@ -592,7 +592,7 @@ The always-on services run on one Oracle Cloud VM with Docker Compose. Everythin
 - **Every container** has a pinned version, a memory limit, a health check and log rotation, and every image has amd64 and arm64 builds.
 - **Hardening** (`infra/scripts/bootstrap-vm.sh`, run automatically on first boot): keys-only SSH, no root sign-in, fail2ban, automatic security updates, a host firewall for 80 and 443, and a non-root `deploy` user.
 
-**Principles:** **infrastructure as code and immutable servers** (*Infrastructure as Code*, Kief Morris): Terraform for both clouds; the VM is replaced, not patched by hand (`create_before_destroy`), and cloud-init hardens it on first boot.
+**Principles:** **infrastructure as code and immutable servers**: Terraform for both clouds; the VM is replaced, not patched by hand (`create_before_destroy`), and cloud-init hardens it on first boot.
 
 </details>
 
@@ -925,7 +925,7 @@ from the internet.
 **Scripted journey check:** a GitHub Actions job checks the website, the database catalogue and Nora's health every 15
 minutes, so a broken path is noticed even when nobody is using it.
 
-**Principles:** **service level objectives and error budgets** (*Site Reliability Engineering*, Google): targets are written down in `ops/slos.yaml` and alerts fire on user-visible symptoms (down, slow, refusing), each with a runbook.
+**Principles:** **service level objectives and error budgets**: targets are written down in `ops/slos.yaml` and alerts fire on user-visible symptoms (down, slow, refusing), each with a runbook.
 
 </details>
 
@@ -945,15 +945,15 @@ Every pull request runs:
 
 Merges into `develop` apply database migrations to staging automatically.
 
-**Principles:** **don't live with broken windows; automate everything** (*The Pragmatic Programmer*, Hunt and Thomas): pre-commit hooks, gitleaks, shellcheck and a commit-message guard, and CI blocks a merge on any failure. **Small batches and deployment automation** (*Accelerate*, Forsgren, Humble and Kim): one small pull request per ticket into `develop`, every merge deploys migrations to staging, and production waits for a required reviewer.
+**Principles:** **don't live with broken windows; automate everything**: pre-commit hooks, gitleaks, shellcheck and a commit-message guard, and CI blocks a merge on any failure. **Small batches and deployment automation**: one small pull request per ticket into `develop`, every merge deploys migrations to staging, and production waits for a required reviewer.
 
 </details>
 
 ## Testing: every edge case has a test, and the refusals are tested too
 
-Tests are written before the code (*Test-Driven Development: By Example*, Kent Beck), and every rule is tested from both
+Tests are written before the code, and every rule is tested from both
 sides: the allowed case and the case that must be refused. All of them run in CI on every pull request; nothing merges
-red. Changes are made in small, safe steps with tests around them (*Refactoring*, Martin Fowler), never as rewrites.
+red. Changes are made in small, safe steps with tests around them, never as rewrites.
 
 | Suite | Count | What it proves | Runs against |
 | --- | --- | --- | --- |
