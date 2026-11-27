@@ -10,6 +10,7 @@ A dental practice system and patient app for a fictional US dental group with th
 | The staff portal, with sample data and no sign-in | [northgate-dental.vercel.app/portal/demo](https://northgate-dental.vercel.app/portal/demo/) |
 | The staff portal (staff accounts, two-factor) | [northgate-dental.vercel.app/portal](https://northgate-dental.vercel.app/portal/) |
 | Live status of every service | [status.84-12-126-31.sslip.io](https://status.84-12-126-31.sslip.io/status/northgate) |
+| The Android app, version 0.3.0 (a demo on fictional data) | [Download the APK](https://github.com/FionaMich/northgate-dental/releases/tag/app-v0.3.0) |
 
 | Home | Booking | Visit record |
 | --- | --- | --- |
