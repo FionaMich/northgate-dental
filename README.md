@@ -258,9 +258,9 @@ sequenceDiagram
   card on the Checkout page, the database recorded it as paid, and the receipt email followed within seconds (the
   recorded run: link at 08:05 UTC, paid at 08:13:06, receipt delivered at 08:13:09).
 
-**Watch it** (1 min 23 s, captioned): asking Nora in the app, the confirmation button, Nora's reply with the link,
-the "Pay securely" email, Stripe Checkout with the test card, and the receipt three seconds after payment. Waits for
-Nora on the CPU server are sped up and marked. Select the picture to play the video.
+**Watch it** (1 min 17 s, captioned): asking Nora in the app, the confirmation button, Nora's reply with the link,
+the "Pay securely" email, Stripe Checkout with the test card, and the receipt three seconds after payment. The moments
+while Nora works are cut out; her measured reply times are in "Evaluating Nora". Select the picture to play the video.
 
 [![Nora sends a payment link: chat, email, Stripe Checkout and the receipt](.github/readme/videos/nora-payment-demo.jpg)](https://github.com/FionaMich/northgate-dental/releases/download/demo-2026-11-27/nora-payment-demo.mp4)
 
@@ -1014,6 +1014,25 @@ wrote 3,519, about **2,460 tokens in and 43 out per turn**.
   the same numbers multiply by its per-token price, which is why the token counter exists before any move to Bedrock.
 - **Speed is the weak point.** p95 of 64.8 seconds misses the 30-second objective on a CPU-only server. The plan is a
   GPU or Amazon Bedrock behind the same `model_for(role)` switch, promoted only after the same evaluations pass.
+
+**How Nora is made fast.** Every choice below takes work away from the model, because on a CPU each prompt token and
+each extra model call costs seconds:
+
+| Choice | What it saves |
+| --- | --- |
+| A small, quantised model: Gemma 4 e4b in its 4-bit quantisation-aware build | A reply fits a 2-core CPU at all; a larger model would take minutes |
+| Retrieval is a tool Nora calls, not documents added to every prompt | Booking and paying turns carry no policy text at all |
+| A calibrated similarity gate instead of a second model grading the documents | 20 to 60 seconds on every policy question |
+| Emergencies, refusals, handover replies and confirmation cards are fixed text | No model call at all: they appear at once |
+| Buttons for the common next steps ("Book a cleaning", "Pay my bill", the team) | The patient skips a typed turn and the model reads a short, clear request |
+| Tools that finish the job in one call (`pay_link` finds the next unpaid visit; `find_slots` accepts "cleaning") | Fewer model round trips per request |
+| Prices returned with the free times | No extra turn to look a price up, and no handover from the grounding check |
+| One conversation at a time on the model (`OLLAMA_NUM_PARALLEL=1`) | Each reply gets all 4 threads instead of sharing them |
+
+The result today: a typical reply in 11.7 seconds (p50) and a slow one in 64.8 seconds (p95), measured over 82 live
+turns. The next step is speed by design, not by tuning: the same `model_for(role)` switch moves Nora to Amazon Bedrock
+or a GPU server, where a reply takes a few seconds, after the same evaluations pass; trimming the tool definitions sent
+with each turn and caching the fixed part of the prompt then cut the 2,460 input tokens per turn that dominate the time.
 
 **Not yet done, and stated plainly:** answer faithfulness scored by a separate judge model (RAGAS or DeepEval), checked
 against 50 human-labelled answers before its scores are trusted, and a weekly review of sampled conversations. The
