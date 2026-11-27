@@ -64,7 +64,7 @@ def handle_event(conn, msg: dict) -> None:
     archive(conn, "events", msg["msg_id"])
 
 
-LINKS = {"cancel": "visit", "checkin": "checkin", "pay": "pay"}  # n8n webhook paths that serve each link's page
+LINKS = {"cancel": "visit", "checkin": "checkin", "pay": "pay", "reschedule": "move"}  # n8n webhook paths that serve each link's page
 
 
 def link_for(conn, link_base: str, kind: str, appointment: str, request: dict) -> str | None:
@@ -75,8 +75,10 @@ def link_for(conn, link_base: str, kind: str, appointment: str, request: dict) -
         purpose, args = "cancel", (appointment, "cancel", None, None)
     elif kind.startswith("checkin:"):
         purpose, args = "checkin", (appointment, "checkin", request["kind"], None)
-    elif kind.startswith("statement:"):
+    elif kind.startswith(("statement:", "paylink:")):
         purpose, args = "pay", (appointment, "pay", request["kind"], request["payment_id"])
+    elif kind.startswith("movelink:"):
+        purpose, args = "reschedule", (appointment, "reschedule", None, None)
     else:
         return None
     token = conn.execute("select private.issue_action_token(%s, %s, %s, %s) as t", args).fetchone()["t"]
@@ -141,12 +143,13 @@ def handle_notification(conn, msg: dict, sender, link_base: str = "", pdf_url: s
     kind = kind_type if "kind" not in request else f"{kind_type}:{request['kind']}"
     ctx = conn.execute("select * from private.notification_context(%s)", (appointment,)).fetchone()
     wanted = {"cancellation": ("cancelled",), "receipt": ("booked", "arrived", "completed"),
-              "checkin": ("completed",), "statement": ("completed",)}.get(kind_type, ("booked",))
+              "checkin": ("completed",), "statement": ("completed",),
+              "paylink": ("booked", "arrived", "completed")}.get(kind_type, ("booked",))
     amount = None
-    if kind_type in ("receipt", "statement"):
+    if kind_type in ("receipt", "statement", "paylink"):
         fn = "receipt_amount" if kind_type == "receipt" else "balance_amount"
         amount = conn.execute(f"select private.{fn}(%s) as cents", (request["payment_id"],)).fetchone()["cents"]
-    if ctx is None or ctx["status"] not in wanted or (kind_type in ("receipt", "statement") and amount is None):
+    if ctx is None or ctx["status"] not in wanted or (kind_type in ("receipt", "statement", "paylink") and amount is None):
         log(event="skipped", reason="status changed", kind=kind, appointment_id=appointment)
     elif not ctx["email"]:
         log(event="skipped", reason="no app sign-in email", kind=kind, appointment_id=appointment)

@@ -141,6 +141,21 @@ def render(kind: str, ctx: Context) -> Message:
         intro, cta, note = f"Your balance for your {ctx.service_name} is still open. You can pay securely online.", \
             ("Pay securely", ctx.link) if ctx.link else None, None
         details = [("Balance", amount), ("Visit", at), ("Where", where)]
+    elif kind.startswith("paylink:"):   # Nora's send_payment_link: the patient asked for it in the conversation
+        amount = dollars(ctx.amount_cents)
+        subject, pre = f"Your payment link: {amount}", "As you asked Nora: pay securely in a minute."
+        eyebrow, headline = "Payment link", f"Here is your payment link, {name}"
+        intro, cta, note = f"As you asked, here is a secure link to pay {amount} for your {ctx.service_name}.", \
+            ("Pay securely", ctx.link) if ctx.link else None, \
+            "Card payments are processed by Stripe; Northgate Dental never sees your card number."
+        details = [("Amount", amount), ("Visit", at), ("Where", where)]
+    elif kind.startswith("movelink:"):  # Nora's reschedule_link
+        subject, pre = f"Choose a new time for your visit on {at}", "Pick a new time in a tap. Your visit stays until you do."
+        eyebrow, headline = "Choose a new time", f"Pick a new time, {name}"
+        intro, cta, note = f"As you asked, here is a link to move your {ctx.service_name}. It works once.", \
+            ("Choose a new time", ctx.link) if ctx.link else None, \
+            "Your current visit stays booked until you choose a new time."
+        details = [("Now", at), ("Where", where), ("For", ctx.service_name)]
     else:
         raise KeyError(kind)
 
@@ -153,7 +168,7 @@ def render(kind: str, ctx: Context) -> Message:
     lines += [x for x in (note, urgent) if x] + [f"Questions? {call}", "Northgate Dental"]
     text = "\n\n".join(lines) + "\n"
 
-    show_tile = kind != "receipt" and not kind.startswith("statement:")
+    show_tile = kind != "receipt" and not kind.startswith(("statement:", "paylink:"))
     rows = "".join(
         f'<tr><td style="padding:10px 0;border-top:1px solid #E3ECEA;width:84px;color:#5B706E;font-size:14px;vertical-align:top">'
         f'{e(k)}</td><td class="ink" style="padding:10px 0;border-top:1px solid #E3ECEA;color:#0B2B2A;font-size:16px;'

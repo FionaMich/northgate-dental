@@ -392,7 +392,7 @@ class _ConfirmCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Wording comes from the server's reviewed texts in the patient's language; English only as a fallback.
-    final booking = confirm['action'] == 'book';
+    final booking = confirm['action'] != 'cancel'; // only cancelling is shown in red
     String text(String key, String fallback) =>
         (confirm[key] as String?) ?? fallback;
     return Container(

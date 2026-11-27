@@ -143,6 +143,8 @@ services:
       JIRA_PROJECT: ${JIRA_PROJECT:-NGD}
       JIRA_EMAIL: ${JIRA_EMAIL:-}
       JIRA_API_TOKEN: ${JIRA_API_TOKEN:-}
+      N8N_MCP_URL: http://n8n:5678/mcp/nora-tools   # Nora's "do" tools (W14), on the private network only
+      N8N_MCP_TOKEN: ${N8N_MCP_TOKEN:-}             # empty means Nora calls the same database functions directly
     networks: [app]
     mem_limit: 512m
 
