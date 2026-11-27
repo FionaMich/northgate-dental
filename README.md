@@ -1257,7 +1257,7 @@ The project was built section by section, the way a small product team works:
 - **Plan, then build test first.** Each section starts with a written plan and its governance answers: where the data lives, which vendor and region, what goes into every model call. Then the tests are written first: pgTAP for the database, pytest for the services, Flutter widget tests for the app.
 - **One change per pull request.** Every pull request runs the whole CI suite before it can merge into `develop`: database, services, app, web, the WAF rules, secret scanning, house style, and a check that no private files are tracked. Changes to row level security, money, patient messages or Nora's safety gate get a line-by-line human review.
 - **Deployments are automated:**
-  - **Database:** migrations reach staging through a GitHub Actions workflow, which also loads the clinic documents for Nora with their embeddings.
+  - **Database:** migrations reach staging on every merge into `develop`, and production on every release into `main` after a reviewer approves, through one GitHub Actions workflow that also loads the clinic documents for Nora with their embeddings.
   - **Assistant and workers:** they run as Docker Compose services on the Oracle VM.
   - **Website:** it is a static build on Vercel.
 - **Watched in production.** Grafana Cloud receives the assistant's metrics through Alloy. Four alert rules each point to a runbook.
@@ -1268,8 +1268,23 @@ The project was built section by section, the way a small product team works:
 
   Each became a failing test first, then a fix.
 
-## Branches and pull requests
+## Branches, environments and releases
 
 - **Branches:** work happens on `feat/...` branches.
 - **Pull requests:** every pull request targets `develop` and is squash-merged once every check passes.
-- **Releases:** `main` holds releases.
+- **Releases:** `main` holds releases. A release is a pull request from `develop` into `main`, merged with a merge
+  commit only after the 8 required checks pass on a branch that is up to date with `main`.
+
+| Environment | Database | Reached by | Gate |
+| --- | --- | --- | --- |
+| Staging | Supabase `northgate-staging` (us-east-1) | Every merge into `develop` | The CI checks on the pull request |
+| Production | Supabase `northgate-prod` (us-east-1) | A release merged into `main` | The same checks, then a named reviewer approves the deploy in GitHub |
+
+The database workflow applies the migrations with `supabase db push` and then loads the clinic documents for Nora, so
+both environments end each deploy in the same state. Migrations only add (expand, then contract later), so a release
+can be rolled back by redeploying the previous application while the database stays as it is.
+
+**Current production release:** 27 November 2026, release #152 (pull requests #102 to #160). Eight migrations were
+applied (video consultations, the AI audit trail `ai_events`, the clinic knowledge base, the website catalogue, Nora's
+off switch, public policy search for the MCP server, care between visits, and Nora's payment and reschedule links), and
+the knowledge load finished with 11 documents and 39 passages, the same as staging.
